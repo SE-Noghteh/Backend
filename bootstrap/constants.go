@@ -1,0 +1,141 @@
+package bootstrap
+
+
+type Constants struct {
+	Context           Context
+	ErrorFields       ErrorFields
+	ErrorTags         ErrorTags
+}
+
+type Context struct {
+	Translator          string
+}
+
+type ErrorFields struct {
+	User         string
+	Phone        string
+	Email        string
+	Password     string
+	MagicLink    string
+	Address      string
+	Name         string
+	Province     string
+	City         string
+	Role         string
+	Permission   string
+	BirthDate    string
+	IsAdult      string
+	Pet          string
+	Species      string
+	PetSitter    string
+	Request      string
+	CalendarSlot string
+	Service      string
+	Comment      string
+	Wallet       string
+}
+
+type ErrorTags struct {
+	AlreadyRegistered      string
+	MinimumLength          string
+	ContainsLowercase      string
+	ContainsUppercase      string
+	ContainsNumber         string
+	ContainsSpecialChar    string
+	Expired                string
+	Invalid                string
+	NotRegistered          string
+	NotVerified            string
+	InvalidAuthCredentials string
+	ExpiredAuthToken       string
+	InvalidAuthToken       string
+	Unauthorized           string
+	AwaitingApproval       string
+	Rejected               string
+	NotExist               string
+	AlreadyExist           string
+	ForbiddenStatus        string
+	Pending                string
+	NotAccepted            string
+	InvalidRecaptcha       string
+	Required               string
+	Numeric                string
+	AccessDenied           string
+	Binding                string
+	Generic                string
+	NotFound               string
+	UnacceptableInput      string
+	DuplicateName          string
+	CalendarConflict       string
+	OldInfo                string
+	InsufficientBalance    string
+	RateLimit              string
+}
+
+
+func NewConstants() *Constants {
+	return &Constants{
+		Context: Context{
+			Translator:          "translator",
+		},
+		ErrorFields: ErrorFields{
+			User:         "user",
+			Phone:        "phone",
+			Email:        "email",
+			Password:     "password",
+			MagicLink:    "magicLink",
+			Address:      "address",
+			Name:         "name",
+			Province:     "province",
+			City:         "city",
+			Role:         "role",
+			Permission:   "permission",
+			BirthDate:    "birthDate",
+			IsAdult:      "isAdult",
+			Pet:          "pet",
+			Species:      "species",
+			Comment:      "comment",
+			PetSitter:    "petSitter",
+			Request:      "request",
+			CalendarSlot: "calendarSlot",
+			Service:      "service",
+			Wallet:       "wallet",
+		},
+		ErrorTags: ErrorTags{
+			AlreadyRegistered:      "errors.alreadyRegistered",
+			MinimumLength:          "minimumLength",
+			ContainsLowercase:      "containsLowercase",
+			ContainsUppercase:      "containsUppercase",
+			ContainsNumber:         "containsNumber",
+			ContainsSpecialChar:    "containsSpecialChar",
+			Expired:                "errors.Expired",
+			Invalid:                "errors.invalid",
+			NotRegistered:          "errors.notRegistered",
+			NotVerified:            "errors.notVerified",
+			InvalidAuthCredentials: "errors.invalidAuthCredentials",
+			ExpiredAuthToken:       "errors.expiredAuthToken",
+			InvalidAuthToken:       "errors.invalidAuthToken",
+			Unauthorized:           "errors.unauthorized",
+			AwaitingApproval:       "errors.awaitingApproval",
+			Rejected:               "errors.rejected",
+			NotExist:               "errors.notExist",
+			AlreadyExist:           "errors.alreadyExist",
+			ForbiddenStatus:        "errors.forbiddenStatus",
+			Pending:                "errors.pending",
+			NotAccepted:            "errors.notAccepted",
+			InvalidRecaptcha:       "errors.invalidRecaptcha",
+			Required:               "errors.required",
+			Numeric:                "errors.numeric",
+			AccessDenied:           "errors.accessDenied",
+			Binding:                "errors.binding",
+			Generic:                "errors.generic",
+			NotFound:               "errors.notFound",
+			UnacceptableInput:      "errors.unacceptableInput",
+			DuplicateName:          "errors.duplicateName",
+			CalendarConflict:       "errors.calendarConflict",
+			OldInfo:                "errors.oldInfo",
+			InsufficientBalance:    "errors.insufficientBalance",
+			RateLimit:              "errors.rateLimitExceed",
+		},		
+	}
+}
