@@ -6,4 +6,6 @@ import (
 
 type RepositoryFactory interface {
 	UserRepository() domainpostgres.UserRepository
+	JobSeekerRepository() JobSeekerRepository
+	TokenRevocationRepository() TokenRevocationRepository
 }

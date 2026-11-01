@@ -13,6 +13,8 @@ import (
 	"zedlancer/backend/internal/application/usecase"
 	"zedlancer/backend/internal/domain/ports"
 	"zedlancer/backend/internal/infrastructure/persistence"
+	"zedlancer/backend/internal/infrastructure/security"
+	"zedlancer/backend/internal/infrastructure/sms"
 	"zedlancer/backend/internal/presentation/controllers/v1/general"
 )
 
@@ -21,15 +23,30 @@ import (
 func InitializeApplication(container *bootstrap.Config) (*Application, error) {
 	db := persistence.NewPostgresDatabase()
 	unitOfWork := persistence.NewUnitOfWork(db)
+	bcryptPasswordHasher, err := security.NewBcryptPasswordHasher()
+	if err != nil {
+		return nil, err
+	}
+	jwtManager, err := security.ProvideJWTManager()
+	if err != nil {
+		return nil, err
+	}
+	jobSeekerAuthService := service.NewJobSeekerAuthService(unitOfWork, bcryptPasswordHasher, jwtManager)
+	jobSeekerAuthController := general.NewJobSeekerAuthController(jobSeekerAuthService)
+	ferzzSender := sms.NewFerzzSender()
+	jobSeekerService := service.NewJobSeekerService(unitOfWork, ferzzSender, bcryptPasswordHasher)
+	jobSeekerController := general.NewJobSeekerController(jobSeekerService)
 	userService := service.NewUserService(unitOfWork)
 	generalUserController := general.NewGeneralUserController(userService)
 	generalControllers := &GeneralControllers{
-		GeneralUserController: generalUserController,
+		JobSeekerAuthController: jobSeekerAuthController,
+		JobSeekerController:     jobSeekerController,
+		GeneralUserController:   generalUserController,
 	}
 	controllers := &Controllers{
 		GeneralControllers: generalControllers,
 	}
-	application := NewApplication(controllers)
+	application := NewApplication(controllers, jobSeekerAuthService)
 	return application, nil
 }
 
@@ -37,9 +54,9 @@ func InitializeApplication(container *bootstrap.Config) (*Application, error) {
 
 var RepositoryProviderSet = wire.NewSet(persistence.NewRepositoryFactory, persistence.NewUnitOfWork, persistence.NewPostgresDatabase, wire.Bind(new(ports.RepositoryFactory), new(*persistence.RepositoryFactory)), wire.Bind(new(ports.UnitOfWork), new(*persistence.UnitOfWork)))
 
-var ServiceProviderSet = wire.NewSet(service.NewUserService, wire.Bind(new(usecase.UserService), new(*service.UserService)))
+var ServiceProviderSet = wire.NewSet(security.NewBcryptPasswordHasher, security.ProvideJWTManager, service.NewJobSeekerAuthService, wire.Bind(new(ports.PasswordHasher), new(*security.BcryptPasswordHasher)), wire.Bind(new(ports.TokenManager), new(*security.JWTManager)), wire.Bind(new(usecase.JobSeekerAuthService), new(*service.JobSeekerAuthService)), service.NewJobSeekerService, sms.NewFerzzSender, wire.Bind(new(ports.OTPSender), new(*sms.FerzzSender)), wire.Bind(new(usecase.JobSeekerService), new(*service.JobSeekerService)), service.NewUserService, wire.Bind(new(usecase.UserService), new(*service.UserService)))
 
-var GeneralControllersProviderSet = wire.NewSet(general.NewGeneralUserController, wire.Struct(new(GeneralControllers), "*"))
+var GeneralControllersProviderSet = wire.NewSet(general.NewJobSeekerAuthController, general.NewJobSeekerController, general.NewGeneralUserController, wire.Struct(new(GeneralControllers), "*"))
 
 var ControllersProviderSet = wire.NewSet(wire.Struct(new(Controllers), "*"))
 
@@ -51,7 +68,9 @@ var ProviderSet = wire.NewSet(
 )
 
 type GeneralControllers struct {
-	GeneralUserController *general.GeneralUserController
+	JobSeekerAuthController *general.JobSeekerAuthController
+	JobSeekerController     *general.JobSeekerController
+	GeneralUserController   *general.GeneralUserController
 }
 
 type Controllers struct {
@@ -59,11 +78,13 @@ type Controllers struct {
 }
 
 type Application struct {
-	Controllers *Controllers
+	Controllers          *Controllers
+	JobSeekerAuthService usecase.JobSeekerAuthService
 }
 
-func NewApplication(controllers *Controllers) *Application {
+func NewApplication(controllers *Controllers, auth usecase.JobSeekerAuthService) *Application {
 	return &Application{
-		Controllers: controllers,
+		Controllers:          controllers,
+		JobSeekerAuthService: auth,
 	}
 }

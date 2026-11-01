@@ -1,0 +1,492 @@
+basePath: /v1
+consumes:
+- application/json
+definitions:
+  entities.City:
+    enum:
+    - تهران
+    - اصفهان
+    - مشهد
+    - شیراز
+    - تبریز
+    - کرج
+    - قم
+    - اهواز
+    - رشت
+    - یزد
+    type: string
+    x-enum-varnames:
+    - CityTehran
+    - CityIsfahan
+    - CityMashhad
+    - CityShiraz
+    - CityTabriz
+    - CityKaraj
+    - CityQom
+    - CityAhvaz
+    - CityRasht
+    - CityYazd
+  entities.Gender:
+    enum:
+    - female
+    - male
+    type: string
+    x-enum-varnames:
+    - GenderFemale
+    - GenderMale
+  entities.Interest:
+    enum:
+    - برنامه نویسی
+    - طراحی
+    - بازاریابی
+    - حسابداری
+    - فروش
+    - تولید محتوا
+    - ترجمه
+    - آموزش
+    - مهندسی
+    - پشتیبانی
+    type: string
+    x-enum-varnames:
+    - InterestProgramming
+    - InterestDesign
+    - InterestMarketing
+    - InterestAccounting
+    - InterestSales
+    - InterestContent
+    - InterestTranslation
+    - InterestTeaching
+    - InterestEngineering
+    - InterestSupport
+  entities.JalaliDate:
+    properties:
+      day:
+        example: 1
+        maximum: 31
+        minimum: 1
+        type: integer
+      month:
+        example: 1
+        maximum: 12
+        minimum: 1
+        type: integer
+      year:
+        example: 1380
+        maximum: 3176
+        minimum: 1
+        type: integer
+    required:
+    - day
+    - month
+    - year
+    type: object
+  general.LoginResponse:
+    properties:
+      access_token:
+        type: string
+      data:
+        $ref: '#/definitions/general.SignupIdentity'
+      expires_at:
+        type: string
+      token_type:
+        example: Bearer
+        type: string
+    type: object
+  general.OTPResponse:
+    properties:
+      expires_in:
+        example: 300
+        type: integer
+      message:
+        example: OTP sent
+        type: string
+      resend_after:
+        example: 60
+        type: integer
+    type: object
+  general.RequestOTPBody:
+    properties:
+      phone:
+        example: "09123456789"
+        type: string
+    required:
+    - phone
+    type: object
+  general.SignupErrorResponse:
+    properties:
+      message:
+        example: invalid or expired OTP
+        type: string
+    type: object
+  general.SignupIdentity:
+    properties:
+      created_at:
+        type: string
+      first_name:
+        example: علی
+        type: string
+      id:
+        example: 1
+        type: integer
+      last_name:
+        example: رضایی
+        type: string
+      phone:
+        example: "09123456789"
+        type: string
+    type: object
+  general.SignupOptionsResponse:
+    properties:
+      cities:
+        items:
+          $ref: '#/definitions/entities.City'
+        type: array
+      genders:
+        items:
+          $ref: '#/definitions/entities.Gender'
+        type: array
+      interests:
+        items:
+          $ref: '#/definitions/entities.Interest'
+        type: array
+    type: object
+  general.SignupResponse:
+    properties:
+      data:
+        $ref: '#/definitions/general.SignupIdentity'
+    type: object
+  usecase.LoginJobSeeker:
+    properties:
+      password:
+        example: choose-a-private-password
+        format: password
+        type: string
+      phone:
+        example: "09123456789"
+        type: string
+    required:
+    - password
+    - phone
+    type: object
+  usecase.SignupJobSeeker:
+    properties:
+      address:
+        example: خیابان آزادی، پلاک ۱۰
+        type: string
+      birth_date:
+        $ref: '#/definitions/entities.JalaliDate'
+      city:
+        allOf:
+        - $ref: '#/definitions/entities.City'
+        example: تهران
+      first_name:
+        example: علی
+        type: string
+      gender:
+        allOf:
+        - $ref: '#/definitions/entities.Gender'
+        example: male
+      interests:
+        example:
+        - برنامه نویسی
+        - طراحی
+        items:
+          $ref: '#/definitions/entities.Interest'
+        type: array
+      last_name:
+        example: رضایی
+        type: string
+      national_code:
+        example: "0013547895"
+        maxLength: 10
+        minLength: 10
+        type: string
+      password:
+        example: choose-a-private-password
+        format: password
+        maxLength: 72
+        minLength: 8
+        type: string
+      phone:
+        example: "09123456789"
+        type: string
+    required:
+    - address
+    - birth_date
+    - city
+    - first_name
+    - gender
+    - interests
+    - last_name
+    - national_code
+    - password
+    - phone
+    type: object
+  usecase.VerifySignupOTP:
+    properties:
+      otp:
+        example: "123456"
+        maxLength: 6
+        minLength: 6
+        type: string
+      phone:
+        example: "09123456789"
+        type: string
+    required:
+    - otp
+    - phone
+    type: object
+info:
+  contact: {}
+  description: Submit signup information and password to automatically receive an
+    SMS OTP, verify the code, then login to obtain a JWT. Birth dates use the Jalali
+    calendar. Signup and OTP resend send real SMS messages.
+  title: Zedlancer Backend API
+  version: "1.0"
+paths:
+  /job-seekers/login:
+    post:
+      consumes:
+      - application/json
+      description: 'Requires a verified account. Returns an expiring JWT. Swagger
+        automatically authorizes subsequent requests after successful login. Other
+        clients must send Authorization: Bearer <access_token>. Five failed attempts
+        per phone within 15 minutes block further login attempts until the window
+        ends.'
+      parameters:
+      - description: Phone and password
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/usecase.LoginJobSeeker'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/general.LoginResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/general.SignupErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/general.SignupErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/general.SignupErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/general.SignupErrorResponse'
+      summary: Login with phone and password
+      tags:
+      - Job seeker authentication
+  /job-seekers/logout:
+    post:
+      description: Permanently revokes this token until its expiration. Other login
+        sessions stay active. Repeating logout with the same unexpired token returns
+        204. Swagger clears its authorization after successful logout.
+      responses:
+        "204":
+          description: Logged out
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/general.SignupErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/general.SignupErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Logout the current access token
+      tags:
+      - Job seeker authentication
+  /job-seekers/me:
+    get:
+      description: Returns the identity of the verified account identified by the
+        JWT.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/general.SignupResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/general.SignupErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/general.SignupErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get the logged-in job seeker
+      tags:
+      - Job seeker authentication
+  /job-seekers/otp:
+    post:
+      consumes:
+      - application/json
+      description: Requires a pending validated signup submitted within the past 30
+        minutes. Resends a real SMS. Code expires in 300 seconds; wait 60 seconds
+        before requesting another. Each code allows five failed verification attempts.
+      parameters:
+      - description: Your mobile number
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/general.RequestOTPBody'
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            $ref: '#/definitions/general.OTPResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/general.SignupErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/general.SignupErrorResponse'
+        "429":
+          description: Too Many Requests
+          headers:
+            Retry-After:
+              description: Seconds until retry
+              type: string
+          schema:
+            $ref: '#/definitions/general.SignupErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/general.SignupErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/general.SignupErrorResponse'
+      summary: Resend signup OTP
+      tags:
+      - Job seeker signup
+  /job-seekers/signup:
+    post:
+      consumes:
+      - application/json
+      description: Validates the whole profile and password before sending a real
+        SMS. Stores a pending registration for 30 minutes; no account is created yet.
+        Next call verify-otp with your phone and received code. Birth date is Jalali.
+        Select 1-10 unique interests. Password must be 8-72 bytes and is stored only
+        as a hash.
+      parameters:
+      - description: Profile and password
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/usecase.SignupJobSeeker'
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            $ref: '#/definitions/general.OTPResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/general.SignupErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/general.SignupErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/general.SignupErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/general.SignupErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/general.SignupErrorResponse'
+      summary: Start signup and automatically send OTP
+      tags:
+      - Job seeker signup
+  /job-seekers/signup-options:
+    get:
+      description: Fetch the predefined Persian cities, interests, and genders before
+        signup.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/general.SignupOptionsResponse'
+      summary: Get signup choices
+      tags:
+      - Job seeker signup
+  /job-seekers/verify-otp:
+    post:
+      consumes:
+      - application/json
+      description: Creates the account from the stored validated profile and consumes
+        the OTP atomically. Use the same phone number as signup. After success, login
+        with your phone and password to obtain a JWT.
+      parameters:
+      - description: Phone and received code
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/usecase.VerifySignupOTP'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/general.SignupResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/general.SignupErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/general.SignupErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/general.SignupErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/general.SignupErrorResponse'
+      summary: Verify OTP and complete signup
+      tags:
+      - Job seeker signup
+produces:
+- application/json
+securityDefinitions:
+  BearerAuth:
+    description: 'Swagger authorizes automatically after login. Manual entry accepts
+      access_token or Bearer followed by access_token. Other API clients must send
+      Authorization: Bearer <access_token>.'
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

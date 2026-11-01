@@ -1,0 +1,682 @@
+{
+    "consumes": [
+        "application/json"
+    ],
+    "produces": [
+        "application/json"
+    ],
+    "swagger": "2.0",
+    "info": {
+        "description": "Submit signup information and password to automatically receive an SMS OTP, verify the code, then login to obtain a JWT. Birth dates use the Jalali calendar. Signup and OTP resend send real SMS messages.",
+        "title": "Zedlancer Backend API",
+        "contact": {},
+        "version": "1.0"
+    },
+    "basePath": "/v1",
+    "paths": {
+        "/job-seekers/login": {
+            "post": {
+                "description": "Requires a verified account. Returns an expiring JWT. Swagger automatically authorizes subsequent requests after successful login. Other clients must send Authorization: Bearer \u003caccess_token\u003e. Five failed attempts per phone within 15 minutes block further login attempts until the window ends.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Job seeker authentication"
+                ],
+                "summary": "Login with phone and password",
+                "parameters": [
+                    {
+                        "description": "Phone and password",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/usecase.LoginJobSeeker"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/general.LoginResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/general.SignupErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/general.SignupErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/general.SignupErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.SignupErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/job-seekers/logout": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Permanently revokes this token until its expiration. Other login sessions stay active. Repeating logout with the same unexpired token returns 204. Swagger clears its authorization after successful logout.",
+                "tags": [
+                    "Job seeker authentication"
+                ],
+                "summary": "Logout the current access token",
+                "responses": {
+                    "204": {
+                        "description": "Logged out"
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/general.SignupErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.SignupErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/job-seekers/me": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns the identity of the verified account identified by the JWT.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Job seeker authentication"
+                ],
+                "summary": "Get the logged-in job seeker",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/general.SignupResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/general.SignupErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.SignupErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/job-seekers/otp": {
+            "post": {
+                "description": "Requires a pending validated signup submitted within the past 30 minutes. Resends a real SMS. Code expires in 300 seconds; wait 60 seconds before requesting another. Each code allows five failed verification attempts.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Job seeker signup"
+                ],
+                "summary": "Resend signup OTP",
+                "parameters": [
+                    {
+                        "description": "Your mobile number",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/general.RequestOTPBody"
+                        }
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Accepted",
+                        "schema": {
+                            "$ref": "#/definitions/general.OTPResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/general.SignupErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/general.SignupErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/general.SignupErrorResponse"
+                        },
+                        "headers": {
+                            "Retry-After": {
+                                "type": "string",
+                                "description": "Seconds until retry"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.SignupErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/general.SignupErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/job-seekers/signup": {
+            "post": {
+                "description": "Validates the whole profile and password before sending a real SMS. Stores a pending registration for 30 minutes; no account is created yet. Next call verify-otp with your phone and received code. Birth date is Jalali. Select 1-10 unique interests. Password must be 8-72 bytes and is stored only as a hash.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Job seeker signup"
+                ],
+                "summary": "Start signup and automatically send OTP",
+                "parameters": [
+                    {
+                        "description": "Profile and password",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/usecase.SignupJobSeeker"
+                        }
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Accepted",
+                        "schema": {
+                            "$ref": "#/definitions/general.OTPResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/general.SignupErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/general.SignupErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/general.SignupErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.SignupErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/general.SignupErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/job-seekers/signup-options": {
+            "get": {
+                "description": "Fetch the predefined Persian cities, interests, and genders before signup.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Job seeker signup"
+                ],
+                "summary": "Get signup choices",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/general.SignupOptionsResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/job-seekers/verify-otp": {
+            "post": {
+                "description": "Creates the account from the stored validated profile and consumes the OTP atomically. Use the same phone number as signup. After success, login with your phone and password to obtain a JWT.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Job seeker signup"
+                ],
+                "summary": "Verify OTP and complete signup",
+                "parameters": [
+                    {
+                        "description": "Phone and received code",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/usecase.VerifySignupOTP"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/general.SignupResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/general.SignupErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/general.SignupErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/general.SignupErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.SignupErrorResponse"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "entities.City": {
+            "type": "string",
+            "enum": [
+                "تهران",
+                "اصفهان",
+                "مشهد",
+                "شیراز",
+                "تبریز",
+                "کرج",
+                "قم",
+                "اهواز",
+                "رشت",
+                "یزد"
+            ],
+            "x-enum-varnames": [
+                "CityTehran",
+                "CityIsfahan",
+                "CityMashhad",
+                "CityShiraz",
+                "CityTabriz",
+                "CityKaraj",
+                "CityQom",
+                "CityAhvaz",
+                "CityRasht",
+                "CityYazd"
+            ]
+        },
+        "entities.Gender": {
+            "type": "string",
+            "enum": [
+                "female",
+                "male"
+            ],
+            "x-enum-varnames": [
+                "GenderFemale",
+                "GenderMale"
+            ]
+        },
+        "entities.Interest": {
+            "type": "string",
+            "enum": [
+                "برنامه نویسی",
+                "طراحی",
+                "بازاریابی",
+                "حسابداری",
+                "فروش",
+                "تولید محتوا",
+                "ترجمه",
+                "آموزش",
+                "مهندسی",
+                "پشتیبانی"
+            ],
+            "x-enum-varnames": [
+                "InterestProgramming",
+                "InterestDesign",
+                "InterestMarketing",
+                "InterestAccounting",
+                "InterestSales",
+                "InterestContent",
+                "InterestTranslation",
+                "InterestTeaching",
+                "InterestEngineering",
+                "InterestSupport"
+            ]
+        },
+        "entities.JalaliDate": {
+            "type": "object",
+            "required": [
+                "day",
+                "month",
+                "year"
+            ],
+            "properties": {
+                "day": {
+                    "type": "integer",
+                    "maximum": 31,
+                    "minimum": 1,
+                    "example": 1
+                },
+                "month": {
+                    "type": "integer",
+                    "maximum": 12,
+                    "minimum": 1,
+                    "example": 1
+                },
+                "year": {
+                    "type": "integer",
+                    "maximum": 3176,
+                    "minimum": 1,
+                    "example": 1380
+                }
+            }
+        },
+        "general.LoginResponse": {
+            "type": "object",
+            "properties": {
+                "access_token": {
+                    "type": "string"
+                },
+                "data": {
+                    "$ref": "#/definitions/general.SignupIdentity"
+                },
+                "expires_at": {
+                    "type": "string"
+                },
+                "token_type": {
+                    "type": "string",
+                    "example": "Bearer"
+                }
+            }
+        },
+        "general.OTPResponse": {
+            "type": "object",
+            "properties": {
+                "expires_in": {
+                    "type": "integer",
+                    "example": 300
+                },
+                "message": {
+                    "type": "string",
+                    "example": "OTP sent"
+                },
+                "resend_after": {
+                    "type": "integer",
+                    "example": 60
+                }
+            }
+        },
+        "general.RequestOTPBody": {
+            "type": "object",
+            "required": [
+                "phone"
+            ],
+            "properties": {
+                "phone": {
+                    "type": "string",
+                    "example": "09123456789"
+                }
+            }
+        },
+        "general.SignupErrorResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string",
+                    "example": "invalid or expired OTP"
+                }
+            }
+        },
+        "general.SignupIdentity": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "first_name": {
+                    "type": "string",
+                    "example": "علی"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "last_name": {
+                    "type": "string",
+                    "example": "رضایی"
+                },
+                "phone": {
+                    "type": "string",
+                    "example": "09123456789"
+                }
+            }
+        },
+        "general.SignupOptionsResponse": {
+            "type": "object",
+            "properties": {
+                "cities": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/entities.City"
+                    }
+                },
+                "genders": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/entities.Gender"
+                    }
+                },
+                "interests": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/entities.Interest"
+                    }
+                }
+            }
+        },
+        "general.SignupResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/general.SignupIdentity"
+                }
+            }
+        },
+        "usecase.LoginJobSeeker": {
+            "type": "object",
+            "required": [
+                "password",
+                "phone"
+            ],
+            "properties": {
+                "password": {
+                    "type": "string",
+                    "format": "password",
+                    "example": "choose-a-private-password"
+                },
+                "phone": {
+                    "type": "string",
+                    "example": "09123456789"
+                }
+            }
+        },
+        "usecase.SignupJobSeeker": {
+            "type": "object",
+            "required": [
+                "address",
+                "birth_date",
+                "city",
+                "first_name",
+                "gender",
+                "interests",
+                "last_name",
+                "national_code",
+                "password",
+                "phone"
+            ],
+            "properties": {
+                "address": {
+                    "type": "string",
+                    "example": "خیابان آزادی، پلاک ۱۰"
+                },
+                "birth_date": {
+                    "$ref": "#/definitions/entities.JalaliDate"
+                },
+                "city": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/entities.City"
+                        }
+                    ],
+                    "example": "تهران"
+                },
+                "first_name": {
+                    "type": "string",
+                    "example": "علی"
+                },
+                "gender": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/entities.Gender"
+                        }
+                    ],
+                    "example": "male"
+                },
+                "interests": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/entities.Interest"
+                    },
+                    "example": [
+                        "برنامه نویسی",
+                        "طراحی"
+                    ]
+                },
+                "last_name": {
+                    "type": "string",
+                    "example": "رضایی"
+                },
+                "national_code": {
+                    "type": "string",
+                    "maxLength": 10,
+                    "minLength": 10,
+                    "example": "0013547895"
+                },
+                "password": {
+                    "type": "string",
+                    "format": "password",
+                    "maxLength": 72,
+                    "minLength": 8,
+                    "example": "choose-a-private-password"
+                },
+                "phone": {
+                    "type": "string",
+                    "example": "09123456789"
+                }
+            }
+        },
+        "usecase.VerifySignupOTP": {
+            "type": "object",
+            "required": [
+                "otp",
+                "phone"
+            ],
+            "properties": {
+                "otp": {
+                    "type": "string",
+                    "maxLength": 6,
+                    "minLength": 6,
+                    "example": "123456"
+                },
+                "phone": {
+                    "type": "string",
+                    "example": "09123456789"
+                }
+            }
+        }
+    },
+    "securityDefinitions": {
+        "BearerAuth": {
+            "description": "Swagger authorizes automatically after login. Manual entry accepts access_token or Bearer followed by access_token. Other API clients must send Authorization: Bearer \u003caccess_token\u003e.",
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
+        }
+    }
+}
