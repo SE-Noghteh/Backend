@@ -2,17 +2,15 @@ package general
 
 import (
 	"time"
+
 	"zedlancer/backend/internal/domain/entities"
+	"zedlancer/backend/internal/domain/enums"
 )
 
-type RequestOTPBody struct {
-	Phone string `json:"phone" example:"09123456789" validate:"required"`
-}
-
 type SignupOptionsResponse struct {
-	Cities    []entities.City     `json:"cities"`
-	Interests []entities.Interest `json:"interests"`
-	Genders   []entities.Gender   `json:"genders"`
+	Cities    []enums.City     `json:"cities"`
+	Interests []enums.Interest `json:"interests"`
+	Genders   []enums.Gender   `json:"genders"`
 }
 
 type OTPResponse struct {
@@ -32,7 +30,7 @@ type SignupIdentity struct {
 type SignupResponse struct {
 	Data SignupIdentity `json:"data"`
 }
-type SignupErrorResponse struct {
+type ErrorResponse struct {
 	Message string `json:"message" example:"invalid or expired OTP"`
 }
 

@@ -9,8 +9,11 @@ import (
 
 	"zedlancer/backend/internal/application/usecase"
 	"zedlancer/backend/internal/domain/entities"
+	"zedlancer/backend/internal/domain/enums"
+	domainerrors "zedlancer/backend/internal/domain/errors"
 	"zedlancer/backend/internal/domain/ports"
 	domainpostgres "zedlancer/backend/internal/domain/ports/postgres"
+	"zedlancer/backend/internal/domain/valueobjects"
 )
 
 type signupMemory struct {
@@ -39,7 +42,7 @@ func cloneSeeker(in *entities.JobSeeker) *entities.JobSeeker {
 		return nil
 	}
 	out := *in
-	out.Interests = append([]entities.Interest(nil), in.Interests...)
+	out.Interests = append([]enums.Interest(nil), in.Interests...)
 	return &out
 }
 func cloneOTP(in *entities.SignupOTP) *entities.SignupOTP {
@@ -140,7 +143,7 @@ func (testPasswords) Matches(hash, password string) bool {
 }
 
 func validSignup() usecase.SignupJobSeeker {
-	return usecase.SignupJobSeeker{FirstName: "علی", LastName: "رضایی", NationalCode: "0013547895", City: entities.CityTehran, Address: "خیابان آزادی", BirthDate: entities.JalaliDate{Year: 1380, Month: 1, Day: 1}, Gender: entities.GenderMale, Interests: []entities.Interest{entities.InterestProgramming}, Phone: "09123456789", Password: "a-good-password"}
+	return usecase.SignupJobSeeker{FirstName: "علی", LastName: "رضایی", NationalCode: "0013547895", City: enums.CityTehran, Address: "خیابان آزادی", BirthDate: valueobjects.JalaliDate{Year: 1380, Month: 1, Day: 1}, Gender: enums.GenderMale, Interests: []enums.Interest{enums.InterestProgramming}, Phone: "09123456789", Password: "a-good-password"}
 }
 
 func TestSignupAutomaticallySendsOTPAndRequiresVerification(t *testing.T) {
@@ -161,7 +164,7 @@ func TestSignupAutomaticallySendsOTPAndRequiresVerification(t *testing.T) {
 	if m.otp.Registration.PasswordHash == in.Password || !strings.HasPrefix(m.otp.Registration.PasswordHash, "hash:") {
 		t.Fatal("plaintext password persisted")
 	}
-	if err := s.RequestOTP(ctx, in.Phone); !errors.Is(err, ports.ErrOTPTooSoon) {
+	if err := s.RequestOTP(ctx, in.Phone); !errors.Is(err, domainerrors.ErrOTPTooSoon) {
 		t.Fatalf("cooldown: %v", err)
 	}
 	verify := usecase.VerifySignupOTP{Phone: in.Phone, OTP: m.smsCode}
@@ -172,10 +175,10 @@ func TestSignupAutomaticallySendsOTPAndRequiresVerification(t *testing.T) {
 	if m.otp != nil || seeker.ID == 0 || seeker.PhoneVerifiedAt.IsZero() || seeker.Phone != "09123456789" {
 		t.Fatal("OTP must be consumed and verified account persisted")
 	}
-	if _, err := s.VerifyOTP(ctx, verify); !errors.Is(err, ports.ErrInvalidOTP) {
+	if _, err := s.VerifyOTP(ctx, verify); !errors.Is(err, domainerrors.ErrInvalidOTP) {
 		t.Fatalf("OTP replay: %v", err)
 	}
-	if err := s.Signup(ctx, in); !errors.Is(err, ports.ErrSignupConflict) {
+	if err := s.Signup(ctx, in); !errors.Is(err, domainerrors.ErrSignupConflict) {
 		t.Fatalf("duplicate signup: %v", err)
 	}
 }
@@ -203,11 +206,11 @@ func TestOTPExpiryAndLockout(t *testing.T) {
 				wrong = "abc"
 			}
 			for i := 0; i < maxOTPAttempts; i++ {
-				if _, err := s.VerifyOTP(ctx, usecase.VerifySignupOTP{Phone: validSignup().Phone, OTP: wrong}); !errors.Is(err, ports.ErrInvalidOTP) {
+				if _, err := s.VerifyOTP(ctx, usecase.VerifySignupOTP{Phone: validSignup().Phone, OTP: wrong}); !errors.Is(err, domainerrors.ErrInvalidOTP) {
 					t.Fatalf("attempt %d: %v", i, err)
 				}
 			}
-			if _, err := s.VerifyOTP(ctx, usecase.VerifySignupOTP{Phone: validSignup().Phone, OTP: m.smsCode}); !errors.Is(err, ports.ErrInvalidOTP) {
+			if _, err := s.VerifyOTP(ctx, usecase.VerifySignupOTP{Phone: validSignup().Phone, OTP: m.smsCode}); !errors.Is(err, domainerrors.ErrInvalidOTP) {
 				t.Fatalf("expired/locked code accepted: %v", err)
 			}
 			if strings.HasSuffix(scenario, "code") && scenario != "expired code" && m.otp.Attempts != 5 {
@@ -221,7 +224,7 @@ func TestResendRequiresPendingProfileAndInvalidatesOldCode(t *testing.T) {
 	m := &signupMemory{}
 	s := NewJobSeekerService(m, m, testPasswords{})
 	ctx := context.Background()
-	if err := s.RequestOTP(ctx, validSignup().Phone); !errors.Is(err, ports.ErrNoPendingSignup) {
+	if err := s.RequestOTP(ctx, validSignup().Phone); !errors.Is(err, domainerrors.ErrNoPendingSignup) {
 		t.Fatal(err)
 	}
 	if err := s.Signup(ctx, validSignup()); err != nil {
@@ -236,7 +239,7 @@ func TestResendRequiresPendingProfileAndInvalidatesOldCode(t *testing.T) {
 		t.Fatal("resend must replace the challenge")
 	}
 	m.otp.Registration.CreatedAt = time.Now().Add(-31 * time.Minute)
-	if err := s.RequestOTP(ctx, validSignup().Phone); !errors.Is(err, ports.ErrNoPendingSignup) {
+	if err := s.RequestOTP(ctx, validSignup().Phone); !errors.Is(err, domainerrors.ErrNoPendingSignup) {
 		t.Fatal(err)
 	}
 }
@@ -244,7 +247,7 @@ func TestResendRequiresPendingProfileAndInvalidatesOldCode(t *testing.T) {
 func TestSignupRollsBackOnSMSFailure(t *testing.T) {
 	m := &signupMemory{smsErr: errors.New("provider down")}
 	s := NewJobSeekerService(m, m, testPasswords{})
-	if err := s.Signup(context.Background(), validSignup()); !errors.Is(err, ports.ErrSMSUnavailable) {
+	if err := s.Signup(context.Background(), validSignup()); !errors.Is(err, domainerrors.ErrSMSUnavailable) {
 		t.Fatal(err)
 	}
 	if m.otp != nil || m.seeker != nil {
@@ -271,13 +274,17 @@ func TestVerificationRetainsCodeOnDatabaseFailure(t *testing.T) {
 func TestSignupRejectsInvalidProfileBeforeSendingSMS(t *testing.T) {
 	for _, mutate := range []func(*usecase.SignupJobSeeker){
 		func(in *usecase.SignupJobSeeker) { in.City = "invalid" },
-		func(in *usecase.SignupJobSeeker) { in.Interests = []entities.Interest{"invalid"} },
+		func(in *usecase.SignupJobSeeker) { in.Interests = []enums.Interest{"invalid"} },
 		func(in *usecase.SignupJobSeeker) {
-			in.Interests = []entities.Interest{entities.InterestDesign, entities.InterestDesign}
+			in.Interests = []enums.Interest{enums.InterestDesign, enums.InterestDesign}
 		},
 		func(in *usecase.SignupJobSeeker) { in.NationalCode = "1111111111" },
-		func(in *usecase.SignupJobSeeker) { in.BirthDate = entities.JalaliDate{Year: 1404, Month: 12, Day: 30} },
-		func(in *usecase.SignupJobSeeker) { in.BirthDate = entities.JalaliDate{Year: 1500, Month: 1, Day: 1} },
+		func(in *usecase.SignupJobSeeker) {
+			in.BirthDate = valueobjects.JalaliDate{Year: 1404, Month: 12, Day: 30}
+		},
+		func(in *usecase.SignupJobSeeker) {
+			in.BirthDate = valueobjects.JalaliDate{Year: 1500, Month: 1, Day: 1}
+		},
 		func(in *usecase.SignupJobSeeker) { in.Password = "short" },
 		func(in *usecase.SignupJobSeeker) { in.Phone = "123" },
 	} {
@@ -285,7 +292,7 @@ func TestSignupRejectsInvalidProfileBeforeSendingSMS(t *testing.T) {
 		s := NewJobSeekerService(m, m, testPasswords{})
 		in := validSignup()
 		mutate(&in)
-		if err := s.Signup(context.Background(), in); !errors.Is(err, ports.ErrInvalidSignup) {
+		if err := s.Signup(context.Background(), in); !errors.Is(err, domainerrors.ErrInvalidSignup) {
 			t.Fatalf("invalid input accepted: %v", err)
 		}
 		if m.smsCount != 0 || m.otp != nil {
@@ -293,3 +300,6 @@ func TestSignupRejectsInvalidProfileBeforeSendingSMS(t *testing.T) {
 		}
 	}
 }
+
+func (m *signupMemory) SignupOTPRepository() ports.SignupOTPRepository       { return m }
+func (m *signupMemory) LoginAttemptRepository() ports.LoginAttemptRepository { return m }

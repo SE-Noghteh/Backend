@@ -24,6 +24,8 @@ import (
 func main() {
 	gin.DisableConsoleColor()
 	ginEngine := gin.New()
+	ginEngine.Use(gin.Logger())
+	ginEngine.Use(gin.Recovery())
 	config := bootstrap.Run()
 
 	app, err := wire.InitializeApplication(config)

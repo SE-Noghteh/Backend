@@ -2,11 +2,13 @@ package routes_test
 
 import (
 	"encoding/json"
-	"github.com/gin-gonic/gin"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/gin-gonic/gin"
+
 	"zedlancer/backend/internal/presentation/controllers/v1/general"
 	"zedlancer/backend/internal/presentation/routes"
 	"zedlancer/backend/wire"
@@ -49,10 +51,10 @@ func TestSwaggerServesUIAndSignupContract(t *testing.T) {
 				t.Fatalf("missing documented endpoint %s %s", method, path)
 			}
 		}
-		if len(spec.Definitions["entities.City"].Enum) != 10 || len(spec.Definitions["entities.Interest"].Enum) != 10 {
+		if len(spec.Definitions["enums.City"].Enum) != 10 || len(spec.Definitions["enums.Interest"].Enum) != 10 {
 			t.Fatal("all signup choices must be documented")
 		}
-		if len(spec.Definitions["usecase.SignupJobSeeker"].Required) != 10 {
+		if len(spec.Definitions["general.SignupRequest"].Required) != 10 {
 			t.Fatal("all signup fields must be marked required")
 		}
 	}

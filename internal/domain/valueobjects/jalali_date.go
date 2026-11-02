@@ -1,4 +1,4 @@
-package entities
+package valueobjects
 
 import (
 	"fmt"
@@ -7,9 +7,9 @@ import (
 
 // JalaliDate is stored as a Jalali calendar date, never as a Gregorian SQL date.
 type JalaliDate struct {
-	Year  int `json:"year" example:"1380" validate:"required" minimum:"1" maximum:"3176"`
-	Month int `json:"month" example:"1" validate:"required" minimum:"1" maximum:"12"`
-	Day   int `json:"day" example:"1" validate:"required" minimum:"1" maximum:"31"`
+	Year  int
+	Month int
+	Day   int
 }
 
 func (d JalaliDate) String() string { return fmt.Sprintf("%04d/%02d/%02d", d.Year, d.Month, d.Day) }

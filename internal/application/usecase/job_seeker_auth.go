@@ -2,17 +2,19 @@ package usecase
 
 import (
 	"context"
+
 	"zedlancer/backend/internal/domain/entities"
+	"zedlancer/backend/internal/domain/valueobjects"
 )
 
 type LoginJobSeeker struct {
-	Phone    string `json:"phone" example:"09123456789" validate:"required"`
-	Password string `json:"password" example:"choose-a-private-password" format:"password" validate:"required"`
+	Phone    string
+	Password string
 }
 
 type JobSeekerLoginResult struct {
 	JobSeeker   *entities.JobSeeker
-	AccessToken *entities.AccessToken
+	AccessToken *valueobjects.AccessToken
 }
 
 type JobSeekerAuthService interface {

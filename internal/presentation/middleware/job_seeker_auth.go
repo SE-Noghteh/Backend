@@ -6,9 +6,10 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+
 	"zedlancer/backend/internal/application/usecase"
 	"zedlancer/backend/internal/domain/entities"
-	"zedlancer/backend/internal/domain/ports"
+	domainerrors "zedlancer/backend/internal/domain/errors"
 )
 
 const jobSeekerContextKey = "authenticated_job_seeker"
@@ -27,7 +28,7 @@ func (m *JobSeekerAuth) Require(ctx *gin.Context) {
 		return
 	}
 	seeker, err := m.service.Authenticate(ctx.Request.Context(), token)
-	if errors.Is(err, ports.ErrUnauthenticated) {
+	if errors.Is(err, domainerrors.ErrUnauthenticated) {
 		unauthorized(ctx)
 		return
 	}
@@ -49,7 +50,7 @@ func BearerToken(ctx *gin.Context) (string, bool) {
 
 func unauthorized(ctx *gin.Context) {
 	ctx.Header("WWW-Authenticate", "Bearer")
-	ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"message": ports.ErrUnauthenticated.Error()})
+	ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"message": domainerrors.ErrUnauthenticated.Error()})
 }
 
 func CurrentJobSeeker(ctx *gin.Context) (*entities.JobSeeker, bool) {

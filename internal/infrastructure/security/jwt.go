@@ -9,9 +9,10 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+
 	"zedlancer/backend/bootstrap"
-	"zedlancer/backend/internal/domain/entities"
-	"zedlancer/backend/internal/domain/ports"
+	domainerrors "zedlancer/backend/internal/domain/errors"
+	"zedlancer/backend/internal/domain/valueobjects"
 )
 
 type JWTManager struct {
@@ -43,7 +44,7 @@ func NewJWTManager(secret, issuer, audience string, ttl time.Duration) (*JWTMana
 	return &JWTManager{secret: []byte(secret), issuer: issuer, audience: audience, ttl: ttl}, nil
 }
 
-func (m *JWTManager) IssueAccessToken(id uint64) (*entities.AccessToken, error) {
+func (m *JWTManager) IssueAccessToken(id uint64) (*valueobjects.AccessToken, error) {
 	if id == 0 {
 		return nil, fmt.Errorf("cannot issue token without a job seeker ID")
 	}
@@ -69,12 +70,12 @@ func (m *JWTManager) IssueAccessToken(id uint64) (*entities.AccessToken, error) 
 	if err != nil {
 		return nil, err
 	}
-	return &entities.AccessToken{Value: value, ExpiresAt: expires}, nil
+	return &valueobjects.AccessToken{Value: value, ExpiresAt: expires}, nil
 }
 
-func (m *JWTManager) VerifyAccessToken(value string) (*entities.JobSeekerPrincipal, error) {
+func (m *JWTManager) VerifyAccessToken(value string) (*valueobjects.JobSeekerPrincipal, error) {
 	if len(value) > 4096 {
-		return nil, ports.ErrUnauthenticated
+		return nil, domainerrors.ErrUnauthenticated
 	}
 	claims := &accessClaims{}
 	token, err := jwt.ParseWithClaims(value, claims,
@@ -86,11 +87,11 @@ func (m *JWTManager) VerifyAccessToken(value string) (*entities.JobSeekerPrincip
 		jwt.WithIssuedAt(),
 	)
 	if err != nil || !token.Valid || claims.Role != "job_seeker" || claims.IssuedAt == nil || claims.ID == "" {
-		return nil, ports.ErrUnauthenticated
+		return nil, domainerrors.ErrUnauthenticated
 	}
 	id, err := strconv.ParseUint(claims.Subject, 10, 64)
 	if err != nil || id == 0 {
-		return nil, ports.ErrUnauthenticated
+		return nil, domainerrors.ErrUnauthenticated
 	}
-	return &entities.JobSeekerPrincipal{ID: id, TokenID: claims.ID, ExpiresAt: claims.ExpiresAt.Time}, nil
+	return &valueobjects.JobSeekerPrincipal{ID: id, TokenID: claims.ID, ExpiresAt: claims.ExpiresAt.Time}, nil
 }

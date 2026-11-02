@@ -6,9 +6,10 @@ import (
 	"strings"
 	"time"
 	"unicode/utf8"
+
 	"zedlancer/backend/internal/application/usecase"
-	"zedlancer/backend/internal/domain/entities"
-	"zedlancer/backend/internal/domain/ports"
+	"zedlancer/backend/internal/domain/enums"
+	domainerrors "zedlancer/backend/internal/domain/errors"
 )
 
 var mobilePattern = regexp.MustCompile(`^09[0-9]{9}$`)
@@ -23,7 +24,7 @@ func normalizePhone(phone string) (string, error) {
 		phone = "0" + phone[2:]
 	}
 	if !mobilePattern.MatchString(phone) {
-		return "", fmt.Errorf("%w: phone must be an Iranian mobile number", ports.ErrInvalidSignup)
+		return "", fmt.Errorf("%w: phone must be an Iranian mobile number", domainerrors.ErrInvalidSignup)
 	}
 	return phone, nil
 }
@@ -45,7 +46,7 @@ func validNationalCode(code string) bool {
 
 func validateSignup(in *usecase.SignupJobSeeker) error {
 	in.FirstName, in.LastName, in.Address = strings.TrimSpace(in.FirstName), strings.TrimSpace(in.LastName), strings.TrimSpace(in.Address)
-	invalid := func(field string) error { return fmt.Errorf("%w: %s", ports.ErrInvalidSignup, field) }
+	invalid := func(field string) error { return fmt.Errorf("%w: %s", domainerrors.ErrInvalidSignup, field) }
 	if in.FirstName == "" || utf8.RuneCountInString(in.FirstName) > 100 {
 		return invalid("first_name")
 	}
@@ -61,30 +62,18 @@ func validateSignup(in *usecase.SignupJobSeeker) error {
 	if len(in.Password) < 8 || len(in.Password) > 72 {
 		return invalid("password must contain 8 to 72 bytes")
 	}
-	cityOK := false
-	for _, city := range entities.Cities() {
-		if in.City == city {
-			cityOK = true
-		}
-	}
-	if !cityOK {
+	if !in.City.Valid() {
 		return invalid("city")
 	}
-	if in.Gender != entities.GenderFemale && in.Gender != entities.GenderMale {
+	if !in.Gender.Valid() {
 		return invalid("gender")
 	}
 	if len(in.Interests) < 1 || len(in.Interests) > 10 {
 		return invalid("interests")
 	}
-	seen := map[entities.Interest]bool{}
+	seen := map[enums.Interest]bool{}
 	for _, interest := range in.Interests {
-		found := false
-		for _, allowed := range entities.Interests() {
-			if interest == allowed {
-				found = true
-			}
-		}
-		if !found || seen[interest] {
+		if !interest.Valid() || seen[interest] {
 			return invalid("interests must be unique predefined choices")
 		}
 		seen[interest] = true

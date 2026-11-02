@@ -1,44 +1,18 @@
 package general
 
 import (
-	"errors"
-	"github.com/gin-gonic/gin"
 	"net/http"
+
+	"github.com/gin-gonic/gin"
+
 	"zedlancer/backend/internal/application/usecase"
-	"zedlancer/backend/internal/domain/entities"
-	"zedlancer/backend/internal/domain/ports"
+	"zedlancer/backend/internal/domain/enums"
 )
 
 type JobSeekerController struct{ service usecase.JobSeekerService }
 
 func NewJobSeekerController(service usecase.JobSeekerService) *JobSeekerController {
 	return &JobSeekerController{service: service}
-}
-
-func signupError(ctx *gin.Context, err error) {
-	status, message := http.StatusInternalServerError, "internal server error"
-	switch {
-	case errors.Is(err, ports.ErrInvalidSignup):
-		status, message = http.StatusBadRequest, err.Error()
-	case errors.Is(err, ports.ErrNoPendingSignup):
-		status, message = http.StatusBadRequest, err.Error()
-	case errors.Is(err, ports.ErrInvalidCredentials), errors.Is(err, ports.ErrUnauthenticated):
-		status, message = http.StatusUnauthorized, err.Error()
-		ctx.Header("WWW-Authenticate", "Bearer")
-	case errors.Is(err, ports.ErrLoginThrottled):
-		status, message = http.StatusTooManyRequests, err.Error()
-		ctx.Header("Retry-After", "900")
-	case errors.Is(err, ports.ErrInvalidOTP):
-		status, message = http.StatusUnauthorized, err.Error()
-	case errors.Is(err, ports.ErrSignupConflict):
-		status, message = http.StatusConflict, err.Error()
-	case errors.Is(err, ports.ErrOTPTooSoon):
-		status, message = http.StatusTooManyRequests, err.Error()
-		ctx.Header("Retry-After", "60")
-	case errors.Is(err, ports.ErrSMSUnavailable):
-		status, message = http.StatusServiceUnavailable, err.Error()
-	}
-	ctx.JSON(status, gin.H{"message": message})
 }
 
 // Options godoc
@@ -49,7 +23,7 @@ func signupError(ctx *gin.Context, err error) {
 // @Success 200 {object} SignupOptionsResponse
 // @Router /job-seekers/signup-options [get]
 func (c *JobSeekerController) Options(ctx *gin.Context) {
-	ctx.JSON(http.StatusOK, SignupOptionsResponse{Cities: entities.Cities(), Interests: entities.Interests(), Genders: []entities.Gender{entities.GenderFemale, entities.GenderMale}})
+	ctx.JSON(http.StatusOK, SignupOptionsResponse{Cities: enums.Cities(), Interests: enums.Interests(), Genders: []enums.Gender{enums.GenderFemale, enums.GenderMale}})
 }
 
 // RequestOTP godoc
@@ -58,24 +32,24 @@ func (c *JobSeekerController) Options(ctx *gin.Context) {
 // @Tags Job seeker signup
 // @Accept json
 // @Produce json
-// @Param request body RequestOTPBody true "Your mobile number"
+// @Param request body ResendOTPRequest true "Your mobile number"
 // @Success 202 {object} OTPResponse
-// @Failure 400 {object} SignupErrorResponse
-// @Failure 409 {object} SignupErrorResponse
-// @Failure 429 {object} SignupErrorResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 409 {object} ErrorResponse
+// @Failure 429 {object} ErrorResponse
 // @Header 429 {string} Retry-After "Seconds until retry"
-// @Failure 500 {object} SignupErrorResponse
-// @Failure 503 {object} SignupErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Failure 503 {object} ErrorResponse
 // @Router /job-seekers/otp [post]
 func (c *JobSeekerController) RequestOTP(ctx *gin.Context) {
 	ctx.Request.Body = http.MaxBytesReader(ctx.Writer, ctx.Request.Body, 16*1024)
-	var in RequestOTPBody
+	var in ResendOTPRequest
 	if err := ctx.ShouldBindJSON(&in); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"message": "invalid JSON body"})
 		return
 	}
 	if err := c.service.RequestOTP(ctx.Request.Context(), in.Phone); err != nil {
-		signupError(ctx, err)
+		respondJobSeekerError(ctx, err)
 		return
 	}
 	ctx.JSON(http.StatusAccepted, OTPResponse{Message: "OTP sent", ExpiresIn: 300, ResendAfter: 60})
@@ -87,23 +61,23 @@ func (c *JobSeekerController) RequestOTP(ctx *gin.Context) {
 // @Tags Job seeker signup
 // @Accept json
 // @Produce json
-// @Param request body usecase.SignupJobSeeker true "Profile and password"
+// @Param request body SignupRequest true "Profile and password"
 // @Success 202 {object} OTPResponse
-// @Failure 400 {object} SignupErrorResponse
-// @Failure 409 {object} SignupErrorResponse
-// @Failure 429 {object} SignupErrorResponse
-// @Failure 500 {object} SignupErrorResponse
-// @Failure 503 {object} SignupErrorResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 409 {object} ErrorResponse
+// @Failure 429 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Failure 503 {object} ErrorResponse
 // @Router /job-seekers/signup [post]
 func (c *JobSeekerController) Signup(ctx *gin.Context) {
 	ctx.Request.Body = http.MaxBytesReader(ctx.Writer, ctx.Request.Body, 16*1024)
-	var in usecase.SignupJobSeeker
+	var in SignupRequest
 	if err := ctx.ShouldBindJSON(&in); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"message": "invalid JSON body"})
 		return
 	}
-	if err := c.service.Signup(ctx.Request.Context(), in); err != nil {
-		signupError(ctx, err)
+	if err := c.service.Signup(ctx.Request.Context(), in.input()); err != nil {
+		respondJobSeekerError(ctx, err)
 		return
 	}
 	ctx.JSON(http.StatusAccepted, OTPResponse{Message: "OTP sent; verify to complete signup", ExpiresIn: 300, ResendAfter: 60})
@@ -115,23 +89,23 @@ func (c *JobSeekerController) Signup(ctx *gin.Context) {
 // @Tags Job seeker signup
 // @Accept json
 // @Produce json
-// @Param request body usecase.VerifySignupOTP true "Phone and received code"
+// @Param request body VerifyOTPRequest true "Phone and received code"
 // @Success 201 {object} SignupResponse
-// @Failure 400 {object} SignupErrorResponse
-// @Failure 401 {object} SignupErrorResponse
-// @Failure 409 {object} SignupErrorResponse
-// @Failure 500 {object} SignupErrorResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 409 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
 // @Router /job-seekers/verify-otp [post]
 func (c *JobSeekerController) VerifyOTP(ctx *gin.Context) {
 	ctx.Request.Body = http.MaxBytesReader(ctx.Writer, ctx.Request.Body, 16*1024)
-	var in usecase.VerifySignupOTP
+	var in VerifyOTPRequest
 	if err := ctx.ShouldBindJSON(&in); err != nil {
-		ctx.JSON(http.StatusBadRequest, SignupErrorResponse{Message: "invalid JSON body"})
+		ctx.JSON(http.StatusBadRequest, ErrorResponse{Message: "invalid JSON body"})
 		return
 	}
-	seeker, err := c.service.VerifyOTP(ctx.Request.Context(), in)
+	seeker, err := c.service.VerifyOTP(ctx.Request.Context(), in.input())
 	if err != nil {
-		signupError(ctx, err)
+		respondJobSeekerError(ctx, err)
 		return
 	}
 	ctx.JSON(http.StatusCreated, SignupResponse{Data: identityFromJobSeeker(seeker)})

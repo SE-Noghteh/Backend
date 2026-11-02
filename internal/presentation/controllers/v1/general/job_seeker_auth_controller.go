@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+
 	"zedlancer/backend/internal/application/usecase"
 	"zedlancer/backend/internal/presentation/middleware"
 )
@@ -20,23 +21,23 @@ func NewJobSeekerAuthController(service usecase.JobSeekerAuthService) *JobSeeker
 // @Tags Job seeker authentication
 // @Accept json
 // @Produce json
-// @Param request body usecase.LoginJobSeeker true "Phone and password"
+// @Param request body LoginRequest true "Phone and password"
 // @Success 200 {object} LoginResponse
-// @Failure 400 {object} SignupErrorResponse
-// @Failure 401 {object} SignupErrorResponse
-// @Failure 429 {object} SignupErrorResponse
-// @Failure 500 {object} SignupErrorResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 429 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
 // @Router /job-seekers/login [post]
 func (c *JobSeekerAuthController) Login(ctx *gin.Context) {
 	ctx.Request.Body = http.MaxBytesReader(ctx.Writer, ctx.Request.Body, 16*1024)
-	var in usecase.LoginJobSeeker
+	var in LoginRequest
 	if err := ctx.ShouldBindJSON(&in); err != nil {
-		ctx.JSON(http.StatusBadRequest, SignupErrorResponse{Message: "invalid JSON body"})
+		ctx.JSON(http.StatusBadRequest, ErrorResponse{Message: "invalid JSON body"})
 		return
 	}
-	result, err := c.service.Login(ctx.Request.Context(), in)
+	result, err := c.service.Login(ctx.Request.Context(), in.input())
 	if err != nil {
-		signupError(ctx, err)
+		respondJobSeekerError(ctx, err)
 		return
 	}
 	ctx.Header("Cache-Control", "no-store")
@@ -51,13 +52,13 @@ func (c *JobSeekerAuthController) Login(ctx *gin.Context) {
 // @Produce json
 // @Security BearerAuth
 // @Success 200 {object} SignupResponse
-// @Failure 401 {object} SignupErrorResponse
-// @Failure 500 {object} SignupErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
 // @Router /job-seekers/me [get]
 func (c *JobSeekerAuthController) Me(ctx *gin.Context) {
 	seeker, ok := middleware.CurrentJobSeeker(ctx)
 	if !ok {
-		ctx.AbortWithStatusJSON(http.StatusUnauthorized, SignupErrorResponse{Message: "authentication required"})
+		ctx.AbortWithStatusJSON(http.StatusUnauthorized, ErrorResponse{Message: "authentication required"})
 		return
 	}
 	ctx.Header("Cache-Control", "no-store")
@@ -70,18 +71,18 @@ func (c *JobSeekerAuthController) Me(ctx *gin.Context) {
 // @Tags Job seeker authentication
 // @Security BearerAuth
 // @Success 204 "Logged out"
-// @Failure 401 {object} SignupErrorResponse
-// @Failure 500 {object} SignupErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
 // @Router /job-seekers/logout [post]
 func (c *JobSeekerAuthController) Logout(ctx *gin.Context) {
 	token, ok := middleware.BearerToken(ctx)
 	if !ok {
 		ctx.Header("WWW-Authenticate", "Bearer")
-		ctx.AbortWithStatusJSON(http.StatusUnauthorized, SignupErrorResponse{Message: "Authorization header required: Bearer <access_token>"})
+		ctx.AbortWithStatusJSON(http.StatusUnauthorized, ErrorResponse{Message: "Authorization header required: Bearer <access_token>"})
 		return
 	}
 	if err := c.service.Logout(ctx.Request.Context(), token); err != nil {
-		signupError(ctx, err)
+		respondJobSeekerError(ctx, err)
 		return
 	}
 	ctx.Header("Cache-Control", "no-store")

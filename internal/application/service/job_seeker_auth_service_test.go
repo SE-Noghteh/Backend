@@ -8,22 +8,23 @@ import (
 
 	"zedlancer/backend/internal/application/usecase"
 	"zedlancer/backend/internal/domain/entities"
-	"zedlancer/backend/internal/domain/ports"
+	domainerrors "zedlancer/backend/internal/domain/errors"
+	"zedlancer/backend/internal/domain/valueobjects"
 )
 
 type testTokens struct{ issueErr error }
 
-func (f testTokens) IssueAccessToken(id uint64) (*entities.AccessToken, error) {
+func (f testTokens) IssueAccessToken(id uint64) (*valueobjects.AccessToken, error) {
 	if f.issueErr != nil {
 		return nil, f.issueErr
 	}
-	return &entities.AccessToken{Value: "valid-token", ExpiresAt: time.Now().Add(time.Hour)}, nil
+	return &valueobjects.AccessToken{Value: "valid-token", ExpiresAt: time.Now().Add(time.Hour)}, nil
 }
-func (f testTokens) VerifyAccessToken(value string) (*entities.JobSeekerPrincipal, error) {
+func (f testTokens) VerifyAccessToken(value string) (*valueobjects.JobSeekerPrincipal, error) {
 	if value != "valid-token" {
-		return nil, ports.ErrUnauthenticated
+		return nil, domainerrors.ErrUnauthenticated
 	}
-	return &entities.JobSeekerPrincipal{ID: 1, TokenID: "test-token-id", ExpiresAt: time.Now().Add(time.Hour)}, nil
+	return &valueobjects.JobSeekerPrincipal{ID: 1, TokenID: "test-token-id", ExpiresAt: time.Now().Add(time.Hour)}, nil
 }
 
 func verifiedMemory(t *testing.T) *signupMemory {
@@ -55,11 +56,11 @@ func TestLoginAndAuthenticate(t *testing.T) {
 	if err != nil || seeker.ID != 1 {
 		t.Fatalf("authenticate: %v", err)
 	}
-	if _, err := auth.Authenticate(ctx, "invalid"); !errors.Is(err, ports.ErrUnauthenticated) {
+	if _, err := auth.Authenticate(ctx, "invalid"); !errors.Is(err, domainerrors.ErrUnauthenticated) {
 		t.Fatal(err)
 	}
 	m.seeker = nil
-	if _, err := auth.Authenticate(ctx, "valid-token"); !errors.Is(err, ports.ErrUnauthenticated) {
+	if _, err := auth.Authenticate(ctx, "valid-token"); !errors.Is(err, domainerrors.ErrUnauthenticated) {
 		t.Fatal("deleted account accepted")
 	}
 }
@@ -81,7 +82,7 @@ func TestLoginRejectsPendingUnknownAndWrongPassword(t *testing.T) {
 				m.seeker.PhoneVerifiedAt = time.Time{}
 			}
 			auth := NewJobSeekerAuthService(m, testPasswords{}, testTokens{})
-			if result, err := auth.Login(context.Background(), in); !errors.Is(err, ports.ErrInvalidCredentials) || result != nil {
+			if result, err := auth.Login(context.Background(), in); !errors.Is(err, domainerrors.ErrInvalidCredentials) || result != nil {
 				t.Fatalf("login accepted: %v", err)
 			}
 			if m.attempt == nil || m.attempt.Failures != 1 {
@@ -97,12 +98,12 @@ func TestLoginThrottleAndReset(t *testing.T) {
 	ctx := context.Background()
 	in := usecase.LoginJobSeeker{Phone: validSignup().Phone, Password: "wrong-password"}
 	for i := 0; i < 5; i++ {
-		if _, err := auth.Login(ctx, in); !errors.Is(err, ports.ErrInvalidCredentials) {
+		if _, err := auth.Login(ctx, in); !errors.Is(err, domainerrors.ErrInvalidCredentials) {
 			t.Fatal(err)
 		}
 	}
 	in.Password = validSignup().Password
-	if _, err := auth.Login(ctx, in); !errors.Is(err, ports.ErrLoginThrottled) {
+	if _, err := auth.Login(ctx, in); !errors.Is(err, domainerrors.ErrLoginThrottled) {
 		t.Fatal("lockout bypassed with correct password")
 	}
 	m.attempt.WindowStartedAt = time.Now().Add(-16 * time.Minute)
@@ -133,13 +134,13 @@ func TestLogoutRevokesTokenAcrossServiceInstances(t *testing.T) {
 		t.Fatal(err)
 	}
 	other := NewJobSeekerAuthService(m, testPasswords{}, testTokens{})
-	if _, err := other.Authenticate(ctx, "valid-token"); !errors.Is(err, ports.ErrUnauthenticated) {
+	if _, err := other.Authenticate(ctx, "valid-token"); !errors.Is(err, domainerrors.ErrUnauthenticated) {
 		t.Fatal("revoked token accepted")
 	}
 	if err := auth.Logout(ctx, "valid-token"); err != nil {
 		t.Fatal("repeated logout must be idempotent")
 	}
-	if err := auth.Logout(ctx, "invalid"); !errors.Is(err, ports.ErrUnauthenticated) {
+	if err := auth.Logout(ctx, "invalid"); !errors.Is(err, domainerrors.ErrUnauthenticated) {
 		t.Fatal("invalid token logged out")
 	}
 }

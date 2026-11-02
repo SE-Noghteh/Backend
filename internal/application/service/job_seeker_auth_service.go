@@ -6,6 +6,7 @@ import (
 
 	"zedlancer/backend/internal/application/usecase"
 	"zedlancer/backend/internal/domain/entities"
+	domainerrors "zedlancer/backend/internal/domain/errors"
 	"zedlancer/backend/internal/domain/ports"
 )
 
@@ -25,7 +26,7 @@ func NewJobSeekerAuthService(uow ports.UnitOfWork, passwords ports.PasswordHashe
 func (s *JobSeekerAuthService) Login(ctx context.Context, in usecase.LoginJobSeeker) (*usecase.JobSeekerLoginResult, error) {
 	phone, err := normalizePhone(in.Phone)
 	if err != nil || len(in.Password) < 8 || len(in.Password) > 72 {
-		return nil, ports.ErrInvalidCredentials
+		return nil, domainerrors.ErrInvalidCredentials
 	}
 	var result *usecase.JobSeekerLoginResult
 	var authErr error
@@ -35,7 +36,8 @@ func (s *JobSeekerAuthService) Login(ctx context.Context, in usecase.LoginJobSee
 			return err
 		}
 		now := time.Now().UTC()
-		attempt, err := repo.GetLoginAttempt(ctx, phone)
+		attemptRepo := factory.LoginAttemptRepository()
+		attempt, err := attemptRepo.GetLoginAttempt(ctx, phone)
 		if err != nil {
 			return err
 		}
@@ -43,7 +45,7 @@ func (s *JobSeekerAuthService) Login(ctx context.Context, in usecase.LoginJobSee
 			attempt = &entities.LoginAttempt{Phone: phone, WindowStartedAt: now}
 		}
 		if attempt.Failures >= maxLoginFailures {
-			authErr = ports.ErrLoginThrottled
+			authErr = domainerrors.ErrLoginThrottled
 			return nil
 		}
 		seeker, err := repo.FindByPhone(ctx, phone)
@@ -58,14 +60,14 @@ func (s *JobSeekerAuthService) Login(ctx context.Context, in usecase.LoginJobSee
 		matches := s.passwords.Matches(hash, in.Password)
 		if !matches || seeker == nil || seeker.PhoneVerifiedAt.IsZero() {
 			attempt.Failures++
-			authErr = ports.ErrInvalidCredentials
-			return repo.SaveLoginAttempt(ctx, attempt)
+			authErr = domainerrors.ErrInvalidCredentials
+			return attemptRepo.SaveLoginAttempt(ctx, attempt)
 		}
 		token, err := s.tokens.IssueAccessToken(seeker.ID)
 		if err != nil {
 			return err
 		}
-		if err := repo.DeleteLoginAttempt(ctx, phone); err != nil {
+		if err := attemptRepo.DeleteLoginAttempt(ctx, phone); err != nil {
 			return err
 		}
 		result = &usecase.JobSeekerLoginResult{JobSeeker: seeker, AccessToken: token}
@@ -83,21 +85,21 @@ func (s *JobSeekerAuthService) Login(ctx context.Context, in usecase.LoginJobSee
 func (s *JobSeekerAuthService) Authenticate(ctx context.Context, token string) (*entities.JobSeeker, error) {
 	principal, err := s.tokens.VerifyAccessToken(token)
 	if err != nil {
-		return nil, ports.ErrUnauthenticated
+		return nil, domainerrors.ErrUnauthenticated
 	}
 	revoked, err := s.uow.Factory().TokenRevocationRepository().IsRevoked(ctx, principal.TokenID)
 	if err != nil {
 		return nil, err
 	}
 	if revoked {
-		return nil, ports.ErrUnauthenticated
+		return nil, domainerrors.ErrUnauthenticated
 	}
 	seeker, err := s.uow.Factory().JobSeekerRepository().FindByID(ctx, principal.ID)
 	if err != nil {
 		return nil, err
 	}
 	if seeker == nil || seeker.PhoneVerifiedAt.IsZero() {
-		return nil, ports.ErrUnauthenticated
+		return nil, domainerrors.ErrUnauthenticated
 	}
 	return seeker, nil
 }
@@ -106,7 +108,7 @@ func (s *JobSeekerAuthService) Authenticate(ctx context.Context, token string) (
 func (s *JobSeekerAuthService) Logout(ctx context.Context, token string) error {
 	principal, err := s.tokens.VerifyAccessToken(token)
 	if err != nil {
-		return ports.ErrUnauthenticated
+		return domainerrors.ErrUnauthenticated
 	}
 	return s.uow.Factory().TokenRevocationRepository().Revoke(ctx, principal.TokenID, principal.ExpiresAt)
 }

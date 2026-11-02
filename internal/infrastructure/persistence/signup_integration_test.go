@@ -17,10 +17,12 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"gorm.io/gorm"
+
 	"zedlancer/backend/internal/application/service"
 	"zedlancer/backend/internal/application/usecase"
-	"zedlancer/backend/internal/domain/entities"
-	"zedlancer/backend/internal/domain/ports"
+	"zedlancer/backend/internal/domain/enums"
+	domainerrors "zedlancer/backend/internal/domain/errors"
+	"zedlancer/backend/internal/domain/valueobjects"
 	"zedlancer/backend/internal/infrastructure/persistence"
 	"zedlancer/backend/internal/infrastructure/security"
 	"zedlancer/backend/internal/presentation/controllers/v1/general"
@@ -58,16 +60,32 @@ func TestPostgresSignupVerificationAndLogin(t *testing.T) {
 		sms := &capturedSMS{}
 		signup := service.NewJobSeekerService(uow, sms, hasher)
 		auth := service.NewJobSeekerAuthService(uow, hasher, tokens)
+		gin.SetMode(gin.TestMode)
+		router := gin.New()
+		controllers := &wire.Controllers{GeneralControllers: &wire.GeneralControllers{
+			JobSeekerController:     general.NewJobSeekerController(signup),
+			JobSeekerAuthController: general.NewJobSeekerAuthController(auth),
+		}}
+		routes.SetUpRoutes(router, &wire.Application{Controllers: controllers, JobSeekerAuthService: auth})
 		ctx := context.Background()
 		phone, nationalCode, err := fixtureIdentity()
 		if err != nil {
 			return err
 		}
-		in := usecase.SignupJobSeeker{FirstName: "Integration", LastName: "Test", NationalCode: nationalCode, City: entities.CityTehran, Address: "Test address", BirthDate: entities.JalaliDate{Year: 1380, Month: 1, Day: 1}, Gender: entities.GenderMale, Interests: []entities.Interest{entities.InterestProgramming}, Phone: phone, Password: "integration-password"}
-		if err := signup.Signup(ctx, in); err != nil {
+		in := usecase.SignupJobSeeker{FirstName: "Integration", LastName: "Test", NationalCode: nationalCode, City: enums.CityTehran, Address: "Test address", BirthDate: valueobjects.JalaliDate{Year: 1380, Month: 1, Day: 1}, Gender: enums.GenderMale, Interests: []enums.Interest{enums.InterestProgramming}, Phone: phone, Password: "integration-password"}
+		signupBody, err := json.Marshal(general.SignupRequest{
+			FirstName: in.FirstName, LastName: in.LastName, NationalCode: in.NationalCode,
+			City: in.City, Address: in.Address,
+			BirthDate: general.JalaliDateRequest{Year: in.BirthDate.Year, Month: in.BirthDate.Month, Day: in.BirthDate.Day},
+			Gender:    in.Gender, Interests: in.Interests, Phone: in.Phone, Password: in.Password,
+		})
+		if err != nil {
 			return err
 		}
-		repo := uow.Factory().JobSeekerRepository()
+		if response := callAPI(router, http.MethodPost, "/v1/job-seekers/signup", string(signupBody), ""); response.Code != http.StatusAccepted {
+			t.Fatalf("HTTP signup returned %d", response.Code)
+		}
+		repo := uow.Factory().SignupOTPRepository()
 		pending, err := repo.GetOTP(ctx, in.Phone)
 		if err != nil {
 			return err
@@ -75,10 +93,10 @@ func TestPostgresSignupVerificationAndLogin(t *testing.T) {
 		if pending.Registration == nil || !hasher.Matches(pending.Registration.PasswordHash, in.Password) {
 			t.Fatal("pending JSONB profile/hash did not survive database round trip")
 		}
-		if _, err := auth.Login(ctx, usecase.LoginJobSeeker{Phone: in.Phone, Password: in.Password}); !errors.Is(err, ports.ErrInvalidCredentials) {
+		if _, err := auth.Login(ctx, usecase.LoginJobSeeker{Phone: in.Phone, Password: in.Password}); !errors.Is(err, domainerrors.ErrInvalidCredentials) {
 			t.Fatalf("pending account logged in: %v", err)
 		}
-		if _, err := signup.VerifyOTP(ctx, usecase.VerifySignupOTP{Phone: in.Phone, OTP: "wrong"}); !errors.Is(err, ports.ErrInvalidOTP) {
+		if _, err := signup.VerifyOTP(ctx, usecase.VerifySignupOTP{Phone: in.Phone, OTP: "wrong"}); !errors.Is(err, domainerrors.ErrInvalidOTP) {
 			t.Fatal("wrong OTP accepted")
 		}
 		pending, err = repo.GetOTP(ctx, in.Phone)
@@ -89,14 +107,24 @@ func TestPostgresSignupVerificationAndLogin(t *testing.T) {
 			t.Fatal("failed OTP attempt rolled back")
 		}
 		verify := usecase.VerifySignupOTP{Phone: in.Phone, OTP: sms.code}
-		seeker, err := signup.VerifyOTP(ctx, verify)
+		verificationBody, err := json.Marshal(general.VerifyOTPRequest{Phone: in.Phone, OTP: sms.code})
 		if err != nil {
 			return err
+		}
+		if response := callAPI(router, http.MethodPost, "/v1/job-seekers/verify-otp", string(verificationBody), ""); response.Code != http.StatusCreated {
+			t.Fatalf("HTTP verification returned %d", response.Code)
+		}
+		seeker, err := uow.Factory().JobSeekerRepository().FindByPhone(ctx, in.Phone)
+		if err != nil {
+			return err
+		}
+		if seeker == nil {
+			t.Fatal("HTTP verification did not create the account")
 		}
 		if seeker.PhoneVerifiedAt.IsZero() || seeker.BirthDate != in.BirthDate {
 			t.Fatal("invalid persisted profile")
 		}
-		if _, err := signup.VerifyOTP(ctx, verify); !errors.Is(err, ports.ErrInvalidOTP) {
+		if _, err := signup.VerifyOTP(ctx, verify); !errors.Is(err, domainerrors.ErrInvalidOTP) {
 			t.Fatal("OTP replay accepted")
 		}
 		login, err := auth.Login(ctx, usecase.LoginJobSeeker{Phone: in.Phone, Password: in.Password})
@@ -110,14 +138,7 @@ func TestPostgresSignupVerificationAndLogin(t *testing.T) {
 		if current.ID != seeker.ID {
 			t.Fatal("JWT authenticated wrong account")
 		}
-		gin.SetMode(gin.TestMode)
-		router := gin.New()
-		controllers := &wire.Controllers{GeneralControllers: &wire.GeneralControllers{
-			JobSeekerController:     general.NewJobSeekerController(signup),
-			JobSeekerAuthController: general.NewJobSeekerAuthController(auth),
-		}}
-		routes.SetUpRoutes(router, &wire.Application{Controllers: controllers, JobSeekerAuthService: auth})
-		loginBody, err := json.Marshal(usecase.LoginJobSeeker{Phone: in.Phone, Password: in.Password})
+		loginBody, err := json.Marshal(general.LoginRequest{Phone: in.Phone, Password: in.Password})
 		if err != nil {
 			return err
 		}
@@ -154,7 +175,7 @@ func TestPostgresSignupVerificationAndLogin(t *testing.T) {
 			t.Fatal("logout revoked another login session")
 		}
 		otherAuth := service.NewJobSeekerAuthService(persistence.NewUnitOfWork(tx), hasher, tokens)
-		if _, err := otherAuth.Authenticate(ctx, credentials.AccessToken); !errors.Is(err, ports.ErrUnauthenticated) {
+		if _, err := otherAuth.Authenticate(ctx, credentials.AccessToken); !errors.Is(err, domainerrors.ErrUnauthenticated) {
 			t.Fatal("revocation did not survive a new service/repository instance")
 		}
 		return rollback

@@ -2,11 +2,15 @@
 
 Job seeker signup follows the existing clean architecture structure:
 
-- `internal/domain/entities`: framework-independent job seeker, Jalali date, and enums.
-- `internal/domain/ports`: repository, SMS, password hashing, and token contracts.
+- `internal/domain/entities`: job seeker, pending signup OTP, and login attempt records.
+- `internal/domain/enums`: separate city, interest, and gender types, allowed values, and membership validation.
+- `internal/domain/valueobjects`: Jalali dates, access tokens, and authenticated principals.
+- `internal/domain/errors`: framework-independent signup and authentication errors.
+- `internal/domain/ports`: separate account, OTP, login attempt, and token revocation repository contracts, plus SMS, password hashing, and token interfaces.
 - `internal/application`: signup validation, OTP verification, login, and authentication through a unit of work.
-- `internal/infrastructure`: GORM models/repositories, Ferzz SMS, bcrypt, and JWT implementations.
-- `internal/presentation`: Gin controllers and Bearer authentication middleware. Wire connects implementations to interfaces.
+- `internal/infrastructure/persistence/models`: GORM models and table definitions, separate from queries.
+- `internal/infrastructure/persistence/repositories/postgres`: focused repositories and explicit domain/model mapping. Other infrastructure packages implement Ferzz SMS, bcrypt, and JWT.
+- `internal/presentation`: HTTP request/response schemas, Swagger examples, Gin controllers, shared error mapping, and Bearer authentication middleware. Controllers map transport requests into plain application inputs. Wire connects implementations to interfaces.
 
 Copy `.env.example` to `.env` when setting up a new environment, then configure PostgreSQL, `SMS_TOKEN`, and a random `JWT_SECRET` of at least 32 bytes. JWT configuration defaults to issuer `zedlancer`, audience `zedlancer-api`, and a one-hour access token lifetime (`JWT_ACCESS_TOKEN_TTL=1h`, configurable from `1m` to `24h`). The application refuses to start with an invalid JWT configuration. The local `.env` is ignored by Git. Run:
 

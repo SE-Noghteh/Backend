@@ -8,9 +8,10 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+
 	"zedlancer/backend/internal/application/usecase"
 	"zedlancer/backend/internal/domain/entities"
-	"zedlancer/backend/internal/domain/ports"
+	domainerrors "zedlancer/backend/internal/domain/errors"
 )
 
 type authStub struct{ err error }
@@ -25,7 +26,7 @@ func (s authStub) Authenticate(_ context.Context, token string) (*entities.JobSe
 		return nil, s.err
 	}
 	if token != "valid-token" {
-		return nil, ports.ErrUnauthenticated
+		return nil, domainerrors.ErrUnauthenticated
 	}
 	return &entities.JobSeeker{ID: 42}, nil
 }

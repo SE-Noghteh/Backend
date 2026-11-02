@@ -2,7 +2,7 @@ basePath: /v1
 consumes:
 - application/json
 definitions:
-  entities.City:
+  enums.City:
     enum:
     - تهران
     - اصفهان
@@ -26,7 +26,7 @@ definitions:
     - CityAhvaz
     - CityRasht
     - CityYazd
-  entities.Gender:
+  enums.Gender:
     enum:
     - female
     - male
@@ -34,7 +34,7 @@ definitions:
     x-enum-varnames:
     - GenderFemale
     - GenderMale
-  entities.Interest:
+  enums.Interest:
     enum:
     - برنامه نویسی
     - طراحی
@@ -58,7 +58,13 @@ definitions:
     - InterestTeaching
     - InterestEngineering
     - InterestSupport
-  entities.JalaliDate:
+  general.ErrorResponse:
+    properties:
+      message:
+        example: invalid or expired OTP
+        type: string
+    type: object
+  general.JalaliDateRequest:
     properties:
       day:
         example: 1
@@ -79,6 +85,19 @@ definitions:
     - day
     - month
     - year
+    type: object
+  general.LoginRequest:
+    properties:
+      password:
+        example: choose-a-private-password
+        format: password
+        type: string
+      phone:
+        example: "09123456789"
+        type: string
+    required:
+    - password
+    - phone
     type: object
   general.LoginResponse:
     properties:
@@ -104,19 +123,13 @@ definitions:
         example: 60
         type: integer
     type: object
-  general.RequestOTPBody:
+  general.ResendOTPRequest:
     properties:
       phone:
         example: "09123456789"
         type: string
     required:
     - phone
-    type: object
-  general.SignupErrorResponse:
-    properties:
-      message:
-        example: invalid or expired OTP
-        type: string
     type: object
   general.SignupIdentity:
     properties:
@@ -139,59 +152,41 @@ definitions:
     properties:
       cities:
         items:
-          $ref: '#/definitions/entities.City'
+          $ref: '#/definitions/enums.City'
         type: array
       genders:
         items:
-          $ref: '#/definitions/entities.Gender'
+          $ref: '#/definitions/enums.Gender'
         type: array
       interests:
         items:
-          $ref: '#/definitions/entities.Interest'
+          $ref: '#/definitions/enums.Interest'
         type: array
     type: object
-  general.SignupResponse:
-    properties:
-      data:
-        $ref: '#/definitions/general.SignupIdentity'
-    type: object
-  usecase.LoginJobSeeker:
-    properties:
-      password:
-        example: choose-a-private-password
-        format: password
-        type: string
-      phone:
-        example: "09123456789"
-        type: string
-    required:
-    - password
-    - phone
-    type: object
-  usecase.SignupJobSeeker:
+  general.SignupRequest:
     properties:
       address:
         example: خیابان آزادی، پلاک ۱۰
         type: string
       birth_date:
-        $ref: '#/definitions/entities.JalaliDate'
+        $ref: '#/definitions/general.JalaliDateRequest'
       city:
         allOf:
-        - $ref: '#/definitions/entities.City'
+        - $ref: '#/definitions/enums.City'
         example: تهران
       first_name:
         example: علی
         type: string
       gender:
         allOf:
-        - $ref: '#/definitions/entities.Gender'
+        - $ref: '#/definitions/enums.Gender'
         example: male
       interests:
         example:
         - برنامه نویسی
         - طراحی
         items:
-          $ref: '#/definitions/entities.Interest'
+          $ref: '#/definitions/enums.Interest'
         type: array
       last_name:
         example: رضایی
@@ -222,7 +217,12 @@ definitions:
     - password
     - phone
     type: object
-  usecase.VerifySignupOTP:
+  general.SignupResponse:
+    properties:
+      data:
+        $ref: '#/definitions/general.SignupIdentity'
+    type: object
+  general.VerifyOTPRequest:
     properties:
       otp:
         example: "123456"
@@ -259,7 +259,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/usecase.LoginJobSeeker'
+          $ref: '#/definitions/general.LoginRequest'
       produces:
       - application/json
       responses:
@@ -270,19 +270,19 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/general.SignupErrorResponse'
+            $ref: '#/definitions/general.ErrorResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/general.SignupErrorResponse'
+            $ref: '#/definitions/general.ErrorResponse'
         "429":
           description: Too Many Requests
           schema:
-            $ref: '#/definitions/general.SignupErrorResponse'
+            $ref: '#/definitions/general.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/general.SignupErrorResponse'
+            $ref: '#/definitions/general.ErrorResponse'
       summary: Login with phone and password
       tags:
       - Job seeker authentication
@@ -297,11 +297,11 @@ paths:
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/general.SignupErrorResponse'
+            $ref: '#/definitions/general.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/general.SignupErrorResponse'
+            $ref: '#/definitions/general.ErrorResponse'
       security:
       - BearerAuth: []
       summary: Logout the current access token
@@ -321,11 +321,11 @@ paths:
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/general.SignupErrorResponse'
+            $ref: '#/definitions/general.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/general.SignupErrorResponse'
+            $ref: '#/definitions/general.ErrorResponse'
       security:
       - BearerAuth: []
       summary: Get the logged-in job seeker
@@ -344,7 +344,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/general.RequestOTPBody'
+          $ref: '#/definitions/general.ResendOTPRequest'
       produces:
       - application/json
       responses:
@@ -355,11 +355,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/general.SignupErrorResponse'
+            $ref: '#/definitions/general.ErrorResponse'
         "409":
           description: Conflict
           schema:
-            $ref: '#/definitions/general.SignupErrorResponse'
+            $ref: '#/definitions/general.ErrorResponse'
         "429":
           description: Too Many Requests
           headers:
@@ -367,15 +367,15 @@ paths:
               description: Seconds until retry
               type: string
           schema:
-            $ref: '#/definitions/general.SignupErrorResponse'
+            $ref: '#/definitions/general.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/general.SignupErrorResponse'
+            $ref: '#/definitions/general.ErrorResponse'
         "503":
           description: Service Unavailable
           schema:
-            $ref: '#/definitions/general.SignupErrorResponse'
+            $ref: '#/definitions/general.ErrorResponse'
       summary: Resend signup OTP
       tags:
       - Job seeker signup
@@ -394,7 +394,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/usecase.SignupJobSeeker'
+          $ref: '#/definitions/general.SignupRequest'
       produces:
       - application/json
       responses:
@@ -405,23 +405,23 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/general.SignupErrorResponse'
+            $ref: '#/definitions/general.ErrorResponse'
         "409":
           description: Conflict
           schema:
-            $ref: '#/definitions/general.SignupErrorResponse'
+            $ref: '#/definitions/general.ErrorResponse'
         "429":
           description: Too Many Requests
           schema:
-            $ref: '#/definitions/general.SignupErrorResponse'
+            $ref: '#/definitions/general.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/general.SignupErrorResponse'
+            $ref: '#/definitions/general.ErrorResponse'
         "503":
           description: Service Unavailable
           schema:
-            $ref: '#/definitions/general.SignupErrorResponse'
+            $ref: '#/definitions/general.ErrorResponse'
       summary: Start signup and automatically send OTP
       tags:
       - Job seeker signup
@@ -452,7 +452,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/usecase.VerifySignupOTP'
+          $ref: '#/definitions/general.VerifyOTPRequest'
       produces:
       - application/json
       responses:
@@ -463,19 +463,19 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/general.SignupErrorResponse'
+            $ref: '#/definitions/general.ErrorResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/general.SignupErrorResponse'
+            $ref: '#/definitions/general.ErrorResponse'
         "409":
           description: Conflict
           schema:
-            $ref: '#/definitions/general.SignupErrorResponse'
+            $ref: '#/definitions/general.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/general.SignupErrorResponse'
+            $ref: '#/definitions/general.ErrorResponse'
       summary: Verify OTP and complete signup
       tags:
       - Job seeker signup

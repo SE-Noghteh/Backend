@@ -7,7 +7,8 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	"zedlancer/backend/internal/domain/ports"
+
+	domainerrors "zedlancer/backend/internal/domain/errors"
 )
 
 func testJWTManager(t *testing.T) *JWTManager {
@@ -78,13 +79,13 @@ func TestJWTRejectsInvalidClaimsAndAlgorithms(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if _, err := m.VerifyAccessToken(token); !errors.Is(err, ports.ErrUnauthenticated) {
+			if _, err := m.VerifyAccessToken(token); !errors.Is(err, domainerrors.ErrUnauthenticated) {
 				t.Fatalf("accepted invalid token: %v", err)
 			}
 		})
 	}
 	for _, value := range []string{"", "garbage", strings.Repeat("a", 4097)} {
-		if _, err := m.VerifyAccessToken(value); !errors.Is(err, ports.ErrUnauthenticated) {
+		if _, err := m.VerifyAccessToken(value); !errors.Is(err, domainerrors.ErrUnauthenticated) {
 			t.Fatal("malformed token accepted")
 		}
 	}

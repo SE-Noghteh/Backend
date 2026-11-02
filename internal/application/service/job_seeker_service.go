@@ -12,6 +12,7 @@ import (
 
 	"zedlancer/backend/internal/application/usecase"
 	"zedlancer/backend/internal/domain/entities"
+	domainerrors "zedlancer/backend/internal/domain/errors"
 	"zedlancer/backend/internal/domain/ports"
 )
 
@@ -74,13 +75,14 @@ func (s *JobSeekerService) Signup(ctx context.Context, in usecase.SignupJobSeeke
 			return err
 		}
 		if exists {
-			return ports.ErrSignupConflict
+			return domainerrors.ErrSignupConflict
 		}
-		previous, err := repo.GetOTP(ctx, phone)
+		otpRepo := factory.SignupOTPRepository()
+		previous, err := otpRepo.GetOTP(ctx, phone)
 		if err != nil {
 			return err
 		}
-		return s.sendChallenge(ctx, repo, registration, previous)
+		return s.sendChallenge(ctx, otpRepo, registration, previous)
 	})
 }
 
@@ -95,14 +97,15 @@ func (s *JobSeekerService) RequestOTP(ctx context.Context, rawPhone string) erro
 		if err := repo.LockPhone(ctx, phone); err != nil {
 			return err
 		}
-		previous, err := repo.GetOTP(ctx, phone)
+		otpRepo := factory.SignupOTPRepository()
+		previous, err := otpRepo.GetOTP(ctx, phone)
 		if err != nil {
 			return err
 		}
 		if !pendingSignupValid(previous, time.Now().UTC()) {
-			return ports.ErrNoPendingSignup
+			return domainerrors.ErrNoPendingSignup
 		}
-		return s.sendChallenge(ctx, repo, previous.Registration, previous)
+		return s.sendChallenge(ctx, otpRepo, previous.Registration, previous)
 	})
 }
 
@@ -110,10 +113,10 @@ func pendingSignupValid(otp *entities.SignupOTP, now time.Time) bool {
 	return otp != nil && otp.Registration != nil && now.Before(otp.Registration.CreatedAt.Add(pendingSignupLifetime))
 }
 
-func (s *JobSeekerService) sendChallenge(ctx context.Context, repo ports.JobSeekerRepository, registration *entities.JobSeeker, previous *entities.SignupOTP) error {
+func (s *JobSeekerService) sendChallenge(ctx context.Context, repo ports.SignupOTPRepository, registration *entities.JobSeeker, previous *entities.SignupOTP) error {
 	now := time.Now().UTC()
 	if previous != nil && now.Sub(previous.SentAt) < otpResendDelay {
-		return ports.ErrOTPTooSoon
+		return domainerrors.ErrOTPTooSoon
 	}
 	number, err := rand.Int(rand.Reader, big.NewInt(1000000))
 	if err != nil {
@@ -136,7 +139,7 @@ func (s *JobSeekerService) sendChallenge(ctx context.Context, repo ports.JobSeek
 		return err
 	}
 	if err := s.sender.SendOTP(ctx, "98"+registration.Phone[1:], code); err != nil {
-		return ports.ErrSMSUnavailable
+		return domainerrors.ErrSMSUnavailable
 	}
 	return nil
 }
@@ -153,34 +156,35 @@ func (s *JobSeekerService) VerifyOTP(ctx context.Context, in usecase.VerifySignu
 		if err := repo.LockPhone(ctx, phone); err != nil {
 			return err
 		}
-		otp, err := repo.GetOTP(ctx, phone)
+		otpRepo := factory.SignupOTPRepository()
+		otp, err := otpRepo.GetOTP(ctx, phone)
 		if err != nil {
 			return err
 		}
 		now := time.Now().UTC()
 		if !pendingSignupValid(otp, now) || !now.Before(otp.ExpiresAt) || otp.Attempts >= maxOTPAttempts {
-			verificationErr = ports.ErrInvalidOTP
+			verificationErr = domainerrors.ErrInvalidOTP
 			return nil
 		}
 		actual := otpHash(otp.Salt, in.OTP)
 		if !codePattern.MatchString(in.OTP) || subtle.ConstantTimeCompare([]byte(actual), []byte(otp.CodeHash)) != 1 {
 			otp.Attempts++
-			verificationErr = ports.ErrInvalidOTP
-			return repo.SaveOTP(ctx, otp) // Commit failed attempts rather than rolling them back.
+			verificationErr = domainerrors.ErrInvalidOTP
+			return otpRepo.SaveOTP(ctx, otp) // Commit failed attempts rather than rolling them back.
 		}
 		exists, err := repo.Exists(ctx, phone, otp.Registration.NationalCode)
 		if err != nil {
 			return err
 		}
 		if exists {
-			return ports.ErrSignupConflict
+			return domainerrors.ErrSignupConflict
 		}
 		result = otp.Registration
 		result.PhoneVerifiedAt, result.CreatedAt = now, now
 		if err := repo.Create(ctx, result); err != nil {
 			return err
 		}
-		return repo.DeleteOTP(ctx, phone)
+		return otpRepo.DeleteOTP(ctx, phone)
 	})
 	if err != nil {
 		return nil, err

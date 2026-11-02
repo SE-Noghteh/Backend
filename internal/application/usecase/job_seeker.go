@@ -2,25 +2,28 @@ package usecase
 
 import (
 	"context"
+
 	"zedlancer/backend/internal/domain/entities"
+	"zedlancer/backend/internal/domain/enums"
+	"zedlancer/backend/internal/domain/valueobjects"
 )
 
 type SignupJobSeeker struct {
-	FirstName    string              `json:"first_name" example:"علی" validate:"required"`
-	LastName     string              `json:"last_name" example:"رضایی" validate:"required"`
-	NationalCode string              `json:"national_code" example:"0013547895" validate:"required" minLength:"10" maxLength:"10"`
-	City         entities.City       `json:"city" example:"تهران" validate:"required"`
-	Address      string              `json:"address" example:"خیابان آزادی، پلاک ۱۰" validate:"required"`
-	BirthDate    entities.JalaliDate `json:"birth_date" validate:"required"`
-	Gender       entities.Gender     `json:"gender" example:"male" validate:"required"`
-	Interests    []entities.Interest `json:"interests" example:"برنامه نویسی,طراحی" validate:"required" minItems:"1" maxItems:"10" uniqueItems:"true"`
-	Phone        string              `json:"phone" example:"09123456789" validate:"required"`
-	Password     string              `json:"password" example:"choose-a-private-password" validate:"required" minLength:"8" maxLength:"72" format:"password"`
+	FirstName    string
+	LastName     string
+	NationalCode string
+	City         enums.City
+	Address      string
+	BirthDate    valueobjects.JalaliDate
+	Gender       enums.Gender
+	Interests    []enums.Interest
+	Phone        string
+	Password     string
 }
 
 type VerifySignupOTP struct {
-	Phone string `json:"phone" example:"09123456789" validate:"required"`
-	OTP   string `json:"otp" example:"123456" validate:"required" minLength:"6" maxLength:"6"`
+	Phone string
+	OTP   string
 }
 
 type JobSeekerService interface {

@@ -42,7 +42,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/usecase.LoginJobSeeker"
+                            "$ref": "#/definitions/general.LoginRequest"
                         }
                     }
                 ],
@@ -56,25 +56,25 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/general.SignupErrorResponse"
+                            "$ref": "#/definitions/general.ErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/general.SignupErrorResponse"
+                            "$ref": "#/definitions/general.ErrorResponse"
                         }
                     },
                     "429": {
                         "description": "Too Many Requests",
                         "schema": {
-                            "$ref": "#/definitions/general.SignupErrorResponse"
+                            "$ref": "#/definitions/general.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/general.SignupErrorResponse"
+                            "$ref": "#/definitions/general.ErrorResponse"
                         }
                     }
                 }
@@ -99,13 +99,13 @@ const docTemplate = `{
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/general.SignupErrorResponse"
+                            "$ref": "#/definitions/general.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/general.SignupErrorResponse"
+                            "$ref": "#/definitions/general.ErrorResponse"
                         }
                     }
                 }
@@ -136,13 +136,13 @@ const docTemplate = `{
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/general.SignupErrorResponse"
+                            "$ref": "#/definitions/general.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/general.SignupErrorResponse"
+                            "$ref": "#/definitions/general.ErrorResponse"
                         }
                     }
                 }
@@ -168,7 +168,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/general.RequestOTPBody"
+                            "$ref": "#/definitions/general.ResendOTPRequest"
                         }
                     }
                 ],
@@ -182,19 +182,19 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/general.SignupErrorResponse"
+                            "$ref": "#/definitions/general.ErrorResponse"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/general.SignupErrorResponse"
+                            "$ref": "#/definitions/general.ErrorResponse"
                         }
                     },
                     "429": {
                         "description": "Too Many Requests",
                         "schema": {
-                            "$ref": "#/definitions/general.SignupErrorResponse"
+                            "$ref": "#/definitions/general.ErrorResponse"
                         },
                         "headers": {
                             "Retry-After": {
@@ -206,13 +206,13 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/general.SignupErrorResponse"
+                            "$ref": "#/definitions/general.ErrorResponse"
                         }
                     },
                     "503": {
                         "description": "Service Unavailable",
                         "schema": {
-                            "$ref": "#/definitions/general.SignupErrorResponse"
+                            "$ref": "#/definitions/general.ErrorResponse"
                         }
                     }
                 }
@@ -238,7 +238,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/usecase.SignupJobSeeker"
+                            "$ref": "#/definitions/general.SignupRequest"
                         }
                     }
                 ],
@@ -252,31 +252,31 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/general.SignupErrorResponse"
+                            "$ref": "#/definitions/general.ErrorResponse"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/general.SignupErrorResponse"
+                            "$ref": "#/definitions/general.ErrorResponse"
                         }
                     },
                     "429": {
                         "description": "Too Many Requests",
                         "schema": {
-                            "$ref": "#/definitions/general.SignupErrorResponse"
+                            "$ref": "#/definitions/general.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/general.SignupErrorResponse"
+                            "$ref": "#/definitions/general.ErrorResponse"
                         }
                     },
                     "503": {
                         "description": "Service Unavailable",
                         "schema": {
-                            "$ref": "#/definitions/general.SignupErrorResponse"
+                            "$ref": "#/definitions/general.ErrorResponse"
                         }
                     }
                 }
@@ -322,7 +322,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/usecase.VerifySignupOTP"
+                            "$ref": "#/definitions/general.VerifyOTPRequest"
                         }
                     }
                 ],
@@ -336,25 +336,25 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/general.SignupErrorResponse"
+                            "$ref": "#/definitions/general.ErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/general.SignupErrorResponse"
+                            "$ref": "#/definitions/general.ErrorResponse"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/general.SignupErrorResponse"
+                            "$ref": "#/definitions/general.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/general.SignupErrorResponse"
+                            "$ref": "#/definitions/general.ErrorResponse"
                         }
                     }
                 }
@@ -362,7 +362,7 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "entities.City": {
+        "enums.City": {
             "type": "string",
             "enum": [
                 "تهران",
@@ -389,7 +389,7 @@ const docTemplate = `{
                 "CityYazd"
             ]
         },
-        "entities.Gender": {
+        "enums.Gender": {
             "type": "string",
             "enum": [
                 "female",
@@ -400,7 +400,7 @@ const docTemplate = `{
                 "GenderMale"
             ]
         },
-        "entities.Interest": {
+        "enums.Interest": {
             "type": "string",
             "enum": [
                 "برنامه نویسی",
@@ -427,7 +427,16 @@ const docTemplate = `{
                 "InterestSupport"
             ]
         },
-        "entities.JalaliDate": {
+        "general.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string",
+                    "example": "invalid or expired OTP"
+                }
+            }
+        },
+        "general.JalaliDateRequest": {
             "type": "object",
             "required": [
                 "day",
@@ -452,6 +461,24 @@ const docTemplate = `{
                     "maximum": 3176,
                     "minimum": 1,
                     "example": 1380
+                }
+            }
+        },
+        "general.LoginRequest": {
+            "type": "object",
+            "required": [
+                "password",
+                "phone"
+            ],
+            "properties": {
+                "password": {
+                    "type": "string",
+                    "format": "password",
+                    "example": "choose-a-private-password"
+                },
+                "phone": {
+                    "type": "string",
+                    "example": "09123456789"
                 }
             }
         },
@@ -490,7 +517,7 @@ const docTemplate = `{
                 }
             }
         },
-        "general.RequestOTPBody": {
+        "general.ResendOTPRequest": {
             "type": "object",
             "required": [
                 "phone"
@@ -499,15 +526,6 @@ const docTemplate = `{
                 "phone": {
                     "type": "string",
                     "example": "09123456789"
-                }
-            }
-        },
-        "general.SignupErrorResponse": {
-            "type": "object",
-            "properties": {
-                "message": {
-                    "type": "string",
-                    "example": "invalid or expired OTP"
                 }
             }
         },
@@ -541,50 +559,24 @@ const docTemplate = `{
                 "cities": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/entities.City"
+                        "$ref": "#/definitions/enums.City"
                     }
                 },
                 "genders": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/entities.Gender"
+                        "$ref": "#/definitions/enums.Gender"
                     }
                 },
                 "interests": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/entities.Interest"
+                        "$ref": "#/definitions/enums.Interest"
                     }
                 }
             }
         },
-        "general.SignupResponse": {
-            "type": "object",
-            "properties": {
-                "data": {
-                    "$ref": "#/definitions/general.SignupIdentity"
-                }
-            }
-        },
-        "usecase.LoginJobSeeker": {
-            "type": "object",
-            "required": [
-                "password",
-                "phone"
-            ],
-            "properties": {
-                "password": {
-                    "type": "string",
-                    "format": "password",
-                    "example": "choose-a-private-password"
-                },
-                "phone": {
-                    "type": "string",
-                    "example": "09123456789"
-                }
-            }
-        },
-        "usecase.SignupJobSeeker": {
+        "general.SignupRequest": {
             "type": "object",
             "required": [
                 "address",
@@ -604,12 +596,12 @@ const docTemplate = `{
                     "example": "خیابان آزادی، پلاک ۱۰"
                 },
                 "birth_date": {
-                    "$ref": "#/definitions/entities.JalaliDate"
+                    "$ref": "#/definitions/general.JalaliDateRequest"
                 },
                 "city": {
                     "allOf": [
                         {
-                            "$ref": "#/definitions/entities.City"
+                            "$ref": "#/definitions/enums.City"
                         }
                     ],
                     "example": "تهران"
@@ -621,7 +613,7 @@ const docTemplate = `{
                 "gender": {
                     "allOf": [
                         {
-                            "$ref": "#/definitions/entities.Gender"
+                            "$ref": "#/definitions/enums.Gender"
                         }
                     ],
                     "example": "male"
@@ -629,7 +621,7 @@ const docTemplate = `{
                 "interests": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/entities.Interest"
+                        "$ref": "#/definitions/enums.Interest"
                     },
                     "example": [
                         "برنامه نویسی",
@@ -659,7 +651,15 @@ const docTemplate = `{
                 }
             }
         },
-        "usecase.VerifySignupOTP": {
+        "general.SignupResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/general.SignupIdentity"
+                }
+            }
+        },
+        "general.VerifyOTPRequest": {
             "type": "object",
             "required": [
                 "otp",
