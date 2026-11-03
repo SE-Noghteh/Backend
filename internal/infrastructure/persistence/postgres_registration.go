@@ -3,7 +3,6 @@ package persistence
 import (
 	"fmt"
 	"zedlancer/backend/bootstrap"
-	"zedlancer/backend/internal/domain/entities"
 	"sync"
 
 	"gorm.io/driver/postgres"
@@ -36,7 +35,7 @@ func NewPostgresDatabase() *gorm.DB {
 		// seeder.ClearAll()
 
 		if err := db.AutoMigrate(
-			&entities.User{},
+			// &entities.User{},
 		); err != nil {
 			panic(err)
 		}
