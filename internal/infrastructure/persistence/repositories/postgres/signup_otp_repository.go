@@ -32,10 +32,12 @@ func (r *SignupOTPRepository) GetOTP(ctx context.Context, phone string) (*entiti
 			return nil, err
 		}
 	}
-	return &entities.SignupOTP{Phone: model.Phone, Salt: model.Salt, CodeHash: model.CodeHash, Attempts: model.Attempts, SentAt: model.SentAt, ExpiresAt: model.ExpiresAt, Registration: registration}, nil
+	otp := signupOTPFromFields(model.OTPChallengeModel)
+	otp.Registration = registration
+	return otp, nil
 }
 func (r *SignupOTPRepository) SaveOTP(ctx context.Context, otp *entities.SignupOTP) error {
-	model := models.SignupOTPModel{Phone: otp.Phone, Salt: otp.Salt, CodeHash: otp.CodeHash, Attempts: otp.Attempts, SentAt: otp.SentAt, ExpiresAt: otp.ExpiresAt}
+	model := models.SignupOTPModel{OTPChallengeModel: signupOTPFields(otp)}
 	if otp.Registration != nil {
 		model.Registration = jobSeekerToModel(otp.Registration)
 	}

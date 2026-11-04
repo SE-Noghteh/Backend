@@ -41,7 +41,16 @@ func NewPostgresDatabase() *gorm.DB {
 			&models.SignupOTPModel{},
 			&models.LoginAttemptModel{},
 			&models.RevokedAccessTokenModel{},
+			&models.EmployerModel{},
+			&models.IndividualEmployerModel{},
+			&models.LegalEmployerModel{},
+			&models.EmployerSignupOTPModel{},
+			&models.LegalEmployerSignupOTPModel{},
+			&models.EmployerLoginAttemptModel{},
 		); err != nil {
+			panic(err)
+		}
+		if err := migrateLegacyEmployerTerms(db); err != nil {
 			panic(err)
 		}
 

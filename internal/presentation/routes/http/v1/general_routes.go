@@ -2,11 +2,32 @@ package httpv1
 
 import (
 	"github.com/gin-gonic/gin"
+
 	"zedlancer/backend/internal/presentation/middleware"
 	"zedlancer/backend/wire"
 )
 
 func SetUpGeneralRoutes(v1 *gin.RouterGroup, app *wire.Application) {
+	legalEmployers := v1.Group("/legal-employers")
+	legalController := app.Controllers.GeneralControllers.LegalEmployerController
+	legalEmployers.GET("/signup-options", legalController.Options)
+	legalEmployers.POST("/signup", legalController.Signup)
+	legalEmployers.POST("/otp", legalController.RequestOTP)
+	legalEmployers.POST("/verify-otp", legalController.VerifyOTP)
+	legalEmployers.POST("/login", legalController.Login)
+	legalEmployers.POST("/logout", legalController.Logout)
+	legalEmployers.GET("/me", legalController.Me)
+	legalEmployers.GET("/documents/:kind", legalController.DocumentURL)
+	employers := v1.Group("/individual-employers")
+	employerController := app.Controllers.GeneralControllers.IndividualEmployerController
+	employers.GET("/signup-options", employerController.Options)
+	employers.POST("/otp", employerController.RequestOTP)
+	employers.POST("/signup", employerController.Signup)
+	employers.POST("/verify-otp", employerController.VerifyOTP)
+	employers.POST("/login", employerController.Login)
+	employers.POST("/logout", employerController.Logout)
+	employers.GET("/me", employerController.Me)
+	employers.GET("/documents/:kind", employerController.DocumentURL)
 	jobSeekers := v1.Group("/job-seekers")
 	controller := app.Controllers.GeneralControllers.JobSeekerController
 	jobSeekers.GET("/signup-options", controller.Options)

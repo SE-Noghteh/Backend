@@ -38,9 +38,13 @@ func identityFromJobSeeker(seeker *entities.JobSeeker) SignupIdentity {
 	return SignupIdentity{ID: seeker.ID, FirstName: seeker.FirstName, LastName: seeker.LastName, Phone: seeker.Phone, CreatedAt: seeker.CreatedAt}
 }
 
+type AccessTokenResponse struct {
+	AccessToken string    `json:"access_token"`
+	TokenType   string    `json:"token_type" example:"Bearer"`
+	ExpiresAt   time.Time `json:"expires_at"`
+}
+
 type LoginResponse struct {
-	AccessToken string         `json:"access_token"`
-	TokenType   string         `json:"token_type" example:"Bearer"`
-	ExpiresAt   time.Time      `json:"expires_at"`
-	Data        SignupIdentity `json:"data"`
+	AccessTokenResponse
+	Data SignupIdentity `json:"data"`
 }

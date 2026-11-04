@@ -51,7 +51,7 @@ window.onload = function () {
     deepLinking: true,
     defaultModelsExpandDepth: -1,
     requestInterceptor: function (request) {
-      if (endpoint(request.url).startsWith("/v1/job-seekers/")) {
+      if (/^\/v1\/(job-seekers|individual-employers|legal-employers)\//.test(endpoint(request.url))) {
         for (const name of Object.keys(request.headers || {})) {
           if (name.toLowerCase() === "authorization" && request.headers[name]) {
             request.headers[name] = bearer(request.headers[name]);
@@ -62,17 +62,17 @@ window.onload = function () {
     },
     responseInterceptor: function (response) {
       const path = endpoint(response.url);
-      if (path === "/v1/job-seekers/login" && response.status === 200) {
+      if (/^(\/v1\/(job-seekers|individual-employers|legal-employers)\/login)$/.test(path) && response.status === 200) {
         const body = response.obj || JSON.parse(response.text);
         if (typeof body.access_token === "string" && body.access_token) {
           window.ui.preauthorizeApiKey("BearerAuth", bearer(body.access_token));
           window.ui.authActions.persistAuthorizationIfNeeded();
         }
       }
-      if (path === "/v1/job-seekers/logout" && response.status === 204) {
+      if (/^(\/v1\/(job-seekers|individual-employers|legal-employers)\/logout)$/.test(path) && response.status === 204) {
         clearAuthorization();
       }
-      if ((path === "/v1/job-seekers/me" || path === "/v1/job-seekers/logout") && response.status === 401) {
+      if (/^\/v1\/(job-seekers|individual-employers|legal-employers)\/(me|logout|documents\/[^/]+)$/.test(path) && response.status === 401) {
         clearAuthorization();
       }
       return response;

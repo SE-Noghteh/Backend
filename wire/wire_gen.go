@@ -12,9 +12,11 @@ import (
 	"zedlancer/backend/internal/application/service"
 	"zedlancer/backend/internal/application/usecase"
 	"zedlancer/backend/internal/domain/ports"
+	"zedlancer/backend/internal/infrastructure/media"
 	"zedlancer/backend/internal/infrastructure/persistence"
 	"zedlancer/backend/internal/infrastructure/security"
 	"zedlancer/backend/internal/infrastructure/sms"
+	"zedlancer/backend/internal/infrastructure/storage"
 	"zedlancer/backend/internal/presentation/controllers/v1/general"
 )
 
@@ -23,6 +25,7 @@ import (
 func InitializeApplication(container *bootstrap.Config) (*Application, error) {
 	db := persistence.NewPostgresDatabase()
 	unitOfWork := persistence.NewUnitOfWork(db)
+	ferzzSender := sms.NewFerzzSender()
 	bcryptPasswordHasher, err := security.NewBcryptPasswordHasher()
 	if err != nil {
 		return nil, err
@@ -31,17 +34,27 @@ func InitializeApplication(container *bootstrap.Config) (*Application, error) {
 	if err != nil {
 		return nil, err
 	}
+	s3Storage, err := storage.NewS3Storage()
+	if err != nil {
+		return nil, err
+	}
+	validator := media.NewValidator()
+	legalEmployerService := service.NewLegalEmployerService(unitOfWork, ferzzSender, bcryptPasswordHasher, jwtManager, s3Storage, validator)
+	legalEmployerController := general.NewLegalEmployerController(legalEmployerService)
+	individualEmployerService := service.NewIndividualEmployerService(unitOfWork, ferzzSender, bcryptPasswordHasher, jwtManager, s3Storage, validator)
+	individualEmployerController := general.NewIndividualEmployerController(individualEmployerService)
 	jobSeekerAuthService := service.NewJobSeekerAuthService(unitOfWork, bcryptPasswordHasher, jwtManager)
 	jobSeekerAuthController := general.NewJobSeekerAuthController(jobSeekerAuthService)
-	ferzzSender := sms.NewFerzzSender()
 	jobSeekerService := service.NewJobSeekerService(unitOfWork, ferzzSender, bcryptPasswordHasher)
 	jobSeekerController := general.NewJobSeekerController(jobSeekerService)
 	userService := service.NewUserService(unitOfWork)
 	generalUserController := general.NewGeneralUserController(userService)
 	generalControllers := &GeneralControllers{
-		JobSeekerAuthController: jobSeekerAuthController,
-		JobSeekerController:     jobSeekerController,
-		GeneralUserController:   generalUserController,
+		LegalEmployerController:      legalEmployerController,
+		IndividualEmployerController: individualEmployerController,
+		JobSeekerAuthController:      jobSeekerAuthController,
+		JobSeekerController:          jobSeekerController,
+		GeneralUserController:        generalUserController,
 	}
 	controllers := &Controllers{
 		GeneralControllers: generalControllers,
@@ -54,9 +67,9 @@ func InitializeApplication(container *bootstrap.Config) (*Application, error) {
 
 var RepositoryProviderSet = wire.NewSet(persistence.NewRepositoryFactory, persistence.NewUnitOfWork, persistence.NewPostgresDatabase, wire.Bind(new(ports.RepositoryFactory), new(*persistence.RepositoryFactory)), wire.Bind(new(ports.UnitOfWork), new(*persistence.UnitOfWork)))
 
-var ServiceProviderSet = wire.NewSet(security.NewBcryptPasswordHasher, security.ProvideJWTManager, service.NewJobSeekerAuthService, wire.Bind(new(ports.PasswordHasher), new(*security.BcryptPasswordHasher)), wire.Bind(new(ports.TokenManager), new(*security.JWTManager)), wire.Bind(new(usecase.JobSeekerAuthService), new(*service.JobSeekerAuthService)), service.NewJobSeekerService, sms.NewFerzzSender, wire.Bind(new(ports.OTPSender), new(*sms.FerzzSender)), wire.Bind(new(usecase.JobSeekerService), new(*service.JobSeekerService)), service.NewUserService, wire.Bind(new(usecase.UserService), new(*service.UserService)))
+var ServiceProviderSet = wire.NewSet(storage.NewS3Storage, media.NewValidator, service.NewIndividualEmployerService, service.NewLegalEmployerService, wire.Bind(new(usecase.LegalEmployerService), new(*service.LegalEmployerService)), wire.Bind(new(ports.Storage), new(*storage.S3Storage)), wire.Bind(new(ports.MediaValidator), new(*media.Validator)), wire.Bind(new(usecase.IndividualEmployerService), new(*service.IndividualEmployerService)), security.NewBcryptPasswordHasher, security.ProvideJWTManager, service.NewJobSeekerAuthService, wire.Bind(new(ports.PasswordHasher), new(*security.BcryptPasswordHasher)), wire.Bind(new(ports.TokenManager), new(*security.JWTManager)), wire.Bind(new(usecase.JobSeekerAuthService), new(*service.JobSeekerAuthService)), service.NewJobSeekerService, sms.NewFerzzSender, wire.Bind(new(ports.OTPSender), new(*sms.FerzzSender)), wire.Bind(new(usecase.JobSeekerService), new(*service.JobSeekerService)), service.NewUserService, wire.Bind(new(usecase.UserService), new(*service.UserService)))
 
-var GeneralControllersProviderSet = wire.NewSet(general.NewJobSeekerAuthController, general.NewJobSeekerController, general.NewGeneralUserController, wire.Struct(new(GeneralControllers), "*"))
+var GeneralControllersProviderSet = wire.NewSet(general.NewIndividualEmployerController, general.NewLegalEmployerController, general.NewJobSeekerAuthController, general.NewJobSeekerController, general.NewGeneralUserController, wire.Struct(new(GeneralControllers), "*"))
 
 var ControllersProviderSet = wire.NewSet(wire.Struct(new(Controllers), "*"))
 
@@ -68,9 +81,11 @@ var ProviderSet = wire.NewSet(
 )
 
 type GeneralControllers struct {
-	JobSeekerAuthController *general.JobSeekerAuthController
-	JobSeekerController     *general.JobSeekerController
-	GeneralUserController   *general.GeneralUserController
+	LegalEmployerController      *general.LegalEmployerController
+	IndividualEmployerController *general.IndividualEmployerController
+	JobSeekerAuthController      *general.JobSeekerAuthController
+	JobSeekerController          *general.JobSeekerController
+	GeneralUserController        *general.GeneralUserController
 }
 
 type Controllers struct {

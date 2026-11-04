@@ -14,6 +14,552 @@
     },
     "basePath": "/v1",
     "paths": {
+        "/individual-employers/documents/{kind}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "The signed link expires in five minutes. No public S3 URLs or credentials are exposed.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Individual employer"
+                ],
+                "summary": "Get private download link for your own employer document",
+                "parameters": [
+                    {
+                        "enum": [
+                            "identity",
+                            "business-license",
+                            "video"
+                        ],
+                        "type": "string",
+                        "description": "Document kind",
+                        "name": "kind",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/general.DocumentURLResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/individual-employers/login": {
+            "post": {
+                "description": "Returns an individual_employer JWT; job seeker tokens cannot access employer endpoints. Five failed attempts in 15 minutes trigger lockout. Pending-review employers can login; document review is a separate administrative process.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Individual employer"
+                ],
+                "summary": "Login individual employer using phone and password",
+                "parameters": [
+                    {
+                        "description": "Phone and password",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/general.LoginRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/general.IndividualEmployerLoginResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/individual-employers/logout": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "Individual employer"
+                ],
+                "summary": "Logout current individual employer token",
+                "responses": {
+                    "204": {
+                        "description": "Logged out"
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/individual-employers/me": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Individual employer"
+                ],
+                "summary": "Get authenticated individual employer identity",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/general.IndividualEmployerResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/individual-employers/otp": {
+            "post": {
+                "description": "Requires a complete pending signup submitted within the last 30 minutes. Signup sends the first code automatically. Resends a real SMS after a 60-second cooldown; the code expires in 5 minutes.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Individual employer"
+                ],
+                "summary": "Resend individual employer verification OTP",
+                "parameters": [
+                    {
+                        "description": "Phone number",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/general.ResendOTPRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Accepted",
+                        "schema": {
+                            "$ref": "#/definitions/general.OTPResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/individual-employers/signup": {
+            "post": {
+                "description": "Validates and saves the complete multipart submission and private files, then sends OTP automatically. Returns 202; no employer account exists until verify-otp succeeds. Pending signup lasts 30 minutes. Business fields, email and business license are optional. Password requires 12-72 bytes with uppercase, lowercase, number, symbol. Documents: PDF/PNG/JPEG up to 5 MiB each. Video: MP4/MOV, 30-60 seconds, up to 50 MiB. Requires configured S3 and ffprobe.",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Individual employer"
+                ],
+                "summary": "Submit employer information and automatically send verification OTP",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "First name",
+                        "name": "first_name",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Last name",
+                        "name": "last_name",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Father name",
+                        "name": "father_name",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Ten-digit national code with valid checksum",
+                        "name": "national_code",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "enum": [
+                            "female",
+                            "male"
+                        ],
+                        "type": "string",
+                        "description": "Gender",
+                        "name": "gender",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1370,
+                        "description": "Jalali year",
+                        "name": "birth_year",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Jalali month",
+                        "name": "birth_month",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Jalali day",
+                        "name": "birth_day",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Province from signup-options",
+                        "name": "province",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "City belonging to selected province",
+                        "name": "city",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Full residence address",
+                        "name": "address",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Ten-digit postal code",
+                        "name": "postal_code",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Business or trade name",
+                        "name": "business_name",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Business activity",
+                        "name": "business_activity",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "HTTP or HTTPS website/social page URL",
+                        "name": "website",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Has legal guardian",
+                        "name": "has_legal_guardian",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Phone to receive verification OTP",
+                        "name": "phone",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Email address",
+                        "name": "email",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Password (12-72 bytes)",
+                        "name": "password",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "First page of identity document (PDF/PNG/JPEG, \u003c=5 MiB)",
+                        "name": "identity_document",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "Optional business license (PDF/PNG/JPEG, \u003c=5 MiB)",
+                        "name": "business_license",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "file",
+                        "description": "Identity video (MP4/MOV, 30-60 seconds, \u003c=50 MiB)",
+                        "name": "verification_video",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Accepted",
+                        "schema": {
+                            "$ref": "#/definitions/general.OTPResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "413": {
+                        "description": "Request Entity Too Large",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/individual-employers/signup-options": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Individual employer"
+                ],
+                "summary": "Get individual employer signup choices",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/individual-employers/verify-otp": {
+            "post": {
+                "description": "Checks phone and code against the stored submission. Creates the shared employer and individual profile atomically and consumes the OTP. Does not require re-uploading files. Login is available after successful verification.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Individual employer"
+                ],
+                "summary": "Verify individual employer and complete signup",
+                "parameters": [
+                    {
+                        "description": "Phone and received OTP",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/general.VerifyOTPRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/general.IndividualEmployerResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/job-seekers/login": {
             "post": {
                 "description": "Requires a verified account. Returns an expiring JWT. Swagger automatically authorizes subsequent requests after successful login. Other clients must send Authorization: Bearer \u003caccess_token\u003e. Five failed attempts per phone within 15 minutes block further login attempts until the window ends.",
@@ -351,6 +897,597 @@
                     }
                 }
             }
+        },
+        "/legal-employers/documents/{kind}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "The signed link expires in five minutes. No public S3 URLs or credentials are exposed.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Legal employer"
+                ],
+                "summary": "Get private download link for your own employer document",
+                "parameters": [
+                    {
+                        "enum": [
+                            "establishment",
+                            "identity",
+                            "activity-license",
+                            "authorization",
+                            "video"
+                        ],
+                        "type": "string",
+                        "description": "Document kind",
+                        "name": "kind",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/general.DocumentURLResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/legal-employers/login": {
+            "post": {
+                "description": "Returns an legal_employer JWT; job seeker tokens cannot access employer endpoints. Five failed attempts in 15 minutes trigger lockout. Pending-review employers can login; document review is a separate administrative process.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Legal employer"
+                ],
+                "summary": "Login legal employer using phone and password",
+                "parameters": [
+                    {
+                        "description": "Phone and password",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/general.LoginRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/general.LegalEmployerLoginResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/legal-employers/logout": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "Legal employer"
+                ],
+                "summary": "Logout current legal employer token",
+                "responses": {
+                    "204": {
+                        "description": "Logged out"
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/legal-employers/me": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Legal employer"
+                ],
+                "summary": "Get authenticated legal employer identity",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/general.LegalEmployerResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/legal-employers/otp": {
+            "post": {
+                "description": "Requires a complete pending signup submitted within the last 30 minutes. Signup sends the first code automatically. Resends a real SMS after a 60-second cooldown; the code expires in 5 minutes.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Legal employer"
+                ],
+                "summary": "Resend legal employer verification OTP",
+                "parameters": [
+                    {
+                        "description": "Phone number",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/general.ResendOTPRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Accepted",
+                        "schema": {
+                            "$ref": "#/definitions/general.OTPResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/legal-employers/signup": {
+            "post": {
+                "description": "Validates and saves the complete multipart submission and private files, then sends OTP automatically. Returns 202; no employer account exists until verify-otp succeeds. Pending signup lasts 30 minutes. Email and website are optional. Select activities from signup-options. Activity license is required when requires_activity_license is true. An attorney must upload authorization_document. Company identifier format is checked; official company and representative authority verification remains pending review. Password requires 12-72 bytes with uppercase, lowercase, number, symbol. Documents: PDF/PNG/JPEG up to 5 MiB each. Video: MP4/MOV, 30-60 seconds, up to 50 MiB. Requires configured S3 and ffprobe.",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Legal employer"
+                ],
+                "summary": "Submit employer information and automatically send verification OTP",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Registered company or organization name",
+                        "name": "company_name",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "enum": [
+                            "limited_liability",
+                            "private_joint_stock",
+                            "public_joint_stock",
+                            "cooperative",
+                            "institution",
+                            "organization"
+                        ],
+                        "type": "string",
+                        "description": "Legal entity type",
+                        "name": "legal_entity_type",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Eleven-digit company national identifier",
+                        "name": "company_national_id",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Registration number (1-30 digits)",
+                        "name": "registration_number",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Twelve-digit economic code",
+                        "name": "economic_code",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Province from signup-options",
+                        "name": "province",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "City belonging to selected province",
+                        "name": "city",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Registered office address",
+                        "name": "address",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Ten-digit postal code",
+                        "name": "postal_code",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Representative first name",
+                        "name": "representative_first_name",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Representative last name",
+                        "name": "representative_last_name",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "enum": [
+                            "ceo",
+                            "authorized_signatory",
+                            "attorney"
+                        ],
+                        "type": "string",
+                        "description": "Representative authority; attorney requires authorization_document",
+                        "name": "representative_position",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "enum": [
+                            "female",
+                            "male"
+                        ],
+                        "type": "string",
+                        "description": "Representative gender",
+                        "name": "representative_gender",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Representative ten-digit national code with valid checksum",
+                        "name": "representative_national_code",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Organization has a tax file",
+                        "name": "has_tax_file",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "collectionFormat": "multi",
+                        "description": "Select 1-10 distinct activity areas from signup-options; repeat this form key for each choice",
+                        "name": "activities",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "HTTP or HTTPS website/social page URL",
+                        "name": "website",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Whether the organization's activity requires a license; requires activity_license when true",
+                        "name": "requires_activity_license",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Representative phone to receive verification OTP",
+                        "name": "phone",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Email address",
+                        "name": "email",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Password: 12-72 bytes, uppercase, lowercase, digit and symbol",
+                        "name": "password",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "Establishment notice or official gazette (PDF/PNG/JPEG, \u003c=5 MiB)",
+                        "name": "establishment_document",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "Representative first page of identity document (PDF/PNG/JPEG, \u003c=5 MiB)",
+                        "name": "identity_document",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "License; required when requires_activity_license=true (PDF/PNG/JPEG, \u003c=5 MiB)",
+                        "name": "activity_license",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "file",
+                        "description": "Power of attorney; required for attorney position (PDF/PNG/JPEG, \u003c=5 MiB)",
+                        "name": "authorization_document",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "file",
+                        "description": "Representative identity video (MP4/MOV, 30-60 seconds, \u003c=50 MiB)",
+                        "name": "verification_video",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Accepted",
+                        "schema": {
+                            "$ref": "#/definitions/general.OTPResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "413": {
+                        "description": "Request Entity Too Large",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/legal-employers/signup-options": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Legal employer"
+                ],
+                "summary": "Get legal employer signup choices",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/legal-employers/verify-otp": {
+            "post": {
+                "description": "Checks phone and code against the stored submission. Creates the shared employer and legal profile atomically and consumes the OTP. Does not require re-uploading files. Login is available after successful verification.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Legal employer"
+                ],
+                "summary": "Verify legal employer and complete signup",
+                "parameters": [
+                    {
+                        "description": "Phone and received OTP",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/general.VerifyOTPRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/general.LegalEmployerResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -379,6 +1516,30 @@
                 "CityAhvaz",
                 "CityRasht",
                 "CityYazd"
+            ]
+        },
+        "enums.EmployerReviewStatus": {
+            "type": "string",
+            "enum": [
+                "pending_review",
+                "approved",
+                "rejected"
+            ],
+            "x-enum-varnames": [
+                "EmployerPendingReview",
+                "EmployerApproved",
+                "EmployerRejected"
+            ]
+        },
+        "enums.EmployerType": {
+            "type": "string",
+            "enum": [
+                "individual",
+                "legal"
+            ],
+            "x-enum-varnames": [
+                "EmployerIndividual",
+                "EmployerLegal"
             ]
         },
         "enums.Gender": {
@@ -419,12 +1580,139 @@
                 "InterestSupport"
             ]
         },
+        "enums.LegalEntityType": {
+            "type": "string",
+            "enum": [
+                "limited_liability",
+                "private_joint_stock",
+                "public_joint_stock",
+                "cooperative",
+                "institution",
+                "organization"
+            ],
+            "x-enum-varnames": [
+                "LegalLimitedLiability",
+                "LegalPrivateJointStock",
+                "LegalPublicJointStock",
+                "LegalCooperative",
+                "LegalInstitution",
+                "LegalOrganization"
+            ]
+        },
+        "enums.Province": {
+            "type": "string",
+            "enum": [
+                "تهران",
+                "اصفهان",
+                "خراسان رضوی",
+                "فارس",
+                "آذربایجان شرقی",
+                "البرز",
+                "قم",
+                "خوزستان",
+                "گیلان",
+                "یزد"
+            ],
+            "x-enum-varnames": [
+                "ProvinceTehran",
+                "ProvinceIsfahan",
+                "ProvinceKhorasanRazavi",
+                "ProvinceFars",
+                "ProvinceEastAzerbaijan",
+                "ProvinceAlborz",
+                "ProvinceQom",
+                "ProvinceKhuzestan",
+                "ProvinceGilan",
+                "ProvinceYazd"
+            ]
+        },
+        "enums.RepresentativePosition": {
+            "type": "string",
+            "enum": [
+                "ceo",
+                "authorized_signatory",
+                "attorney"
+            ],
+            "x-enum-varnames": [
+                "RepresentativeCEO",
+                "RepresentativeAuthorizedSignatory",
+                "RepresentativeAttorney"
+            ]
+        },
+        "general.DocumentURLResponse": {
+            "type": "object",
+            "properties": {
+                "expires_in": {
+                    "type": "integer",
+                    "example": 300
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
         "general.ErrorResponse": {
             "type": "object",
             "properties": {
                 "message": {
                     "type": "string",
                     "example": "invalid or expired OTP"
+                }
+            }
+        },
+        "general.IndividualEmployerIdentity": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "employer_type": {
+                    "$ref": "#/definitions/enums.EmployerType"
+                },
+                "first_name": {
+                    "type": "string",
+                    "example": "علی"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "last_name": {
+                    "type": "string",
+                    "example": "رضایی"
+                },
+                "phone": {
+                    "type": "string",
+                    "example": "09123456789"
+                },
+                "review_status": {
+                    "$ref": "#/definitions/enums.EmployerReviewStatus"
+                }
+            }
+        },
+        "general.IndividualEmployerLoginResponse": {
+            "type": "object",
+            "properties": {
+                "access_token": {
+                    "type": "string"
+                },
+                "data": {
+                    "$ref": "#/definitions/general.IndividualEmployerIdentity"
+                },
+                "expires_at": {
+                    "type": "string"
+                },
+                "token_type": {
+                    "type": "string",
+                    "example": "Bearer"
+                }
+            }
+        },
+        "general.IndividualEmployerResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/general.IndividualEmployerIdentity"
                 }
             }
         },
@@ -453,6 +1741,112 @@
                     "maximum": 3176,
                     "minimum": 1,
                     "example": 1380
+                }
+            }
+        },
+        "general.LegalEmployerIdentity": {
+            "type": "object",
+            "properties": {
+                "activities": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/enums.Interest"
+                    }
+                },
+                "address": {
+                    "type": "string"
+                },
+                "city": {
+                    "$ref": "#/definitions/enums.City"
+                },
+                "company_name": {
+                    "type": "string"
+                },
+                "company_national_id": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "economic_code": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "employer_type": {
+                    "$ref": "#/definitions/enums.EmployerType"
+                },
+                "has_tax_file": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "legal_entity_type": {
+                    "$ref": "#/definitions/enums.LegalEntityType"
+                },
+                "phone": {
+                    "type": "string"
+                },
+                "postal_code": {
+                    "type": "string"
+                },
+                "province": {
+                    "$ref": "#/definitions/enums.Province"
+                },
+                "registration_number": {
+                    "type": "string"
+                },
+                "representative_first_name": {
+                    "type": "string"
+                },
+                "representative_gender": {
+                    "$ref": "#/definitions/enums.Gender"
+                },
+                "representative_last_name": {
+                    "type": "string"
+                },
+                "representative_national_code": {
+                    "type": "string"
+                },
+                "representative_position": {
+                    "$ref": "#/definitions/enums.RepresentativePosition"
+                },
+                "requires_activity_license": {
+                    "type": "boolean"
+                },
+                "review_status": {
+                    "$ref": "#/definitions/enums.EmployerReviewStatus"
+                },
+                "website": {
+                    "type": "string"
+                }
+            }
+        },
+        "general.LegalEmployerLoginResponse": {
+            "type": "object",
+            "properties": {
+                "access_token": {
+                    "type": "string"
+                },
+                "data": {
+                    "$ref": "#/definitions/general.LegalEmployerIdentity"
+                },
+                "expires_at": {
+                    "type": "string"
+                },
+                "token_type": {
+                    "type": "string",
+                    "example": "Bearer"
+                }
+            }
+        },
+        "general.LegalEmployerResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/general.LegalEmployerIdentity"
                 }
             }
         },

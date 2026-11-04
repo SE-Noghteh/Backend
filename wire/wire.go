@@ -8,9 +8,11 @@ import (
 	"zedlancer/backend/internal/application/service"
 	"zedlancer/backend/internal/application/usecase"
 	"zedlancer/backend/internal/domain/ports"
+	"zedlancer/backend/internal/infrastructure/media"
 	"zedlancer/backend/internal/infrastructure/persistence"
 	"zedlancer/backend/internal/infrastructure/security"
 	"zedlancer/backend/internal/infrastructure/sms"
+	"zedlancer/backend/internal/infrastructure/storage"
 	"zedlancer/backend/internal/presentation/controllers/v1/general"
 
 	"github.com/google/wire"
@@ -24,6 +26,14 @@ var RepositoryProviderSet = wire.NewSet(
 	wire.Bind(new(ports.UnitOfWork), new(*persistence.UnitOfWork)),
 )
 var ServiceProviderSet = wire.NewSet(
+	storage.NewS3Storage,
+	media.NewValidator,
+	service.NewIndividualEmployerService,
+	service.NewLegalEmployerService,
+	wire.Bind(new(usecase.LegalEmployerService), new(*service.LegalEmployerService)),
+	wire.Bind(new(ports.Storage), new(*storage.S3Storage)),
+	wire.Bind(new(ports.MediaValidator), new(*media.Validator)),
+	wire.Bind(new(usecase.IndividualEmployerService), new(*service.IndividualEmployerService)),
 	security.NewBcryptPasswordHasher,
 	security.ProvideJWTManager,
 	service.NewJobSeekerAuthService,
@@ -39,6 +49,8 @@ var ServiceProviderSet = wire.NewSet(
 )
 
 var GeneralControllersProviderSet = wire.NewSet(
+	general.NewIndividualEmployerController,
+	general.NewLegalEmployerController,
 	general.NewJobSeekerAuthController,
 	general.NewJobSeekerController,
 	general.NewGeneralUserController,
@@ -57,9 +69,11 @@ var ProviderSet = wire.NewSet(
 )
 
 type GeneralControllers struct {
-	JobSeekerAuthController *general.JobSeekerAuthController
-	JobSeekerController     *general.JobSeekerController
-	GeneralUserController   *general.GeneralUserController
+	LegalEmployerController      *general.LegalEmployerController
+	IndividualEmployerController *general.IndividualEmployerController
+	JobSeekerAuthController      *general.JobSeekerAuthController
+	JobSeekerController          *general.JobSeekerController
+	GeneralUserController        *general.GeneralUserController
 }
 
 type Controllers struct {

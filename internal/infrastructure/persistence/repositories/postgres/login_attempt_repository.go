@@ -11,15 +11,18 @@ import (
 	"zedlancer/backend/internal/infrastructure/persistence/models"
 )
 
-type LoginAttemptRepository struct{ db *gorm.DB }
+type LoginAttemptRepository struct {
+	db    *gorm.DB
+	table string
+}
 
 func NewLoginAttemptRepository(db *gorm.DB) *LoginAttemptRepository {
-	return &LoginAttemptRepository{db: db}
+	return &LoginAttemptRepository{db: db, table: "job_seeker_login_attempts"}
 }
 
 func (r *LoginAttemptRepository) GetLoginAttempt(ctx context.Context, phone string) (*entities.LoginAttempt, error) {
 	var model models.LoginAttemptModel
-	err := r.db.WithContext(ctx).Clauses(clause.Locking{Strength: "UPDATE"}).Where("phone = ?", phone).Take(&model).Error
+	err := r.db.WithContext(ctx).Table(r.table).Clauses(clause.Locking{Strength: "UPDATE"}).Where("phone = ?", phone).Take(&model).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
@@ -30,8 +33,12 @@ func (r *LoginAttemptRepository) GetLoginAttempt(ctx context.Context, phone stri
 }
 func (r *LoginAttemptRepository) SaveLoginAttempt(ctx context.Context, attempt *entities.LoginAttempt) error {
 	model := models.LoginAttemptModel{Phone: attempt.Phone, Failures: attempt.Failures, WindowStartedAt: attempt.WindowStartedAt}
-	return r.db.WithContext(ctx).Clauses(clause.OnConflict{UpdateAll: true}).Create(&model).Error
+	return r.db.WithContext(ctx).Table(r.table).Clauses(clause.OnConflict{UpdateAll: true}).Create(&model).Error
 }
 func (r *LoginAttemptRepository) DeleteLoginAttempt(ctx context.Context, phone string) error {
-	return r.db.WithContext(ctx).Delete(&models.LoginAttemptModel{}, "phone = ?", phone).Error
+	return r.db.WithContext(ctx).Table(r.table).Delete(&models.LoginAttemptModel{}, "phone = ?", phone).Error
+}
+
+func NewEmployerLoginAttemptRepository(db *gorm.DB) *LoginAttemptRepository {
+	return &LoginAttemptRepository{db: db, table: "employer_login_attempts"}
 }

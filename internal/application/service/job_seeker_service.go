@@ -2,25 +2,13 @@ package service
 
 import (
 	"context"
-	"crypto/rand"
-	"crypto/sha256"
 	"crypto/subtle"
-	"encoding/hex"
-	"fmt"
-	"math/big"
 	"time"
 
 	"zedlancer/backend/internal/application/usecase"
 	"zedlancer/backend/internal/domain/entities"
 	domainerrors "zedlancer/backend/internal/domain/errors"
 	"zedlancer/backend/internal/domain/ports"
-)
-
-const (
-	otpLifetime           = 5 * time.Minute
-	otpResendDelay        = time.Minute
-	pendingSignupLifetime = 30 * time.Minute
-	maxOTPAttempts        = 5
 )
 
 type JobSeekerService struct {
@@ -31,11 +19,6 @@ type JobSeekerService struct {
 
 func NewJobSeekerService(uow ports.UnitOfWork, sender ports.OTPSender, passwords ports.PasswordHasher) *JobSeekerService {
 	return &JobSeekerService{uow: uow, sender: sender, passwords: passwords}
-}
-
-func otpHash(salt, code string) string {
-	sum := sha256.Sum256([]byte(salt + ":" + code))
-	return hex.EncodeToString(sum[:])
 }
 
 // Signup validates the entire profile before storing a pending registration or sending SMS.
@@ -118,23 +101,11 @@ func (s *JobSeekerService) sendChallenge(ctx context.Context, repo ports.SignupO
 	if previous != nil && now.Sub(previous.SentAt) < otpResendDelay {
 		return domainerrors.ErrOTPTooSoon
 	}
-	number, err := rand.Int(rand.Reader, big.NewInt(1000000))
+	challenge, code, err := newSignupChallenge(registration.Phone, now)
 	if err != nil {
 		return err
 	}
-	code := fmt.Sprintf("%06d", number.Int64())
-	salt := make([]byte, 32)
-	if _, err := rand.Read(salt); err != nil {
-		return err
-	}
-	challenge := &entities.SignupOTP{
-		Phone:        registration.Phone,
-		Salt:         hex.EncodeToString(salt),
-		SentAt:       now,
-		ExpiresAt:    now.Add(otpLifetime),
-		Registration: registration,
-	}
-	challenge.CodeHash = otpHash(challenge.Salt, code)
+	challenge.Registration = registration
 	if err := repo.SaveOTP(ctx, challenge); err != nil {
 		return err
 	}

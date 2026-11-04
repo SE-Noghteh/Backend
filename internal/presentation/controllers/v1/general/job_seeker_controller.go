@@ -49,7 +49,7 @@ func (c *JobSeekerController) RequestOTP(ctx *gin.Context) {
 		return
 	}
 	if err := c.service.RequestOTP(ctx.Request.Context(), in.Phone); err != nil {
-		respondJobSeekerError(ctx, err)
+		respondAPIError(ctx, err)
 		return
 	}
 	ctx.JSON(http.StatusAccepted, OTPResponse{Message: "OTP sent", ExpiresIn: 300, ResendAfter: 60})
@@ -77,7 +77,7 @@ func (c *JobSeekerController) Signup(ctx *gin.Context) {
 		return
 	}
 	if err := c.service.Signup(ctx.Request.Context(), in.input()); err != nil {
-		respondJobSeekerError(ctx, err)
+		respondAPIError(ctx, err)
 		return
 	}
 	ctx.JSON(http.StatusAccepted, OTPResponse{Message: "OTP sent; verify to complete signup", ExpiresIn: 300, ResendAfter: 60})
@@ -105,7 +105,7 @@ func (c *JobSeekerController) VerifyOTP(ctx *gin.Context) {
 	}
 	seeker, err := c.service.VerifyOTP(ctx.Request.Context(), in.input())
 	if err != nil {
-		respondJobSeekerError(ctx, err)
+		respondAPIError(ctx, err)
 		return
 	}
 	ctx.JSON(http.StatusCreated, SignupResponse{Data: identityFromJobSeeker(seeker)})

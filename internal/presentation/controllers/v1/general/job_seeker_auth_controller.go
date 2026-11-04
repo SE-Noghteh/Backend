@@ -37,12 +37,12 @@ func (c *JobSeekerAuthController) Login(ctx *gin.Context) {
 	}
 	result, err := c.service.Login(ctx.Request.Context(), in.input())
 	if err != nil {
-		respondJobSeekerError(ctx, err)
+		respondAPIError(ctx, err)
 		return
 	}
 	ctx.Header("Cache-Control", "no-store")
 	ctx.Header("Pragma", "no-cache")
-	ctx.JSON(http.StatusOK, LoginResponse{AccessToken: result.AccessToken.Value, TokenType: "Bearer", ExpiresAt: result.AccessToken.ExpiresAt, Data: identityFromJobSeeker(result.JobSeeker)})
+	ctx.JSON(http.StatusOK, LoginResponse{AccessTokenResponse: AccessTokenResponse{AccessToken: result.AccessToken.Value, TokenType: "Bearer", ExpiresAt: result.AccessToken.ExpiresAt}, Data: identityFromJobSeeker(result.JobSeeker)})
 }
 
 // Me godoc
@@ -82,7 +82,7 @@ func (c *JobSeekerAuthController) Logout(ctx *gin.Context) {
 		return
 	}
 	if err := c.service.Logout(ctx.Request.Context(), token); err != nil {
-		respondJobSeekerError(ctx, err)
+		respondAPIError(ctx, err)
 		return
 	}
 	ctx.Header("Cache-Control", "no-store")

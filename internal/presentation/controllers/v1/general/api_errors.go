@@ -9,11 +9,15 @@ import (
 	domainerrors "zedlancer/backend/internal/domain/errors"
 )
 
-func respondJobSeekerError(ctx *gin.Context, err error) {
+func respondAPIError(ctx *gin.Context, err error) {
 	status, message := http.StatusInternalServerError, "internal server error"
 	switch {
 	case errors.Is(err, domainerrors.ErrInvalidSignup):
 		status, message = http.StatusBadRequest, err.Error()
+	case errors.Is(err, domainerrors.ErrInvalidUpload):
+		status, message = http.StatusBadRequest, err.Error()
+	case errors.Is(err, domainerrors.ErrStorageUnavailable):
+		status, message = http.StatusServiceUnavailable, err.Error()
 	case errors.Is(err, domainerrors.ErrNoPendingSignup):
 		status, message = http.StatusBadRequest, err.Error()
 	case errors.Is(err, domainerrors.ErrInvalidCredentials), errors.Is(err, domainerrors.ErrUnauthenticated):

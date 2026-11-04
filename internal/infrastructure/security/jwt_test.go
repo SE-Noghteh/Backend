@@ -8,6 +8,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 
+	"zedlancer/backend/internal/domain/enums"
 	domainerrors "zedlancer/backend/internal/domain/errors"
 )
 
@@ -22,18 +23,18 @@ func testJWTManager(t *testing.T) *JWTManager {
 
 func TestJWTIssueAndVerify(t *testing.T) {
 	m := testJWTManager(t)
-	token, err := m.IssueAccessToken(42)
+	token, err := m.IssueAccessToken(42, enums.RoleJobSeeker)
 	if err != nil {
 		t.Fatal(err)
 	}
-	principal, err := m.VerifyAccessToken(token.Value)
+	principal, err := m.VerifyAccessToken(token.Value, enums.RoleJobSeeker)
 	if err != nil || principal.ID != 42 || len(principal.TokenID) != 32 || !principal.ExpiresAt.Equal(token.ExpiresAt) {
 		t.Fatalf("token failed validation: %v", err)
 	}
 	if token.ExpiresAt.Before(time.Now().Add(59 * time.Minute)) {
 		t.Fatal("unexpected expiry")
 	}
-	if _, err := m.IssueAccessToken(0); err == nil {
+	if _, err := m.IssueAccessToken(0, enums.RoleJobSeeker); err == nil {
 		t.Fatal("zero identity accepted")
 	}
 }
@@ -79,13 +80,13 @@ func TestJWTRejectsInvalidClaimsAndAlgorithms(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if _, err := m.VerifyAccessToken(token); !errors.Is(err, domainerrors.ErrUnauthenticated) {
+			if _, err := m.VerifyAccessToken(token, enums.RoleJobSeeker); !errors.Is(err, domainerrors.ErrUnauthenticated) {
 				t.Fatalf("accepted invalid token: %v", err)
 			}
 		})
 	}
 	for _, value := range []string{"", "garbage", strings.Repeat("a", 4097)} {
-		if _, err := m.VerifyAccessToken(value); !errors.Is(err, domainerrors.ErrUnauthenticated) {
+		if _, err := m.VerifyAccessToken(value, enums.RoleJobSeeker); !errors.Is(err, domainerrors.ErrUnauthenticated) {
 			t.Fatal("malformed token accepted")
 		}
 	}
@@ -104,6 +105,26 @@ func TestJWTRejectsInvalidConfiguration(t *testing.T) {
 	} {
 		if _, err := NewJWTManager(config.secret, config.issuer, config.audience, config.ttl); err == nil {
 			t.Fatal("invalid JWT configuration accepted")
+		}
+	}
+}
+
+func TestJWTRolesCannotBeSubstituted(t *testing.T) {
+	m := testJWTManager(t)
+	for _, role := range []enums.AccountRole{enums.RoleJobSeeker, enums.RoleIndividualEmployer} {
+		token, err := m.IssueAccessToken(42, role)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := m.VerifyAccessToken(token.Value, role); err != nil {
+			t.Fatal(err)
+		}
+		other := enums.RoleJobSeeker
+		if role == other {
+			other = enums.RoleIndividualEmployer
+		}
+		if _, err := m.VerifyAccessToken(token.Value, other); err == nil {
+			t.Fatal("token accepted for another account role")
 		}
 	}
 }

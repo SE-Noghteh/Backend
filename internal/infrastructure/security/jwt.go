@@ -11,6 +11,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 
 	"zedlancer/backend/bootstrap"
+	"zedlancer/backend/internal/domain/enums"
 	domainerrors "zedlancer/backend/internal/domain/errors"
 	"zedlancer/backend/internal/domain/valueobjects"
 )
@@ -44,9 +45,9 @@ func NewJWTManager(secret, issuer, audience string, ttl time.Duration) (*JWTMana
 	return &JWTManager{secret: []byte(secret), issuer: issuer, audience: audience, ttl: ttl}, nil
 }
 
-func (m *JWTManager) IssueAccessToken(id uint64) (*valueobjects.AccessToken, error) {
-	if id == 0 {
-		return nil, fmt.Errorf("cannot issue token without a job seeker ID")
+func (m *JWTManager) IssueAccessToken(id uint64, role enums.AccountRole) (*valueobjects.AccessToken, error) {
+	if id == 0 || !role.Valid() {
+		return nil, fmt.Errorf("cannot issue token without a valid identity and role")
 	}
 	now := time.Now().UTC().Truncate(time.Second)
 	expires := now.Add(m.ttl)
@@ -55,7 +56,7 @@ func (m *JWTManager) IssueAccessToken(id uint64) (*valueobjects.AccessToken, err
 		return nil, err
 	}
 	claims := accessClaims{
-		Role: "job_seeker",
+		Role: string(role),
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    m.issuer,
 			Audience:  jwt.ClaimStrings{m.audience},
@@ -73,8 +74,8 @@ func (m *JWTManager) IssueAccessToken(id uint64) (*valueobjects.AccessToken, err
 	return &valueobjects.AccessToken{Value: value, ExpiresAt: expires}, nil
 }
 
-func (m *JWTManager) VerifyAccessToken(value string) (*valueobjects.JobSeekerPrincipal, error) {
-	if len(value) > 4096 {
+func (m *JWTManager) VerifyAccessToken(value string, role enums.AccountRole) (*valueobjects.Principal, error) {
+	if len(value) > 4096 || !role.Valid() {
 		return nil, domainerrors.ErrUnauthenticated
 	}
 	claims := &accessClaims{}
@@ -86,12 +87,12 @@ func (m *JWTManager) VerifyAccessToken(value string) (*valueobjects.JobSeekerPri
 		jwt.WithAudience(m.audience),
 		jwt.WithIssuedAt(),
 	)
-	if err != nil || !token.Valid || claims.Role != "job_seeker" || claims.IssuedAt == nil || claims.ID == "" {
+	if err != nil || !token.Valid || claims.Role != string(role) || claims.IssuedAt == nil || claims.ID == "" {
 		return nil, domainerrors.ErrUnauthenticated
 	}
 	id, err := strconv.ParseUint(claims.Subject, 10, 64)
 	if err != nil || id == 0 {
 		return nil, domainerrors.ErrUnauthenticated
 	}
-	return &valueobjects.JobSeekerPrincipal{ID: id, TokenID: claims.ID, ExpiresAt: claims.ExpiresAt.Time}, nil
+	return &valueobjects.Principal{ID: id, TokenID: claims.ID, ExpiresAt: claims.ExpiresAt.Time}, nil
 }

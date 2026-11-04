@@ -10,4 +10,8 @@ type RepositoryFactory interface {
 	SignupOTPRepository() SignupOTPRepository
 	LoginAttemptRepository() LoginAttemptRepository
 	TokenRevocationRepository() TokenRevocationRepository
+	EmployerRepository() EmployerRepository
+	EmployerSignupRepository() EmployerSignupRepository
+	LegalEmployerSignupRepository() LegalEmployerSignupRepository
+	EmployerLoginAttemptRepository() LoginAttemptRepository
 }

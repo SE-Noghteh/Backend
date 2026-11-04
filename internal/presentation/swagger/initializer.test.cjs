@@ -111,3 +111,27 @@ test("an unauthorized protected response clears revoked or expired credentials",
   state.config.responseInterceptor({ url: "/v1/job-seekers/me", status: 401 });
   assert.deepEqual(setup(state.storage).authorizations, []);
 });
+
+test("individual employer login, refresh, and logout use the existing authorization flow", () => {
+  const jwt = token(Math.floor(Date.now() / 1000) + 3600);
+  const state = setup();
+  state.config.responseInterceptor({ url: "/v1/individual-employers/login", status: 200, obj: { access_token: jwt } });
+  assert.deepEqual(setup(state.storage).authorizations, [{ name: "BearerAuth", value: "Bearer " + jwt }]);
+  const request = { url: "/v1/individual-employers/me", headers: { Authorization: jwt } };
+  state.config.requestInterceptor(request);
+  assert.equal(request.headers.Authorization, "Bearer " + jwt);
+  state.config.responseInterceptor({ url: "/v1/individual-employers/logout", status: 204 });
+  assert.deepEqual(setup(state.storage).authorizations, []);
+});
+
+test("legal employer login, refresh, and logout use the existing authorization flow", () => {
+  const jwt = token(Math.floor(Date.now() / 1000) + 3600);
+  const state = setup();
+  state.config.responseInterceptor({ url: "/v1/legal-employers/login", status: 200, obj: { access_token: jwt } });
+  assert.deepEqual(setup(state.storage).authorizations, [{ name: "BearerAuth", value: "Bearer " + jwt }]);
+  const request = { url: "/v1/legal-employers/me", headers: { Authorization: jwt } };
+  state.config.requestInterceptor(request);
+  assert.equal(request.headers.Authorization, "Bearer " + jwt);
+  state.config.responseInterceptor({ url: "/v1/legal-employers/logout", status: 204 });
+  assert.deepEqual(setup(state.storage).authorizations, []);
+});

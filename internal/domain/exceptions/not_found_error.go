@@ -10,7 +10,6 @@ func (nf NotFoundError) Error() string {
 	return fmt.Sprintf("item: %s not found.", nf.Item)
 }
 
-
 func NewNotFoundError(item string) *NotFoundError {
 	return &NotFoundError{
 		Item: item,

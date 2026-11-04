@@ -72,3 +72,67 @@ Expand each endpoint and click **Try it out**, then **Execute**:
 Swagger sends requests to the current server and port automatically. The specification is available at `/swagger/doc.json`, with generated JSON/YAML files in `docs/`. After changing endpoint annotations or request/response schemas, regenerate with `go generate ./cmd/app` and restart the server.
 
 Swagger authentication interceptor tests use Node built-in testing: `node --test internal/presentation/swagger/initializer.test.cjs`. The PostgreSQL integration test also checks HTTP login, authenticated requests, logout, replay rejection, and session isolation.
+
+## Individual employers
+
+The employer account is split into `employers` (shared `id` and `type`), `individual_employers` (one profile per employer ID), and `legal_employers` (the legal entity and its authorized representative). Both employer types have their own signup and authentication endpoints. Each employer type has its own pending signup table. Employer logins share phone-based throttling and transaction locks; job seeker challenges and lockouts remain separate.
+
+The frontend owns its step navigation. The backend receives **one multipart signup submission** containing the complete individual profile, account credentials, and files. It validates and stores that submission, then sends an OTP automatically. A separate verification request checks the phone and code and creates the account. It does not save frontend profile stages.
+
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /v1/individual-employers/signup-options` | Existing cities/genders plus provinces and their cities |
+| `POST /v1/individual-employers/otp` | Resend OTP only for an existing pending signup |
+| `POST /v1/individual-employers/signup` | Receive complete multipart information and send OTP automatically; returns 202 |
+| `POST /v1/individual-employers/verify-otp` | Verify phone/code and create the employer account; returns 201 |
+| `POST /v1/individual-employers/login` | Phone/password login; returns an employer JWT |
+| `GET /v1/individual-employers/me` | Authenticated employer identity and review status |
+| `POST /v1/individual-employers/logout` | Revoke the current employer token |
+| `GET /v1/individual-employers/documents/{kind}` | Private signed download for your own `identity`, `business-license`, or `video` |
+
+In Swagger, expand signup, click **Try it out**, complete its form fields, choose the required files, and submit. Signup has no OTP field: successful submission sends the first SMS automatically. Then call `/individual-employers/verify-otp` with `{"phone":"09123456789","otp":"123456"}` using the actual received code. Do not upload files again. Login is rejected until verification succeeds. Login uses the existing JSON phone/password request format. Swagger automatically attaches and remembers the resulting JWT until its expiry. Swagger has one active authorization at a time; login with the account type whose endpoints you are testing.
+
+Required profile fields: first/last/father name, valid national code, gender, Jalali `birth_year`/`birth_month`/`birth_day`, matching province/city, residence address, ten-digit postal code, phone, and password. Business name, business activity, website/social-page URL, email, and `has_legal_guardian` are optional. Passwords require 12–72 bytes including uppercase, lowercase, a number, and a symbol. The business license (`جواز کسب`) is optional and is saved as SQL NULL when absent.
+
+`identity_document` is required: PDF, PNG, or JPEG, up to 5 MiB. Optional `business_license` uses the same limits. `verification_video` is required: MP4 or MOV, 30–60 seconds, up to 50 MiB. Uploaded content is inspected on the server; filenames and client Content-Type headers are not sufficient. Install `ffprobe` on PATH or set `FFPROBE_PATH` to its executable. ffmpeg is only needed to generate integration-test video fixtures.
+
+All document bytes and the video are stored behind the `ports.Storage` interface using the S3 adapter. PostgreSQL stores the profile and object references/content types/sizes, not the binary files. Keys use random identifiers and do not contain names, phone numbers, or national codes. S3 uploads use no public-read ACL. Download URLs require authentication, are scoped to the requesting employer, expire after five minutes, and are returned with `Cache-Control: no-store`. Successful registration starts with `review_status=pending_review`; document review/approval APIs are not part of this implementation. Phone-verified employers may login while review is pending.
+
+Configure the existing private bucket and credentials before testing real uploads:
+
+```dotenv
+S3_BUCKET=your-private-bucket
+AWS_REGION=your-bucket-region
+S3_ENDPOINT=
+S3_USE_PATH_STYLE=false
+FFPROBE_PATH=ffprobe
+```
+
+The AWS SDK uses its standard credential chain: IAM role, AWS profile, or `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` (plus `AWS_SESSION_TOKEN` for temporary credentials). No credentials are embedded in code or Swagger. For S3-compatible services, set their endpoint and enable path-style addressing if required. Allow `s3:PutObject`, `s3:GetObject`, and `s3:DeleteObject` on `arn:aws:s3:::your-private-bucket/individual-employers/*`. The bucket must already exist and its policy must keep objects private. Missing bucket configuration leaves other APIs available and returns 503 for employer uploads; it never falls back to public or local disk storage.
+
+Pending information is stored in JSONB with a password hash and private file references; no employer account exists yet. OTPs expire after five minutes, allow five failed attempts, and have a 60-second resend cooldown. The pending submission is valid for 30 minutes. Resend requires an existing pending submission and does not re-upload files. After pending expiry, submit the information again. Verification, parent/profile creation, and OTP consumption run atomically within the unit of work. Failed attempts are committed. Verification uses the stored information and cannot change profile fields or the password. Partially uploaded objects are deleted on failed submission; replacing a pending submission removes its old objects only after the replacement succeeds. Cleanup errors are logged for operational follow-up. No raw OTP or password is persisted. The shared JWT implementation validates the account role, so an employer token cannot authenticate as a job seeker even if numeric IDs coincide.
+
+`go test ./...` covers employer validation, nullable license handling, OTP expiry/lockout, password login, JWT role isolation, logout, upload cleanup, actual ffprobe inspection, and the S3 HTTP protocol against a local test server. For the real PostgreSQL multipart flow, run `$env:RUN_POSTGRES_INTEGRATION='1'; go test ./internal/infrastructure/persistence -count=1 -v` in PowerShell. These tests use fake SMS/storage and roll back database fixtures; they send no real messages or live S3 uploads.
+
+## Legal employers
+
+The legal employer flow uses the same clean architecture boundaries and shared OTP, password, JWT, media validation, and S3 interfaces as individual employers. GORM migrates `legal_employers` with a one-to-one `employers` foreign key, unique phone/company national identifier, and `legal_employer_signup_otps` for pending submissions.
+
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /v1/legal-employers/signup-options` | Legal entity types, representative positions, provinces/cities, genders, and the existing ten activities |
+| `POST /v1/legal-employers/signup` | Submit the complete multipart form and automatically send OTP; returns 202 |
+| `POST /v1/legal-employers/verify-otp` | JSON phone/otp; atomically create the legal profile and consume pending signup; returns 201 |
+| `POST /v1/legal-employers/otp` | Resend OTP for a pending submission, after 60 seconds |
+| `POST /v1/legal-employers/login` | JSON phone/password; returns a `legal_employer` JWT |
+| `GET /v1/legal-employers/me` | Authenticated company, representative, contact information and review status |
+| `POST /v1/legal-employers/logout` | Revoke the current token |
+| `GET /v1/legal-employers/documents/{kind}` | Owner-only signed download for `establishment`, `identity`, `activity-license`, `authorization`, or `video` |
+
+Required form fields match the organization and representative screenshots: company name, legal entity type, eleven-digit company national ID, numeric registration number, twelve-digit economic code, matching province/city, office address/postal code, representative first/last name, position, gender, valid personal national code, activities, phone, and password. `has_tax_file` is a boolean; email and website are optional. Select one to ten distinct values from the existing activities list. Send each activity under the repeated multipart key `activities` (Swagger supports this array). Company identifier format is validated locally; official organization and representative authority checks remain a document review process.
+
+Required files are `establishment_document` (establishment notice or official gazette), `identity_document` (representative identity), and `verification_video`. Documents accept PDF/PNG/JPEG up to 5 MiB each; video accepts MP4/MOV, 30-60 seconds, up to 50 MiB. Set `requires_activity_license=true` and upload `activity_license` when the activity requires licensing. Representative position `attorney` requires `authorization_document` (power of attorney). Optional documents persist as SQL NULL when absent. The signup request is limited to 76 MiB. Terms acceptance, password confirmation, and frontend step navigation remain frontend responsibilities.
+
+In Swagger, fetch signup-options, submit the legal signup form and files once, verify the received code using verify-otp, then login. Codes last five minutes, permit five failed attempts, and pending submissions last 30 minutes. Login issues the configured one-hour token by default. Swagger automatically authorizes and preserves it across refresh; logout revokes it. Legal, individual employer, and job seeker roles cannot access one another's protected routes. Phone verification permits login while `review_status` is `pending_review`; document approval is separate.
+
+Legal uploads use private S3 keys under `legal-employers/`; allow the same PutObject/GetObject/DeleteObject permissions on that prefix as for `individual-employers/`. Existing S3 credentials and ffprobe configuration are reused. Failed submissions clean up new objects, while failed replacements preserve the old submission and its files. Verification uses stored information and never re-uploads files. Unit tests and the opt-in PostgreSQL integration flow use fake SMS/storage, real bcrypt/JWT and ffprobe, and roll back database fixtures.

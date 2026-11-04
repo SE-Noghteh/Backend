@@ -303,3 +303,11 @@ func TestSignupRejectsInvalidProfileBeforeSendingSMS(t *testing.T) {
 
 func (m *signupMemory) SignupOTPRepository() ports.SignupOTPRepository       { return m }
 func (m *signupMemory) LoginAttemptRepository() ports.LoginAttemptRepository { return m }
+
+func (m *signupMemory) EmployerRepository() ports.EmployerRepository                 { return nil }
+func (m *signupMemory) EmployerSignupRepository() ports.EmployerSignupRepository     { return nil }
+func (m *signupMemory) EmployerLoginAttemptRepository() ports.LoginAttemptRepository { return nil }
+
+func (m *signupMemory) LegalEmployerSignupRepository() ports.LegalEmployerSignupRepository {
+	return nil
+}

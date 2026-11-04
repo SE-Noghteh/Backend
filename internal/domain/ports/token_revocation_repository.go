@@ -1,7 +1,9 @@
 package ports
 
-import ("context"
-"time")
+import (
+	"context"
+	"time"
+)
 
 type TokenRevocationRepository interface {
 	IsRevoked(context.Context, string) (bool, error)

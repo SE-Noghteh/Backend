@@ -26,6 +26,24 @@ definitions:
     - CityAhvaz
     - CityRasht
     - CityYazd
+  enums.EmployerReviewStatus:
+    enum:
+    - pending_review
+    - approved
+    - rejected
+    type: string
+    x-enum-varnames:
+    - EmployerPendingReview
+    - EmployerApproved
+    - EmployerRejected
+  enums.EmployerType:
+    enum:
+    - individual
+    - legal
+    type: string
+    x-enum-varnames:
+    - EmployerIndividual
+    - EmployerLegal
   enums.Gender:
     enum:
     - female
@@ -58,11 +76,107 @@ definitions:
     - InterestTeaching
     - InterestEngineering
     - InterestSupport
+  enums.LegalEntityType:
+    enum:
+    - limited_liability
+    - private_joint_stock
+    - public_joint_stock
+    - cooperative
+    - institution
+    - organization
+    type: string
+    x-enum-varnames:
+    - LegalLimitedLiability
+    - LegalPrivateJointStock
+    - LegalPublicJointStock
+    - LegalCooperative
+    - LegalInstitution
+    - LegalOrganization
+  enums.Province:
+    enum:
+    - تهران
+    - اصفهان
+    - خراسان رضوی
+    - فارس
+    - آذربایجان شرقی
+    - البرز
+    - قم
+    - خوزستان
+    - گیلان
+    - یزد
+    type: string
+    x-enum-varnames:
+    - ProvinceTehran
+    - ProvinceIsfahan
+    - ProvinceKhorasanRazavi
+    - ProvinceFars
+    - ProvinceEastAzerbaijan
+    - ProvinceAlborz
+    - ProvinceQom
+    - ProvinceKhuzestan
+    - ProvinceGilan
+    - ProvinceYazd
+  enums.RepresentativePosition:
+    enum:
+    - ceo
+    - authorized_signatory
+    - attorney
+    type: string
+    x-enum-varnames:
+    - RepresentativeCEO
+    - RepresentativeAuthorizedSignatory
+    - RepresentativeAttorney
+  general.DocumentURLResponse:
+    properties:
+      expires_in:
+        example: 300
+        type: integer
+      url:
+        type: string
+    type: object
   general.ErrorResponse:
     properties:
       message:
         example: invalid or expired OTP
         type: string
+    type: object
+  general.IndividualEmployerIdentity:
+    properties:
+      created_at:
+        type: string
+      employer_type:
+        $ref: '#/definitions/enums.EmployerType'
+      first_name:
+        example: علی
+        type: string
+      id:
+        example: 1
+        type: integer
+      last_name:
+        example: رضایی
+        type: string
+      phone:
+        example: "09123456789"
+        type: string
+      review_status:
+        $ref: '#/definitions/enums.EmployerReviewStatus'
+    type: object
+  general.IndividualEmployerLoginResponse:
+    properties:
+      access_token:
+        type: string
+      data:
+        $ref: '#/definitions/general.IndividualEmployerIdentity'
+      expires_at:
+        type: string
+      token_type:
+        example: Bearer
+        type: string
+    type: object
+  general.IndividualEmployerResponse:
+    properties:
+      data:
+        $ref: '#/definitions/general.IndividualEmployerIdentity'
     type: object
   general.JalaliDateRequest:
     properties:
@@ -85,6 +199,76 @@ definitions:
     - day
     - month
     - year
+    type: object
+  general.LegalEmployerIdentity:
+    properties:
+      activities:
+        items:
+          $ref: '#/definitions/enums.Interest'
+        type: array
+      address:
+        type: string
+      city:
+        $ref: '#/definitions/enums.City'
+      company_name:
+        type: string
+      company_national_id:
+        type: string
+      created_at:
+        type: string
+      economic_code:
+        type: string
+      email:
+        type: string
+      employer_type:
+        $ref: '#/definitions/enums.EmployerType'
+      has_tax_file:
+        type: boolean
+      id:
+        type: integer
+      legal_entity_type:
+        $ref: '#/definitions/enums.LegalEntityType'
+      phone:
+        type: string
+      postal_code:
+        type: string
+      province:
+        $ref: '#/definitions/enums.Province'
+      registration_number:
+        type: string
+      representative_first_name:
+        type: string
+      representative_gender:
+        $ref: '#/definitions/enums.Gender'
+      representative_last_name:
+        type: string
+      representative_national_code:
+        type: string
+      representative_position:
+        $ref: '#/definitions/enums.RepresentativePosition'
+      requires_activity_license:
+        type: boolean
+      review_status:
+        $ref: '#/definitions/enums.EmployerReviewStatus'
+      website:
+        type: string
+    type: object
+  general.LegalEmployerLoginResponse:
+    properties:
+      access_token:
+        type: string
+      data:
+        $ref: '#/definitions/general.LegalEmployerIdentity'
+      expires_at:
+        type: string
+      token_type:
+        example: Bearer
+        type: string
+    type: object
+  general.LegalEmployerResponse:
+    properties:
+      data:
+        $ref: '#/definitions/general.LegalEmployerIdentity'
     type: object
   general.LoginRequest:
     properties:
@@ -244,6 +428,382 @@ info:
   title: Zedlancer Backend API
   version: "1.0"
 paths:
+  /individual-employers/documents/{kind}:
+    get:
+      description: The signed link expires in five minutes. No public S3 URLs or credentials
+        are exposed.
+      parameters:
+      - description: Document kind
+        enum:
+        - identity
+        - business-license
+        - video
+        in: path
+        name: kind
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/general.DocumentURLResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get private download link for your own employer document
+      tags:
+      - Individual employer
+  /individual-employers/login:
+    post:
+      consumes:
+      - application/json
+      description: Returns an individual_employer JWT; job seeker tokens cannot access
+        employer endpoints. Five failed attempts in 15 minutes trigger lockout. Pending-review
+        employers can login; document review is a separate administrative process.
+      parameters:
+      - description: Phone and password
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/general.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/general.IndividualEmployerLoginResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+      summary: Login individual employer using phone and password
+      tags:
+      - Individual employer
+  /individual-employers/logout:
+    post:
+      responses:
+        "204":
+          description: Logged out
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Logout current individual employer token
+      tags:
+      - Individual employer
+  /individual-employers/me:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/general.IndividualEmployerResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get authenticated individual employer identity
+      tags:
+      - Individual employer
+  /individual-employers/otp:
+    post:
+      consumes:
+      - application/json
+      description: Requires a complete pending signup submitted within the last 30
+        minutes. Signup sends the first code automatically. Resends a real SMS after
+        a 60-second cooldown; the code expires in 5 minutes.
+      parameters:
+      - description: Phone number
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/general.ResendOTPRequest'
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            $ref: '#/definitions/general.OTPResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+      summary: Resend individual employer verification OTP
+      tags:
+      - Individual employer
+  /individual-employers/signup:
+    post:
+      consumes:
+      - multipart/form-data
+      description: 'Validates and saves the complete multipart submission and private
+        files, then sends OTP automatically. Returns 202; no employer account exists
+        until verify-otp succeeds. Pending signup lasts 30 minutes. Business fields,
+        email and business license are optional. Password requires 12-72 bytes with
+        uppercase, lowercase, number, symbol. Documents: PDF/PNG/JPEG up to 5 MiB
+        each. Video: MP4/MOV, 30-60 seconds, up to 50 MiB. Requires configured S3
+        and ffprobe.'
+      parameters:
+      - description: First name
+        in: formData
+        name: first_name
+        required: true
+        type: string
+      - description: Last name
+        in: formData
+        name: last_name
+        required: true
+        type: string
+      - description: Father name
+        in: formData
+        name: father_name
+        required: true
+        type: string
+      - description: Ten-digit national code with valid checksum
+        in: formData
+        name: national_code
+        required: true
+        type: string
+      - description: Gender
+        enum:
+        - female
+        - male
+        in: formData
+        name: gender
+        required: true
+        type: string
+      - default: 1370
+        description: Jalali year
+        in: formData
+        name: birth_year
+        required: true
+        type: integer
+      - default: 1
+        description: Jalali month
+        in: formData
+        name: birth_month
+        required: true
+        type: integer
+      - default: 1
+        description: Jalali day
+        in: formData
+        name: birth_day
+        required: true
+        type: integer
+      - description: Province from signup-options
+        in: formData
+        name: province
+        required: true
+        type: string
+      - description: City belonging to selected province
+        in: formData
+        name: city
+        required: true
+        type: string
+      - description: Full residence address
+        in: formData
+        name: address
+        required: true
+        type: string
+      - description: Ten-digit postal code
+        in: formData
+        name: postal_code
+        required: true
+        type: string
+      - description: Business or trade name
+        in: formData
+        name: business_name
+        type: string
+      - description: Business activity
+        in: formData
+        name: business_activity
+        type: string
+      - description: HTTP or HTTPS website/social page URL
+        in: formData
+        name: website
+        type: string
+      - default: false
+        description: Has legal guardian
+        in: formData
+        name: has_legal_guardian
+        type: boolean
+      - description: Phone to receive verification OTP
+        in: formData
+        name: phone
+        required: true
+        type: string
+      - description: Email address
+        in: formData
+        name: email
+        type: string
+      - description: Password (12-72 bytes)
+        in: formData
+        name: password
+        required: true
+        type: string
+      - description: First page of identity document (PDF/PNG/JPEG, <=5 MiB)
+        in: formData
+        name: identity_document
+        required: true
+        type: file
+      - description: Optional business license (PDF/PNG/JPEG, <=5 MiB)
+        in: formData
+        name: business_license
+        type: file
+      - description: Identity video (MP4/MOV, 30-60 seconds, <=50 MiB)
+        in: formData
+        name: verification_video
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            $ref: '#/definitions/general.OTPResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "413":
+          description: Request Entity Too Large
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+      summary: Submit employer information and automatically send verification OTP
+      tags:
+      - Individual employer
+  /individual-employers/signup-options:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get individual employer signup choices
+      tags:
+      - Individual employer
+  /individual-employers/verify-otp:
+    post:
+      consumes:
+      - application/json
+      description: Checks phone and code against the stored submission. Creates the
+        shared employer and individual profile atomically and consumes the OTP. Does
+        not require re-uploading files. Login is available after successful verification.
+      parameters:
+      - description: Phone and received OTP
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/general.VerifyOTPRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/general.IndividualEmployerResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+      summary: Verify individual employer and complete signup
+      tags:
+      - Individual employer
   /job-seekers/login:
     post:
       consumes:
@@ -479,6 +1039,424 @@ paths:
       summary: Verify OTP and complete signup
       tags:
       - Job seeker signup
+  /legal-employers/documents/{kind}:
+    get:
+      description: The signed link expires in five minutes. No public S3 URLs or credentials
+        are exposed.
+      parameters:
+      - description: Document kind
+        enum:
+        - establishment
+        - identity
+        - activity-license
+        - authorization
+        - video
+        in: path
+        name: kind
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/general.DocumentURLResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get private download link for your own employer document
+      tags:
+      - Legal employer
+  /legal-employers/login:
+    post:
+      consumes:
+      - application/json
+      description: Returns an legal_employer JWT; job seeker tokens cannot access
+        employer endpoints. Five failed attempts in 15 minutes trigger lockout. Pending-review
+        employers can login; document review is a separate administrative process.
+      parameters:
+      - description: Phone and password
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/general.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/general.LegalEmployerLoginResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+      summary: Login legal employer using phone and password
+      tags:
+      - Legal employer
+  /legal-employers/logout:
+    post:
+      responses:
+        "204":
+          description: Logged out
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Logout current legal employer token
+      tags:
+      - Legal employer
+  /legal-employers/me:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/general.LegalEmployerResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get authenticated legal employer identity
+      tags:
+      - Legal employer
+  /legal-employers/otp:
+    post:
+      consumes:
+      - application/json
+      description: Requires a complete pending signup submitted within the last 30
+        minutes. Signup sends the first code automatically. Resends a real SMS after
+        a 60-second cooldown; the code expires in 5 minutes.
+      parameters:
+      - description: Phone number
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/general.ResendOTPRequest'
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            $ref: '#/definitions/general.OTPResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+      summary: Resend legal employer verification OTP
+      tags:
+      - Legal employer
+  /legal-employers/signup:
+    post:
+      consumes:
+      - multipart/form-data
+      description: 'Validates and saves the complete multipart submission and private
+        files, then sends OTP automatically. Returns 202; no employer account exists
+        until verify-otp succeeds. Pending signup lasts 30 minutes. Email and website
+        are optional. Select activities from signup-options. Activity license is required
+        when requires_activity_license is true. An attorney must upload authorization_document.
+        Company identifier format is checked; official company and representative
+        authority verification remains pending review. Password requires 12-72 bytes
+        with uppercase, lowercase, number, symbol. Documents: PDF/PNG/JPEG up to 5
+        MiB each. Video: MP4/MOV, 30-60 seconds, up to 50 MiB. Requires configured
+        S3 and ffprobe.'
+      parameters:
+      - description: Registered company or organization name
+        in: formData
+        name: company_name
+        required: true
+        type: string
+      - description: Legal entity type
+        enum:
+        - limited_liability
+        - private_joint_stock
+        - public_joint_stock
+        - cooperative
+        - institution
+        - organization
+        in: formData
+        name: legal_entity_type
+        required: true
+        type: string
+      - description: Eleven-digit company national identifier
+        in: formData
+        name: company_national_id
+        required: true
+        type: string
+      - description: Registration number (1-30 digits)
+        in: formData
+        name: registration_number
+        required: true
+        type: string
+      - description: Twelve-digit economic code
+        in: formData
+        name: economic_code
+        required: true
+        type: string
+      - description: Province from signup-options
+        in: formData
+        name: province
+        required: true
+        type: string
+      - description: City belonging to selected province
+        in: formData
+        name: city
+        required: true
+        type: string
+      - description: Registered office address
+        in: formData
+        name: address
+        required: true
+        type: string
+      - description: Ten-digit postal code
+        in: formData
+        name: postal_code
+        required: true
+        type: string
+      - description: Representative first name
+        in: formData
+        name: representative_first_name
+        required: true
+        type: string
+      - description: Representative last name
+        in: formData
+        name: representative_last_name
+        required: true
+        type: string
+      - description: Representative authority; attorney requires authorization_document
+        enum:
+        - ceo
+        - authorized_signatory
+        - attorney
+        in: formData
+        name: representative_position
+        required: true
+        type: string
+      - description: Representative gender
+        enum:
+        - female
+        - male
+        in: formData
+        name: representative_gender
+        required: true
+        type: string
+      - description: Representative ten-digit national code with valid checksum
+        in: formData
+        name: representative_national_code
+        required: true
+        type: string
+      - default: false
+        description: Organization has a tax file
+        in: formData
+        name: has_tax_file
+        type: boolean
+      - collectionFormat: multi
+        description: Select 1-10 distinct activity areas from signup-options; repeat
+          this form key for each choice
+        in: formData
+        items:
+          type: string
+        name: activities
+        required: true
+        type: array
+      - description: HTTP or HTTPS website/social page URL
+        in: formData
+        name: website
+        type: string
+      - default: false
+        description: Whether the organization's activity requires a license; requires
+          activity_license when true
+        in: formData
+        name: requires_activity_license
+        type: boolean
+      - description: Representative phone to receive verification OTP
+        in: formData
+        name: phone
+        required: true
+        type: string
+      - description: Email address
+        in: formData
+        name: email
+        type: string
+      - description: 'Password: 12-72 bytes, uppercase, lowercase, digit and symbol'
+        in: formData
+        name: password
+        required: true
+        type: string
+      - description: Establishment notice or official gazette (PDF/PNG/JPEG, <=5 MiB)
+        in: formData
+        name: establishment_document
+        required: true
+        type: file
+      - description: Representative first page of identity document (PDF/PNG/JPEG,
+          <=5 MiB)
+        in: formData
+        name: identity_document
+        required: true
+        type: file
+      - description: License; required when requires_activity_license=true (PDF/PNG/JPEG,
+          <=5 MiB)
+        in: formData
+        name: activity_license
+        type: file
+      - description: Power of attorney; required for attorney position (PDF/PNG/JPEG,
+          <=5 MiB)
+        in: formData
+        name: authorization_document
+        type: file
+      - description: Representative identity video (MP4/MOV, 30-60 seconds, <=50 MiB)
+        in: formData
+        name: verification_video
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            $ref: '#/definitions/general.OTPResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "413":
+          description: Request Entity Too Large
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+      summary: Submit employer information and automatically send verification OTP
+      tags:
+      - Legal employer
+  /legal-employers/signup-options:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get legal employer signup choices
+      tags:
+      - Legal employer
+  /legal-employers/verify-otp:
+    post:
+      consumes:
+      - application/json
+      description: Checks phone and code against the stored submission. Creates the
+        shared employer and legal profile atomically and consumes the OTP. Does not
+        require re-uploading files. Login is available after successful verification.
+      parameters:
+      - description: Phone and received OTP
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/general.VerifyOTPRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/general.LegalEmployerResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+      summary: Verify legal employer and complete signup
+      tags:
+      - Legal employer
 produces:
 - application/json
 securityDefinitions:

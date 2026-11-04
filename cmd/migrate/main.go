@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+
 	"zedlancer/backend/internal/infrastructure/persistence"
 )
 
@@ -12,5 +13,5 @@ func main() {
 		log.Fatal(err)
 	}
 	defer sqlDB.Close()
-	log.Print("Job seeker migrations completed")
+	log.Print("Database migrations completed")
 }

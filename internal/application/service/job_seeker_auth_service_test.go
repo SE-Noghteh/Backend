@@ -8,23 +8,24 @@ import (
 
 	"zedlancer/backend/internal/application/usecase"
 	"zedlancer/backend/internal/domain/entities"
+	"zedlancer/backend/internal/domain/enums"
 	domainerrors "zedlancer/backend/internal/domain/errors"
 	"zedlancer/backend/internal/domain/valueobjects"
 )
 
 type testTokens struct{ issueErr error }
 
-func (f testTokens) IssueAccessToken(id uint64) (*valueobjects.AccessToken, error) {
+func (f testTokens) IssueAccessToken(id uint64, role enums.AccountRole) (*valueobjects.AccessToken, error) {
 	if f.issueErr != nil {
 		return nil, f.issueErr
 	}
 	return &valueobjects.AccessToken{Value: "valid-token", ExpiresAt: time.Now().Add(time.Hour)}, nil
 }
-func (f testTokens) VerifyAccessToken(value string) (*valueobjects.JobSeekerPrincipal, error) {
+func (f testTokens) VerifyAccessToken(value string, role enums.AccountRole) (*valueobjects.Principal, error) {
 	if value != "valid-token" {
 		return nil, domainerrors.ErrUnauthenticated
 	}
-	return &valueobjects.JobSeekerPrincipal{ID: 1, TokenID: "test-token-id", ExpiresAt: time.Now().Add(time.Hour)}, nil
+	return &valueobjects.Principal{ID: 1, TokenID: "test-token-id", ExpiresAt: time.Now().Add(time.Hour)}, nil
 }
 
 func verifiedMemory(t *testing.T) *signupMemory {

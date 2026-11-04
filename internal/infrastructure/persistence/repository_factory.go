@@ -28,6 +28,16 @@ func (f *RepositoryFactory) LoginAttemptRepository() ports.LoginAttemptRepositor
 	return postgres.NewLoginAttemptRepository(f.db)
 }
 
+func (f *RepositoryFactory) EmployerRepository() ports.EmployerRepository {
+	return postgres.NewEmployerRepository(f.db)
+}
+func (f *RepositoryFactory) EmployerSignupRepository() ports.EmployerSignupRepository {
+	return postgres.NewEmployerSignupRepository(f.db)
+}
+func (f *RepositoryFactory) EmployerLoginAttemptRepository() ports.LoginAttemptRepository {
+	return postgres.NewEmployerLoginAttemptRepository(f.db)
+}
+
 func NewRepositoryFactory(db *gorm.DB) *RepositoryFactory {
 	return &RepositoryFactory{
 		db: db,
@@ -36,4 +46,8 @@ func NewRepositoryFactory(db *gorm.DB) *RepositoryFactory {
 
 func (f *RepositoryFactory) UserRepository() domainpostgres.UserRepository {
 	return postgres.NewUserRepository(f.db)
+}
+
+func (f *RepositoryFactory) LegalEmployerSignupRepository() ports.LegalEmployerSignupRepository {
+	return postgres.NewLegalEmployerSignupRepository(f.db)
 }

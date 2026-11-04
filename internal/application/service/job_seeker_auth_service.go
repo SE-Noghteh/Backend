@@ -2,16 +2,13 @@ package service
 
 import (
 	"context"
-	"time"
 
 	"zedlancer/backend/internal/application/usecase"
 	"zedlancer/backend/internal/domain/entities"
+	"zedlancer/backend/internal/domain/enums"
 	domainerrors "zedlancer/backend/internal/domain/errors"
 	"zedlancer/backend/internal/domain/ports"
 )
-
-const loginAttemptWindow = 15 * time.Minute
-const maxLoginFailures = 5
 
 type JobSeekerAuthService struct {
 	uow       ports.UnitOfWork
@@ -35,18 +32,10 @@ func (s *JobSeekerAuthService) Login(ctx context.Context, in usecase.LoginJobSee
 		if err := repo.LockPhone(ctx, phone); err != nil {
 			return err
 		}
-		now := time.Now().UTC()
 		attemptRepo := factory.LoginAttemptRepository()
-		attempt, err := attemptRepo.GetLoginAttempt(ctx, phone)
+		attempt, err := nextLoginAttempt(ctx, attemptRepo, phone)
 		if err != nil {
 			return err
-		}
-		if attempt == nil || !now.Before(attempt.WindowStartedAt.Add(loginAttemptWindow)) {
-			attempt = &entities.LoginAttempt{Phone: phone, WindowStartedAt: now}
-		}
-		if attempt.Failures >= maxLoginFailures {
-			authErr = domainerrors.ErrLoginThrottled
-			return nil
 		}
 		seeker, err := repo.FindByPhone(ctx, phone)
 		if err != nil {
@@ -63,7 +52,7 @@ func (s *JobSeekerAuthService) Login(ctx context.Context, in usecase.LoginJobSee
 			authErr = domainerrors.ErrInvalidCredentials
 			return attemptRepo.SaveLoginAttempt(ctx, attempt)
 		}
-		token, err := s.tokens.IssueAccessToken(seeker.ID)
+		token, err := s.tokens.IssueAccessToken(seeker.ID, enums.RoleJobSeeker)
 		if err != nil {
 			return err
 		}
@@ -83,16 +72,9 @@ func (s *JobSeekerAuthService) Login(ctx context.Context, in usecase.LoginJobSee
 }
 
 func (s *JobSeekerAuthService) Authenticate(ctx context.Context, token string) (*entities.JobSeeker, error) {
-	principal, err := s.tokens.VerifyAccessToken(token)
-	if err != nil {
-		return nil, domainerrors.ErrUnauthenticated
-	}
-	revoked, err := s.uow.Factory().TokenRevocationRepository().IsRevoked(ctx, principal.TokenID)
+	principal, err := activePrincipal(ctx, s.uow.Factory(), s.tokens, token, enums.RoleJobSeeker)
 	if err != nil {
 		return nil, err
-	}
-	if revoked {
-		return nil, domainerrors.ErrUnauthenticated
 	}
 	seeker, err := s.uow.Factory().JobSeekerRepository().FindByID(ctx, principal.ID)
 	if err != nil {
@@ -106,9 +88,5 @@ func (s *JobSeekerAuthService) Authenticate(ctx context.Context, token string) (
 
 // Logout revokes only this access token. Repeated logout is safe until it expires.
 func (s *JobSeekerAuthService) Logout(ctx context.Context, token string) error {
-	principal, err := s.tokens.VerifyAccessToken(token)
-	if err != nil {
-		return domainerrors.ErrUnauthenticated
-	}
-	return s.uow.Factory().TokenRevocationRepository().Revoke(ctx, principal.TokenID, principal.ExpiresAt)
+	return revokeToken(ctx, s.uow.Factory(), s.tokens, token, enums.RoleJobSeeker)
 }

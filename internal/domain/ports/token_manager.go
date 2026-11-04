@@ -1,8 +1,11 @@
 package ports
 
-import "zedlancer/backend/internal/domain/valueobjects"
+import (
+	"zedlancer/backend/internal/domain/enums"
+	"zedlancer/backend/internal/domain/valueobjects"
+)
 
 type TokenManager interface {
-	IssueAccessToken(uint64) (*valueobjects.AccessToken, error)
-	VerifyAccessToken(string) (*valueobjects.JobSeekerPrincipal, error)
+	IssueAccessToken(uint64, enums.AccountRole) (*valueobjects.AccessToken, error)
+	VerifyAccessToken(string, enums.AccountRole) (*valueobjects.Principal, error)
 }
