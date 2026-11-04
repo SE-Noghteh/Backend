@@ -60,7 +60,7 @@ func (c *IndividualEmployerController) RequestOTP(ctx *gin.Context) {
 
 // Signup godoc
 // @Summary Submit employer information and automatically send verification OTP
-// @Description Validates and saves the complete multipart submission and private files, then sends OTP automatically. Returns 202; no employer account exists until verify-otp succeeds. Pending signup lasts 30 minutes. Business fields, email and business license are optional. Password requires 12-72 bytes with uppercase, lowercase, number, symbol. Documents: PDF/PNG/JPEG up to 5 MiB each. Video: MP4/MOV, 30-60 seconds, up to 50 MiB. Requires configured S3 and ffprobe.
+// @Description Validates and saves the complete multipart submission and private files, then sends OTP automatically. Returns 202; no employer account exists until verify-otp succeeds. Pending signup lasts 30 minutes. Business fields, email and business license are optional. Password requires 12-72 bytes with uppercase, lowercase, number, symbol. Documents: PDF/PNG/JPEG up to 5 MiB each. Video: MP4/MOV, 1-20 seconds, up to 50 MiB. Requires configured S3 and ffprobe.
 // @Tags Individual employer
 // @Accept multipart/form-data
 // @Produce json
@@ -85,7 +85,7 @@ func (c *IndividualEmployerController) RequestOTP(ctx *gin.Context) {
 // @Param password formData string true "Password (12-72 bytes)"
 // @Param identity_document formData file true "First page of identity document (PDF/PNG/JPEG, <=5 MiB)"
 // @Param business_license formData file false "Optional business license (PDF/PNG/JPEG, <=5 MiB)"
-// @Param verification_video formData file true "Identity video (MP4/MOV, 30-60 seconds, <=50 MiB)"
+// @Param verification_video formData file true "Identity video (MP4/MOV, 1-20 seconds, <=50 MiB)"
 // @Success 202 {object} OTPResponse
 // @Failure 400,409,413,429,500,503 {object} ErrorResponse
 // @Router /individual-employers/signup [post]

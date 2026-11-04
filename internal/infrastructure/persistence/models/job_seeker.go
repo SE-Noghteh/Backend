@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"zedlancer/backend/internal/domain/enums"
+	"zedlancer/backend/internal/domain/valueobjects"
 )
 
 type JobSeekerModel struct {
@@ -20,6 +21,8 @@ type JobSeekerModel struct {
 	PasswordHash    string           `gorm:"size:60;not null"`
 	PhoneVerifiedAt time.Time        `gorm:"not null"`
 	CreatedAt       time.Time        `gorm:"not null"`
+	// Nullable for accounts created before video verification was required.
+	VerificationVideo *valueobjects.StoredObject `gorm:"serializer:json;type:jsonb"`
 }
 
 func (JobSeekerModel) TableName() string { return "job_seekers" }

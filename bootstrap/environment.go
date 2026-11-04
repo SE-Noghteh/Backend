@@ -14,8 +14,8 @@ type Env struct {
 }
 
 type S3 struct {
-	Bucket, Region, Endpoint string
-	UsePathStyle             bool
+	Bucket, Region, Endpoint, PublicEndpoint string
+	UsePathStyle                             bool
 }
 
 type JWT struct{ Secret, Issuer, Audience, AccessTokenTTL string }
@@ -33,7 +33,7 @@ type Database struct {
 func NewEnv() *Env {
 	godotenv.Load(".env")
 	return &Env{
-		S3:  S3{Bucket: os.Getenv("S3_BUCKET"), Region: envOrDefault("AWS_REGION", "us-east-1"), Endpoint: os.Getenv("S3_ENDPOINT"), UsePathStyle: os.Getenv("S3_USE_PATH_STYLE") == "true"},
+		S3:  S3{Bucket: os.Getenv("S3_BUCKET"), Region: envOrDefault("AWS_REGION", "us-east-1"), Endpoint: os.Getenv("S3_ENDPOINT"), PublicEndpoint: os.Getenv("S3_PUBLIC_ENDPOINT"), UsePathStyle: os.Getenv("S3_USE_PATH_STYLE") == "true"},
 		JWT: JWT{Secret: os.Getenv("JWT_SECRET"), Issuer: envOrDefault("JWT_ISSUER", "zedlancer"), Audience: envOrDefault("JWT_AUDIENCE", "zedlancer-api"), AccessTokenTTL: envOrDefault("JWT_ACCESS_TOKEN_TTL", "1h")},
 		SMS: SMS{Token: os.Getenv("SMS_TOKEN")},
 		DB: Database{

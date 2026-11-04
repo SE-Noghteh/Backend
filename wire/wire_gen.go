@@ -45,7 +45,7 @@ func InitializeApplication(container *bootstrap.Config) (*Application, error) {
 	individualEmployerController := general.NewIndividualEmployerController(individualEmployerService)
 	jobSeekerAuthService := service.NewJobSeekerAuthService(unitOfWork, bcryptPasswordHasher, jwtManager)
 	jobSeekerAuthController := general.NewJobSeekerAuthController(jobSeekerAuthService)
-	jobSeekerService := service.NewJobSeekerService(unitOfWork, ferzzSender, bcryptPasswordHasher)
+	jobSeekerService := service.NewJobSeekerService(unitOfWork, ferzzSender, bcryptPasswordHasher, s3Storage, validator)
 	jobSeekerController := general.NewJobSeekerController(jobSeekerService)
 	userService := service.NewUserService(unitOfWork)
 	generalUserController := general.NewGeneralUserController(userService)

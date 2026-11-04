@@ -54,8 +54,35 @@ func TestSwaggerServesUIAndSignupContract(t *testing.T) {
 		if len(spec.Definitions["enums.City"].Enum) != 10 || len(spec.Definitions["enums.Interest"].Enum) != 10 {
 			t.Fatal("all signup choices must be documented")
 		}
-		if len(spec.Definitions["general.SignupRequest"].Required) != 10 {
-			t.Fatal("all signup fields must be marked required")
+		var seekerSignup struct {
+			Consumes   []string `json:"consumes"`
+			Parameters []struct {
+				Name             string `json:"name"`
+				In               string `json:"in"`
+				Type             string `json:"type"`
+				Required         bool   `json:"required"`
+				CollectionFormat string `json:"collectionFormat"`
+			} `json:"parameters"`
+		}
+		if err := json.Unmarshal(spec.Paths["/job-seekers/signup"]["post"], &seekerSignup); err != nil {
+			t.Fatal(err)
+		}
+		if len(seekerSignup.Consumes) != 1 || seekerSignup.Consumes[0] != "multipart/form-data" || len(seekerSignup.Parameters) != 13 {
+			t.Fatal("job seeker signup must accept the profile and required video in one multipart submission")
+		}
+		for _, p := range seekerSignup.Parameters {
+			if p.In != "formData" || !p.Required {
+				t.Fatalf("missing required form field %s", p.Name)
+			}
+			if p.Name == "verification_video" && p.Type != "file" {
+				t.Fatal("video must be a file")
+			}
+			if p.Name == "interests" && p.CollectionFormat != "multi" {
+				t.Fatal("interests must support repeated fields")
+			}
+		}
+		if spec.Paths["/job-seekers/documents/video"]["get"] == nil {
+			t.Fatal("missing private job seeker video route")
 		}
 		var employerSignup struct {
 			Consumes   []string `json:"consumes"`

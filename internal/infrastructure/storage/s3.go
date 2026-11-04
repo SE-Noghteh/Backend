@@ -33,10 +33,13 @@ func NewS3Storage() (*S3Storage, error) {
 	if settings.Bucket == "" {
 		return &S3Storage{}, nil
 	}
-	if settings.Endpoint != "" {
-		parsed, err := url.Parse(settings.Endpoint)
+	for name, endpoint := range map[string]string{"S3_ENDPOINT": settings.Endpoint, "S3_PUBLIC_ENDPOINT": settings.PublicEndpoint} {
+		if endpoint == "" {
+			continue
+		}
+		parsed, err := url.Parse(endpoint)
 		if err != nil || parsed.Host == "" || (parsed.Scheme != "https" && parsed.Scheme != "http") {
-			return nil, fmt.Errorf("S3_ENDPOINT must be an HTTP or HTTPS URL")
+			return nil, fmt.Errorf("%s must be an HTTP or HTTPS URL", name)
 		}
 	}
 	cfg, err := config.LoadDefaultConfig(context.Background(), config.WithRegion(settings.Region), config.WithRetryMaxAttempts(2), config.WithHTTPClient(&httpClient))
@@ -49,7 +52,18 @@ func NewS3Storage() (*S3Storage, error) {
 			options.BaseEndpoint = aws.String(settings.Endpoint)
 		}
 	})
-	return &S3Storage{client: client, presigner: s3.NewPresignClient(client), bucket: settings.Bucket}, nil
+	return &S3Storage{client: client, presigner: newPresigner(client, settings.PublicEndpoint), bucket: settings.Bucket}, nil
+}
+
+// Sign the browser endpoint directly: changing a signed URL's host invalidates it.
+func newPresigner(client *s3.Client, publicEndpoint string) *s3.PresignClient {
+	return s3.NewPresignClient(client, func(options *s3.PresignOptions) {
+		if publicEndpoint != "" {
+			options.ClientOptions = append(options.ClientOptions, func(clientOptions *s3.Options) {
+				clientOptions.BaseEndpoint = aws.String(publicEndpoint)
+			})
+		}
+	})
 }
 
 func (s *S3Storage) Put(ctx context.Context, key string, body io.ReadSeeker, contentType string, size int64) (*valueobjects.StoredObject, error) {

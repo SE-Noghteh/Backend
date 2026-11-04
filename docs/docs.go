@@ -275,7 +275,7 @@ const docTemplate = `{
         },
         "/individual-employers/signup": {
             "post": {
-                "description": "Validates and saves the complete multipart submission and private files, then sends OTP automatically. Returns 202; no employer account exists until verify-otp succeeds. Pending signup lasts 30 minutes. Business fields, email and business license are optional. Password requires 12-72 bytes with uppercase, lowercase, number, symbol. Documents: PDF/PNG/JPEG up to 5 MiB each. Video: MP4/MOV, 30-60 seconds, up to 50 MiB. Requires configured S3 and ffprobe.",
+                "description": "Validates and saves the complete multipart submission and private files, then sends OTP automatically. Returns 202; no employer account exists until verify-otp succeeds. Pending signup lasts 30 minutes. Business fields, email and business license are optional. Password requires 12-72 bytes with uppercase, lowercase, number, symbol. Documents: PDF/PNG/JPEG up to 5 MiB each. Video: MP4/MOV, 1-20 seconds, up to 50 MiB. Requires configured S3 and ffprobe.",
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -438,7 +438,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "file",
-                        "description": "Identity video (MP4/MOV, 30-60 seconds, \u003c=50 MiB)",
+                        "description": "Identity video (MP4/MOV, 1-20 seconds, \u003c=50 MiB)",
                         "name": "verification_video",
                         "in": "formData",
                         "required": true
@@ -561,6 +561,54 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/job-seekers/documents/video": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Job seeker authentication"
+                ],
+                "summary": "Get a private download link for your own verification video",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/general.DocumentURLResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
                         "schema": {
                             "$ref": "#/definitions/general.ErrorResponse"
                         }
@@ -766,9 +814,9 @@ const docTemplate = `{
         },
         "/job-seekers/signup": {
             "post": {
-                "description": "Validates the whole profile and password before sending a real SMS. Stores a pending registration for 30 minutes; no account is created yet. Next call verify-otp with your phone and received code. Birth date is Jalali. Select 1-10 unique interests. Password must be 8-72 bytes and is stored only as a hash.",
+                "description": "Submit the complete profile, password and required private verification video before OTP is sent. Video must be MP4/MOV, 1-20 seconds, up to 50 MiB. Pending signup lasts 30 minutes; then verify the received OTP. Birth date is Jalali. Password must be 8-72 bytes.",
                 "consumes": [
-                    "application/json"
+                    "multipart/form-data"
                 ],
                 "produces": [
                     "application/json"
@@ -779,13 +827,103 @@ const docTemplate = `{
                 "summary": "Start signup and automatically send OTP",
                 "parameters": [
                     {
-                        "description": "Profile and password",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/general.SignupRequest"
-                        }
+                        "type": "string",
+                        "description": "First name",
+                        "name": "first_name",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Last name",
+                        "name": "last_name",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Ten-digit national code",
+                        "name": "national_code",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "City from signup-options",
+                        "name": "city",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Address",
+                        "name": "address",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Jalali birth year",
+                        "name": "birth_year",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Jalali birth month",
+                        "name": "birth_month",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Jalali birth day",
+                        "name": "birth_day",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "enum": [
+                            "female",
+                            "male"
+                        ],
+                        "type": "string",
+                        "description": "Gender",
+                        "name": "gender",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "collectionFormat": "multi",
+                        "description": "One to ten unique interests from signup-options",
+                        "name": "interests",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Phone number",
+                        "name": "phone",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Password (8-72 bytes)",
+                        "name": "password",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "Verification video (MP4/MOV, 1-20 seconds, \u003c=50 MiB)",
+                        "name": "verification_video",
+                        "in": "formData",
+                        "required": true
                     }
                 ],
                 "responses": {
@@ -803,6 +941,12 @@ const docTemplate = `{
                     },
                     "409": {
                         "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "413": {
+                        "description": "Request Entity Too Large",
                         "schema": {
                             "$ref": "#/definitions/general.ErrorResponse"
                         }
@@ -1161,7 +1305,7 @@ const docTemplate = `{
         },
         "/legal-employers/signup": {
             "post": {
-                "description": "Validates and saves the complete multipart submission and private files, then sends OTP automatically. Returns 202; no employer account exists until verify-otp succeeds. Pending signup lasts 30 minutes. Email and website are optional. Select activities from signup-options. Activity license is required when requires_activity_license is true. An attorney must upload authorization_document. Company identifier format is checked; official company and representative authority verification remains pending review. Password requires 12-72 bytes with uppercase, lowercase, number, symbol. Documents: PDF/PNG/JPEG up to 5 MiB each. Video: MP4/MOV, 30-60 seconds, up to 50 MiB. Requires configured S3 and ffprobe.",
+                "description": "Validates and saves the complete multipart submission and private files, then sends OTP automatically. Returns 202; no employer account exists until verify-otp succeeds. Pending signup lasts 30 minutes. Email and website are optional. Select activities from signup-options. Activity license is required when requires_activity_license is true. An attorney must upload authorization_document. Company identifier format is checked; official company and representative authority verification remains pending review. Password requires 12-72 bytes with uppercase, lowercase, number, symbol. Documents: PDF/PNG/JPEG up to 5 MiB each. Video: MP4/MOV, 1-20 seconds, up to 50 MiB. Requires configured S3 and ffprobe.",
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -1367,7 +1511,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "file",
-                        "description": "Representative identity video (MP4/MOV, 30-60 seconds, \u003c=50 MiB)",
+                        "description": "Representative identity video (MP4/MOV, 1-20 seconds, \u003c=50 MiB)",
                         "name": "verification_video",
                         "in": "formData",
                         "required": true
@@ -1724,34 +1868,6 @@ const docTemplate = `{
                 }
             }
         },
-        "general.JalaliDateRequest": {
-            "type": "object",
-            "required": [
-                "day",
-                "month",
-                "year"
-            ],
-            "properties": {
-                "day": {
-                    "type": "integer",
-                    "maximum": 31,
-                    "minimum": 1,
-                    "example": 1
-                },
-                "month": {
-                    "type": "integer",
-                    "maximum": 12,
-                    "minimum": 1,
-                    "example": 1
-                },
-                "year": {
-                    "type": "integer",
-                    "maximum": 3176,
-                    "minimum": 1,
-                    "example": 1380
-                }
-            }
-        },
         "general.LegalEmployerIdentity": {
             "type": "object",
             "properties": {
@@ -1970,81 +2086,6 @@ const docTemplate = `{
                 }
             }
         },
-        "general.SignupRequest": {
-            "type": "object",
-            "required": [
-                "address",
-                "birth_date",
-                "city",
-                "first_name",
-                "gender",
-                "interests",
-                "last_name",
-                "national_code",
-                "password",
-                "phone"
-            ],
-            "properties": {
-                "address": {
-                    "type": "string",
-                    "example": "خیابان آزادی، پلاک ۱۰"
-                },
-                "birth_date": {
-                    "$ref": "#/definitions/general.JalaliDateRequest"
-                },
-                "city": {
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/enums.City"
-                        }
-                    ],
-                    "example": "تهران"
-                },
-                "first_name": {
-                    "type": "string",
-                    "example": "علی"
-                },
-                "gender": {
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/enums.Gender"
-                        }
-                    ],
-                    "example": "male"
-                },
-                "interests": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/enums.Interest"
-                    },
-                    "example": [
-                        "برنامه نویسی",
-                        "طراحی"
-                    ]
-                },
-                "last_name": {
-                    "type": "string",
-                    "example": "رضایی"
-                },
-                "national_code": {
-                    "type": "string",
-                    "maxLength": 10,
-                    "minLength": 10,
-                    "example": "0013547895"
-                },
-                "password": {
-                    "type": "string",
-                    "format": "password",
-                    "maxLength": 72,
-                    "minLength": 8,
-                    "example": "choose-a-private-password"
-                },
-                "phone": {
-                    "type": "string",
-                    "example": "09123456789"
-                }
-            }
-        },
         "general.SignupResponse": {
             "type": "object",
             "properties": {
@@ -2090,7 +2131,7 @@ var SwaggerInfo = &swag.Spec{
 	BasePath:         "/v1",
 	Schemes:          []string{},
 	Title:            "Zedlancer Backend API",
-	Description:      "Submit signup information and password to automatically receive an SMS OTP, verify the code, then login to obtain a JWT. Birth dates use the Jalali calendar. Signup and OTP resend send real SMS messages.",
+	Description:      "JIGILI JIGILI",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 }

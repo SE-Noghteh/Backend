@@ -31,7 +31,7 @@ func (f testTokens) VerifyAccessToken(value string, role enums.AccountRole) (*va
 func verifiedMemory(t *testing.T) *signupMemory {
 	t.Helper()
 	m := &signupMemory{}
-	signup := NewJobSeekerService(m, m, testPasswords{})
+	signup := newJobSeekerService(m)
 	ctx := context.Background()
 	if err := signup.Signup(ctx, validSignup()); err != nil {
 		t.Fatal(err)

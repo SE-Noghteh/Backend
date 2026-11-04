@@ -39,4 +39,5 @@ func SetUpGeneralRoutes(v1 *gin.RouterGroup, app *wire.Application) {
 	jobSeekers.POST("/logout", authController.Logout)
 	auth := middleware.NewJobSeekerAuth(app.JobSeekerAuthService)
 	jobSeekers.GET("/me", auth.Require, authController.Me)
+	jobSeekers.GET("/documents/video", auth.Require, controller.VideoURL)
 }

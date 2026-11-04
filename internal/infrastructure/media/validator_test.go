@@ -49,9 +49,9 @@ func TestVideoDurationAndActualContainer(t *testing.T) {
 		t.Skip("ffprobe not installed")
 	}
 	v := NewValidator()
-	for _, duration := range []string{"30", "2", "61"} {
+	for _, duration := range []string{"1", "2", "20", "0.5", "20.1", "30", "60"} {
 		path := filepath.Join(t.TempDir(), "verification.mp4")
-		command := exec.Command("ffmpeg", "-v", "error", "-f", "lavfi", "-i", "color=c=black:s=16x16:r=1", "-t", duration, "-c:v", "mpeg4", "-y", path)
+		command := exec.Command("ffmpeg", "-v", "error", "-f", "lavfi", "-i", "color=c=black:s=16x16:r=10", "-t", duration, "-c:v", "mpeg4", "-y", path)
 		if output, err := command.CombinedOutput(); err != nil {
 			t.Fatalf("create test video: %v %s", err, output)
 		}
@@ -61,7 +61,7 @@ func TestVideoDurationAndActualContainer(t *testing.T) {
 		}
 		_, validationErr := v.Video(context.Background(), ports.UploadFile{Name: "verification.mp4", Body: file})
 		file.Close()
-		if (validationErr == nil) != (duration == "30") {
+		if (validationErr == nil) != (duration == "1" || duration == "2" || duration == "20") {
 			t.Fatalf("duration %s: %v", duration, validationErr)
 		}
 	}

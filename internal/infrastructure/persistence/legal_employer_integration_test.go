@@ -43,7 +43,7 @@ func TestPostgresLegalEmployerSingleSubmission(t *testing.T) {
 		t.Fatal(err)
 	}
 	videoPath := filepath.Join(t.TempDir(), "identity.mp4")
-	command := exec.Command("ffmpeg", "-v", "error", "-f", "lavfi", "-i", "color=c=black:s=16x16:r=1", "-t", "30", "-c:v", "mpeg4", "-y", videoPath)
+	command := exec.Command("ffmpeg", "-v", "error", "-f", "lavfi", "-i", "color=c=black:s=16x16:r=1", "-t", "2", "-c:v", "mpeg4", "-y", videoPath)
 	if output, err := command.CombinedOutput(); err != nil {
 		t.Fatalf("video fixture: %v %s", err, output)
 	}

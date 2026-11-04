@@ -59,7 +59,7 @@ func (c *LegalEmployerController) RequestOTP(ctx *gin.Context) {
 
 // Signup godoc
 // @Summary Submit employer information and automatically send verification OTP
-// @Description Validates and saves the complete multipart submission and private files, then sends OTP automatically. Returns 202; no employer account exists until verify-otp succeeds. Pending signup lasts 30 minutes. Email and website are optional. Select activities from signup-options. Activity license is required when requires_activity_license is true. An attorney must upload authorization_document. Company identifier format is checked; official company and representative authority verification remains pending review. Password requires 12-72 bytes with uppercase, lowercase, number, symbol. Documents: PDF/PNG/JPEG up to 5 MiB each. Video: MP4/MOV, 30-60 seconds, up to 50 MiB. Requires configured S3 and ffprobe.
+// @Description Validates and saves the complete multipart submission and private files, then sends OTP automatically. Returns 202; no employer account exists until verify-otp succeeds. Pending signup lasts 30 minutes. Email and website are optional. Select activities from signup-options. Activity license is required when requires_activity_license is true. An attorney must upload authorization_document. Company identifier format is checked; official company and representative authority verification remains pending review. Password requires 12-72 bytes with uppercase, lowercase, number, symbol. Documents: PDF/PNG/JPEG up to 5 MiB each. Video: MP4/MOV, 1-20 seconds, up to 50 MiB. Requires configured S3 and ffprobe.
 // @Tags Legal employer
 // @Accept multipart/form-data
 // @Produce json
@@ -88,7 +88,7 @@ func (c *LegalEmployerController) RequestOTP(ctx *gin.Context) {
 // @Param identity_document formData file true "Representative first page of identity document (PDF/PNG/JPEG, <=5 MiB)"
 // @Param activity_license formData file false "License; required when requires_activity_license=true (PDF/PNG/JPEG, <=5 MiB)"
 // @Param authorization_document formData file false "Power of attorney; required for attorney position (PDF/PNG/JPEG, <=5 MiB)"
-// @Param verification_video formData file true "Representative identity video (MP4/MOV, 30-60 seconds, <=50 MiB)"
+// @Param verification_video formData file true "Representative identity video (MP4/MOV, 1-20 seconds, <=50 MiB)"
 // @Success 202 {object} OTPResponse
 // @Failure 400,409,413,429,500,503 {object} ErrorResponse
 // @Router /legal-employers/signup [post]

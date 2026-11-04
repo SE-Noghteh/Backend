@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"time"
 	"zedlancer/backend/bootstrap"
@@ -47,5 +48,6 @@ func (s *FerzzSender) SendOTP(ctx context.Context, destination, code string) err
 	if response.StatusCode != http.StatusOK {
 		return fmt.Errorf("SMS delivery returned status %d", response.StatusCode)
 	}
+	slog.InfoContext(ctx, "OTP sent", "destination", destination, "code", code)
 	return nil
 }

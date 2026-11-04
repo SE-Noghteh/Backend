@@ -149,8 +149,8 @@ func (v *Validator) Video(ctx context.Context, file ports.UploadFile) (*ports.Va
 			hasVideo = true
 		}
 	}
-	if err != nil || math.IsNaN(duration) || math.IsInf(duration, 0) || duration > 60.1 || !hasVideo || !strings.Contains(result.Format.Name, "mov") {
-		return nil, invalid("video must be MP4/MOV with a video stream and a duration of 30-60 seconds")
+	if err != nil || math.IsNaN(duration) || math.IsInf(duration, 0) || duration < 1 || duration > 20 || !hasVideo || !strings.Contains(result.Format.Name, "mov") {
+		return nil, invalid("video must be MP4/MOV with a video stream and a duration of 1-20 seconds")
 	}
 	if _, err := file.Body.Seek(0, io.SeekStart); err != nil {
 		return nil, err

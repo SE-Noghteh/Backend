@@ -1,15 +1,19 @@
 package persistence_test
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -23,6 +27,7 @@ import (
 	"zedlancer/backend/internal/domain/enums"
 	domainerrors "zedlancer/backend/internal/domain/errors"
 	"zedlancer/backend/internal/domain/valueobjects"
+	"zedlancer/backend/internal/infrastructure/media"
 	"zedlancer/backend/internal/infrastructure/persistence"
 	"zedlancer/backend/internal/infrastructure/security"
 	"zedlancer/backend/internal/presentation/controllers/v1/general"
@@ -45,9 +50,21 @@ func TestPostgresSignupVerificationAndLogin(t *testing.T) {
 	if err := godotenv.Load("../../../.env"); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := exec.LookPath("ffmpeg"); err != nil {
+		t.Skip("ffmpeg not installed")
+	}
+	videoPath := filepath.Join(t.TempDir(), "verification.mp4")
+	command := exec.Command("ffmpeg", "-v", "error", "-f", "lavfi", "-i", "color=c=black:s=16x16:r=1", "-t", "2", "-c:v", "mpeg4", "-y", videoPath)
+	if output, err := command.CombinedOutput(); err != nil {
+		t.Fatalf("video fixture: %v %s", err, output)
+	}
+	video, err := os.ReadFile(videoPath)
+	if err != nil {
+		t.Fatal(err)
+	}
 	db := persistence.NewPostgresDatabase()
 	rollback := errors.New("rollback test fixtures")
-	err := db.Transaction(func(tx *gorm.DB) error {
+	err = db.Transaction(func(tx *gorm.DB) error {
 		uow := persistence.NewUnitOfWork(tx)
 		hasher, err := security.NewBcryptPasswordHasher()
 		if err != nil {
@@ -58,7 +75,8 @@ func TestPostgresSignupVerificationAndLogin(t *testing.T) {
 			return err
 		}
 		sms := &capturedSMS{}
-		signup := service.NewJobSeekerService(uow, sms, hasher)
+		storage := &employerTestStorage{objects: map[string][]byte{}}
+		signup := service.NewJobSeekerService(uow, sms, hasher, storage, media.NewValidator())
 		auth := service.NewJobSeekerAuthService(uow, hasher, tokens)
 		gin.SetMode(gin.TestMode)
 		router := gin.New()
@@ -73,17 +91,31 @@ func TestPostgresSignupVerificationAndLogin(t *testing.T) {
 			return err
 		}
 		in := usecase.SignupJobSeeker{FirstName: "Integration", LastName: "Test", NationalCode: nationalCode, City: enums.CityTehran, Address: "Test address", BirthDate: valueobjects.JalaliDate{Year: 1380, Month: 1, Day: 1}, Gender: enums.GenderMale, Interests: []enums.Interest{enums.InterestProgramming}, Phone: phone, Password: "integration-password"}
-		signupBody, err := json.Marshal(general.SignupRequest{
-			FirstName: in.FirstName, LastName: in.LastName, NationalCode: in.NationalCode,
-			City: in.City, Address: in.Address,
-			BirthDate: general.JalaliDateRequest{Year: in.BirthDate.Year, Month: in.BirthDate.Month, Day: in.BirthDate.Day},
-			Gender:    in.Gender, Interests: in.Interests, Phone: in.Phone, Password: in.Password,
-		})
+		var signupBody bytes.Buffer
+		writer := multipart.NewWriter(&signupBody)
+		fields := map[string]string{"first_name": in.FirstName, "last_name": in.LastName, "national_code": in.NationalCode, "city": string(in.City), "address": in.Address,
+			"birth_year": "1380", "birth_month": "1", "birth_day": "1", "gender": string(in.Gender), "interests": string(in.Interests[0]), "phone": in.Phone, "password": in.Password}
+		for name, value := range fields {
+			if err := writer.WriteField(name, value); err != nil {
+				return err
+			}
+		}
+		movie, err := writer.CreateFormFile("verification_video", "verification.mp4")
 		if err != nil {
 			return err
 		}
-		if response := callAPI(router, http.MethodPost, "/v1/job-seekers/signup", string(signupBody), ""); response.Code != http.StatusAccepted {
-			t.Fatalf("HTTP signup returned %d", response.Code)
+		if _, err := movie.Write(video); err != nil {
+			return err
+		}
+		if err := writer.Close(); err != nil {
+			return err
+		}
+		request := httptest.NewRequest(http.MethodPost, "/v1/job-seekers/signup", &signupBody)
+		request.Header.Set("Content-Type", writer.FormDataContentType())
+		response := httptest.NewRecorder()
+		router.ServeHTTP(response, request)
+		if response.Code != http.StatusAccepted {
+			t.Fatalf("HTTP signup returned %d: %s", response.Code, response.Body.String())
 		}
 		repo := uow.Factory().SignupOTPRepository()
 		pending, err := repo.GetOTP(ctx, in.Phone)
@@ -92,6 +124,9 @@ func TestPostgresSignupVerificationAndLogin(t *testing.T) {
 		}
 		if pending.Registration == nil || !hasher.Matches(pending.Registration.PasswordHash, in.Password) {
 			t.Fatal("pending JSONB profile/hash did not survive database round trip")
+		}
+		if pending.Registration.VerificationVideo == nil || !bytes.Equal(storage.objects[pending.Registration.VerificationVideo.Key], video) {
+			t.Fatal("pending video reference did not survive JSONB round trip")
 		}
 		if _, err := auth.Login(ctx, usecase.LoginJobSeeker{Phone: in.Phone, Password: in.Password}); !errors.Is(err, domainerrors.ErrInvalidCredentials) {
 			t.Fatalf("pending account logged in: %v", err)
@@ -121,6 +156,9 @@ func TestPostgresSignupVerificationAndLogin(t *testing.T) {
 		if seeker == nil {
 			t.Fatal("HTTP verification did not create the account")
 		}
+		if seeker.VerificationVideo == nil || seeker.VerificationVideo.Key != pending.Registration.VerificationVideo.Key {
+			t.Fatal("video reference was not preserved when creating the account")
+		}
 		if seeker.PhoneVerifiedAt.IsZero() || seeker.BirthDate != in.BirthDate {
 			t.Fatal("invalid persisted profile")
 		}
@@ -138,11 +176,17 @@ func TestPostgresSignupVerificationAndLogin(t *testing.T) {
 		if current.ID != seeker.ID {
 			t.Fatal("JWT authenticated wrong account")
 		}
+		if r := callAPI(router, http.MethodGet, "/v1/job-seekers/documents/video", "", "Bearer "+login.AccessToken.Value); r.Code != 200 || r.Header().Get("Cache-Control") != "no-store" || !strings.Contains(r.Body.String(), "https://private.example/signed") {
+			t.Fatalf("private video download failed: %d %s", r.Code, r.Body.String())
+		}
+		if r := callAPI(router, http.MethodGet, "/v1/job-seekers/documents/video", "", ""); r.Code != 401 {
+			t.Fatal("anonymous video download accepted")
+		}
 		loginBody, err := json.Marshal(general.LoginRequest{Phone: in.Phone, Password: in.Password})
 		if err != nil {
 			return err
 		}
-		response := callAPI(router, http.MethodPost, "/v1/job-seekers/login", string(loginBody), "")
+		response = callAPI(router, http.MethodPost, "/v1/job-seekers/login", string(loginBody), "")
 		if response.Code != 200 {
 			t.Fatalf("HTTP login returned %d", response.Code)
 		}

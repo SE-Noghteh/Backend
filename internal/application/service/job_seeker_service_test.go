@@ -24,6 +24,8 @@ type signupMemory struct {
 	smsCount      int
 	smsErr        error
 	createErr     error
+	saveErr       error
+	commitErr     error
 	revoked       map[string]time.Time
 	revocationErr error
 }
@@ -32,6 +34,9 @@ func (m *signupMemory) Factory() ports.RepositoryFactory { return m }
 func (m *signupMemory) WithTransaction(fn func(ports.RepositoryFactory) error) error {
 	previousOTP, previousSeeker, previousAttempt := cloneOTP(m.otp), cloneSeeker(m.seeker), cloneAttempt(m.attempt)
 	err := fn(m)
+	if err == nil {
+		err = m.commitErr
+	}
 	if err != nil {
 		m.otp, m.seeker, m.attempt = previousOTP, previousSeeker, previousAttempt
 	}
@@ -88,8 +93,120 @@ func (m *signupMemory) GetOTP(_ context.Context, phone string) (*entities.Signup
 	return cloneOTP(m.otp), nil
 }
 func (m *signupMemory) SaveOTP(_ context.Context, otp *entities.SignupOTP) error {
+	if m.saveErr != nil {
+		return m.saveErr
+	}
 	m.otp = cloneOTP(otp)
 	return nil
+}
+
+func TestJobSeekerVideoRequiredAndUploadFailures(t *testing.T) {
+	for _, scenario := range []string{"missing", "invalid", "storage", "sms", "save", "commit"} {
+		t.Run(scenario, func(t *testing.T) {
+			m := &signupMemory{}
+			uploads := &employerMemory{}
+			s := NewJobSeekerService(m, m, testPasswords{}, uploads, uploads)
+			in := validSignup()
+			switch scenario {
+			case "missing":
+				in.VerificationVideo = ports.UploadFile{}
+			case "invalid":
+				uploads.mediaErr = domainerrors.ErrInvalidUpload
+			case "storage":
+				uploads.failPut = 1
+			case "sms":
+				m.smsErr = errors.New("SMS unavailable")
+			case "save":
+				m.saveErr = errors.New("save failed")
+			case "commit":
+				m.commitErr = errors.New("commit failed")
+			}
+			if err := s.Signup(context.Background(), in); err == nil {
+				t.Fatal("failed upload/signup accepted")
+			}
+			if m.otp != nil || m.seeker != nil || len(uploads.objects) != 0 {
+				t.Fatal("failed signup left pending data or uploaded objects")
+			}
+			if scenario == "missing" || scenario == "invalid" {
+				if uploads.putCount != 0 || m.smsCount != 0 {
+					t.Fatal("invalid video uploaded or sent OTP")
+				}
+			}
+		})
+	}
+}
+
+func TestJobSeekerVideoLifecycle(t *testing.T) {
+	m := &signupMemory{}
+	uploads := &employerMemory{}
+	s := NewJobSeekerService(m, m, testPasswords{}, uploads, uploads)
+	ctx := context.Background()
+	if err := s.Signup(ctx, validSignup()); err != nil {
+		t.Fatal(err)
+	}
+	oldKey := m.otp.Registration.VerificationVideo.Key
+	if !strings.HasPrefix(oldKey, "job-seekers/") || strings.Contains(oldKey, validSignup().Phone) {
+		t.Fatal("video key must be private and random")
+	}
+	m.otp.SentAt = time.Now().Add(-2 * time.Minute)
+	if err := s.RequestOTP(ctx, validSignup().Phone); err != nil {
+		t.Fatal(err)
+	}
+	if uploads.putCount != 1 || m.otp.Registration.VerificationVideo.Key != oldKey {
+		t.Fatal("resending OTP changed the video")
+	}
+	m.otp.SentAt = time.Now().Add(-2 * time.Minute)
+	m.smsErr = errors.New("SMS failed")
+	if err := s.Signup(ctx, validSignup()); err == nil {
+		t.Fatal("failed replacement accepted")
+	}
+	if m.otp.Registration.VerificationVideo.Key != oldKey || len(uploads.objects) != 1 {
+		t.Fatal("failed replacement removed the previous video")
+	}
+	if _, ok := uploads.objects[oldKey]; !ok {
+		t.Fatal("previous video was deleted")
+	}
+	m.smsErr = nil
+	if err := s.Signup(ctx, validSignup()); err != nil {
+		t.Fatal(err)
+	}
+	newKey := m.otp.Registration.VerificationVideo.Key
+	if oldKey == newKey || len(uploads.objects) != 1 {
+		t.Fatal("replacement must keep only the new video")
+	}
+	if _, ok := uploads.objects[oldKey]; ok {
+		t.Fatal("replacement left the old video")
+	}
+	seeker, err := s.VerifyOTP(ctx, usecase.VerifySignupOTP{Phone: validSignup().Phone, OTP: m.smsCode})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if seeker.VerificationVideo == nil || seeker.VerificationVideo.Key != newKey {
+		t.Fatal("verification lost the video reference")
+	}
+	if _, err := s.VideoURL(ctx, seeker.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.VideoURL(ctx, seeker.ID+1); !errors.Is(err, domainerrors.ErrUnauthenticated) {
+		t.Fatal("missing account received a download URL")
+	}
+}
+
+func TestJobSeekerLegacyPendingRequiresVideo(t *testing.T) {
+	m := &signupMemory{}
+	s := newJobSeekerService(m)
+	ctx := context.Background()
+	if err := s.Signup(ctx, validSignup()); err != nil {
+		t.Fatal(err)
+	}
+	m.otp.Registration.VerificationVideo = nil
+	m.otp.SentAt = time.Now().Add(-2 * time.Minute)
+	if err := s.RequestOTP(ctx, validSignup().Phone); !errors.Is(err, domainerrors.ErrNoPendingSignup) {
+		t.Fatal("legacy pending signup without video was resent")
+	}
+	if _, err := s.VerifyOTP(ctx, usecase.VerifySignupOTP{Phone: validSignup().Phone, OTP: m.smsCode}); !errors.Is(err, domainerrors.ErrInvalidOTP) {
+		t.Fatal("legacy pending signup without video created an account")
+	}
 }
 func (m *signupMemory) DeleteOTP(context.Context, string) error { m.otp = nil; return nil }
 func (m *signupMemory) Create(_ context.Context, seeker *entities.JobSeeker) error {
@@ -142,13 +259,18 @@ func (testPasswords) Matches(hash, password string) bool {
 	return hash != "" && hash == "hash:"+password
 }
 
+func newJobSeekerService(m *signupMemory) *JobSeekerService {
+	uploads := &employerMemory{}
+	return NewJobSeekerService(m, m, testPasswords{}, uploads, uploads)
+}
+
 func validSignup() usecase.SignupJobSeeker {
-	return usecase.SignupJobSeeker{FirstName: "علی", LastName: "رضایی", NationalCode: "0013547895", City: enums.CityTehran, Address: "خیابان آزادی", BirthDate: valueobjects.JalaliDate{Year: 1380, Month: 1, Day: 1}, Gender: enums.GenderMale, Interests: []enums.Interest{enums.InterestProgramming}, Phone: "09123456789", Password: "a-good-password"}
+	return usecase.SignupJobSeeker{FirstName: "علی", LastName: "رضایی", NationalCode: "0013547895", City: enums.CityTehran, Address: "خیابان آزادی", BirthDate: valueobjects.JalaliDate{Year: 1380, Month: 1, Day: 1}, Gender: enums.GenderMale, Interests: []enums.Interest{enums.InterestProgramming}, Phone: "09123456789", Password: "a-good-password", VerificationVideo: ports.UploadFile{Name: "video.mp4", Body: strings.NewReader("video")}}
 }
 
 func TestSignupAutomaticallySendsOTPAndRequiresVerification(t *testing.T) {
 	m := &signupMemory{}
-	s := NewJobSeekerService(m, m, testPasswords{})
+	s := newJobSeekerService(m)
 	ctx := context.Background()
 	in := validSignup()
 	in.Phone = "+989123456789"
@@ -187,7 +309,7 @@ func TestOTPExpiryAndLockout(t *testing.T) {
 	for _, scenario := range []string{"expired code", "expired registration", "wrong code", "malformed code"} {
 		t.Run(scenario, func(t *testing.T) {
 			m := &signupMemory{}
-			s := NewJobSeekerService(m, m, testPasswords{})
+			s := newJobSeekerService(m)
 			ctx := context.Background()
 			if err := s.Signup(ctx, validSignup()); err != nil {
 				t.Fatal(err)
@@ -222,7 +344,7 @@ func TestOTPExpiryAndLockout(t *testing.T) {
 
 func TestResendRequiresPendingProfileAndInvalidatesOldCode(t *testing.T) {
 	m := &signupMemory{}
-	s := NewJobSeekerService(m, m, testPasswords{})
+	s := newJobSeekerService(m)
 	ctx := context.Background()
 	if err := s.RequestOTP(ctx, validSignup().Phone); !errors.Is(err, domainerrors.ErrNoPendingSignup) {
 		t.Fatal(err)
@@ -246,7 +368,7 @@ func TestResendRequiresPendingProfileAndInvalidatesOldCode(t *testing.T) {
 
 func TestSignupRollsBackOnSMSFailure(t *testing.T) {
 	m := &signupMemory{smsErr: errors.New("provider down")}
-	s := NewJobSeekerService(m, m, testPasswords{})
+	s := newJobSeekerService(m)
 	if err := s.Signup(context.Background(), validSignup()); !errors.Is(err, domainerrors.ErrSMSUnavailable) {
 		t.Fatal(err)
 	}
@@ -257,7 +379,7 @@ func TestSignupRollsBackOnSMSFailure(t *testing.T) {
 
 func TestVerificationRetainsCodeOnDatabaseFailure(t *testing.T) {
 	m := &signupMemory{}
-	s := NewJobSeekerService(m, m, testPasswords{})
+	s := newJobSeekerService(m)
 	ctx := context.Background()
 	if err := s.Signup(ctx, validSignup()); err != nil {
 		t.Fatal(err)
@@ -289,7 +411,7 @@ func TestSignupRejectsInvalidProfileBeforeSendingSMS(t *testing.T) {
 		func(in *usecase.SignupJobSeeker) { in.Phone = "123" },
 	} {
 		m := &signupMemory{}
-		s := NewJobSeekerService(m, m, testPasswords{})
+		s := newJobSeekerService(m)
 		in := validSignup()
 		mutate(&in)
 		if err := s.Signup(context.Background(), in); !errors.Is(err, domainerrors.ErrInvalidSignup) {

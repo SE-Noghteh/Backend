@@ -15,10 +15,12 @@ type JobSeekerService struct {
 	uow       ports.UnitOfWork
 	sender    ports.OTPSender
 	passwords ports.PasswordHasher
+	storage   ports.Storage
+	media     ports.MediaValidator
 }
 
-func NewJobSeekerService(uow ports.UnitOfWork, sender ports.OTPSender, passwords ports.PasswordHasher) *JobSeekerService {
-	return &JobSeekerService{uow: uow, sender: sender, passwords: passwords}
+func NewJobSeekerService(uow ports.UnitOfWork, sender ports.OTPSender, passwords ports.PasswordHasher, storage ports.Storage, media ports.MediaValidator) *JobSeekerService {
+	return &JobSeekerService{uow: uow, sender: sender, passwords: passwords, storage: storage, media: media}
 }
 
 // Signup validates the entire profile before storing a pending registration or sending SMS.
@@ -30,6 +32,9 @@ func (s *JobSeekerService) Signup(ctx context.Context, in usecase.SignupJobSeeke
 	}
 	if err := validateSignup(&in); err != nil {
 		return err
+	}
+	if in.VerificationVideo.Body == nil {
+		return domainerrors.ErrInvalidUpload
 	}
 	hash, err := s.passwords.Hash(in.Password)
 	if err != nil {
@@ -48,7 +53,8 @@ func (s *JobSeekerService) Signup(ctx context.Context, in usecase.SignupJobSeeke
 		PasswordHash: hash,
 		CreatedAt:    time.Now().UTC(),
 	}
-	return s.uow.WithTransaction(func(factory ports.RepositoryFactory) error {
+	var uploaded, replaced []string
+	err = s.uow.WithTransaction(func(factory ports.RepositoryFactory) error {
 		repo := factory.JobSeekerRepository()
 		if err := repo.LockPhone(ctx, phone); err != nil {
 			return err
@@ -65,8 +71,28 @@ func (s *JobSeekerService) Signup(ctx context.Context, in usecase.SignupJobSeeke
 		if err != nil {
 			return err
 		}
-		return s.sendChallenge(ctx, otpRepo, registration, previous)
+		if previous != nil && time.Since(previous.SentAt) < otpResendDelay {
+			return domainerrors.ErrOTPTooSoon
+		}
+		objects, err := uploadEmployerFiles(ctx, s.storage, s.media, "job-seekers", []employerUpload{{kind: "video", file: &in.VerificationVideo, video: true}}, &uploaded)
+		if err != nil {
+			return err
+		}
+		registration.VerificationVideo = objects["video"]
+		if err := s.sendChallenge(ctx, otpRepo, registration, previous); err != nil {
+			return err
+		}
+		if previous != nil && previous.Registration != nil && previous.Registration.VerificationVideo != nil {
+			replaced = append(replaced, previous.Registration.VerificationVideo.Key)
+		}
+		return nil
 	})
+	if err != nil {
+		cleanupEmployerUploads(ctx, s.storage, uploaded)
+		return err
+	}
+	cleanupEmployerUploads(ctx, s.storage, replaced)
+	return nil
 }
 
 // RequestOTP resends only for a previously validated, unexpired pending profile.
@@ -93,7 +119,18 @@ func (s *JobSeekerService) RequestOTP(ctx context.Context, rawPhone string) erro
 }
 
 func pendingSignupValid(otp *entities.SignupOTP, now time.Time) bool {
-	return otp != nil && otp.Registration != nil && now.Before(otp.Registration.CreatedAt.Add(pendingSignupLifetime))
+	return otp != nil && otp.Registration != nil && otp.Registration.VerificationVideo != nil && otp.Registration.VerificationVideo.Key != "" && now.Before(otp.Registration.CreatedAt.Add(pendingSignupLifetime))
+}
+
+func (s *JobSeekerService) VideoURL(ctx context.Context, id uint64) (string, error) {
+	seeker, err := s.uow.Factory().JobSeekerRepository().FindByID(ctx, id)
+	if err != nil {
+		return "", err
+	}
+	if seeker == nil {
+		return "", domainerrors.ErrUnauthenticated
+	}
+	return employerDocumentURL(ctx, s.storage, seeker.VerificationVideo)
 }
 
 func (s *JobSeekerService) sendChallenge(ctx context.Context, repo ports.SignupOTPRepository, registration *entities.JobSeeker, previous *entities.SignupOTP) error {

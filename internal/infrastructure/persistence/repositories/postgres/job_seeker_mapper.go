@@ -11,19 +11,20 @@ import (
 
 func jobSeekerToModel(seeker *entities.JobSeeker) *models.JobSeekerModel {
 	return &models.JobSeekerModel{
-		ID:              seeker.ID,
-		FirstName:       seeker.FirstName,
-		LastName:        seeker.LastName,
-		NationalCode:    seeker.NationalCode,
-		City:            string(seeker.City),
-		Address:         seeker.Address,
-		BirthDate:       seeker.BirthDate.String(),
-		Gender:          string(seeker.Gender),
-		Interests:       seeker.Interests,
-		Phone:           seeker.Phone,
-		PasswordHash:    seeker.PasswordHash,
-		PhoneVerifiedAt: seeker.PhoneVerifiedAt,
-		CreatedAt:       seeker.CreatedAt,
+		ID:                seeker.ID,
+		FirstName:         seeker.FirstName,
+		LastName:          seeker.LastName,
+		NationalCode:      seeker.NationalCode,
+		City:              string(seeker.City),
+		Address:           seeker.Address,
+		BirthDate:         seeker.BirthDate.String(),
+		Gender:            string(seeker.Gender),
+		Interests:         seeker.Interests,
+		Phone:             seeker.Phone,
+		PasswordHash:      seeker.PasswordHash,
+		PhoneVerifiedAt:   seeker.PhoneVerifiedAt,
+		CreatedAt:         seeker.CreatedAt,
+		VerificationVideo: seeker.VerificationVideo,
 	}
 }
 
@@ -33,18 +34,19 @@ func jobSeekerFromModel(model *models.JobSeekerModel) (*entities.JobSeeker, erro
 		return nil, fmt.Errorf("invalid persisted birth date")
 	}
 	return &entities.JobSeeker{
-		ID:              model.ID,
-		FirstName:       model.FirstName,
-		LastName:        model.LastName,
-		NationalCode:    model.NationalCode,
-		City:            enums.City(model.City),
-		Address:         model.Address,
-		BirthDate:       birth,
-		Gender:          enums.Gender(model.Gender),
-		Interests:       model.Interests,
-		Phone:           model.Phone,
-		PasswordHash:    model.PasswordHash,
-		PhoneVerifiedAt: model.PhoneVerifiedAt,
-		CreatedAt:       model.CreatedAt,
+		ID:                model.ID,
+		FirstName:         model.FirstName,
+		LastName:          model.LastName,
+		NationalCode:      model.NationalCode,
+		City:              enums.City(model.City),
+		Address:           model.Address,
+		BirthDate:         birth,
+		Gender:            enums.Gender(model.Gender),
+		Interests:         model.Interests,
+		Phone:             model.Phone,
+		PasswordHash:      model.PasswordHash,
+		PhoneVerifiedAt:   model.PhoneVerifiedAt,
+		CreatedAt:         model.CreatedAt,
+		VerificationVideo: model.VerificationVideo,
 	}, nil
 }
