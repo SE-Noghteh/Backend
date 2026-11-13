@@ -4,7 +4,7 @@ Project Zedlancer {
 }
 
 Table users {
-  account_status varchar(20) [not null, default: 'active']
+  account_status account_status [not null, default: 'active']
   deactivation_requested_at timestamptz
   id uuid [pk, not null, default: `gen_random_uuid()`]
   phone_number varchar(20) [not null]
@@ -373,9 +373,10 @@ Ref: dispute_evidence.uploaded_by_user_id > users.id
 
 Enum account_status {
   active
-  restricted
-  suspended
-  deactivated
+  pending_admin_approval
+  rejected_pending_edit
+  pending_parent_approval
+  inactive
 }
 
 Enum actor_type {

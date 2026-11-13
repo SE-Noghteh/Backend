@@ -3,7 +3,7 @@
 -- Requires PostgreSQL with gen_random_uuid() available.
 BEGIN;
 
-CREATE TYPE "account_status" AS ENUM ('active', 'restricted', 'suspended', 'deactivated');
+CREATE TYPE "account_status" AS ENUM ('active', 'pending_admin_approval', 'rejected_pending_edit', 'pending_parent_approval', 'inactive');
 CREATE TYPE "actor_type" AS ENUM ('seeker', 'parent', 'employer', 'admin');
 CREATE TYPE "link_status" AS ENUM ('invited', 'active', 'revoked');
 CREATE TYPE "opp_type" AS ENUM ('work', 'internship');
@@ -26,7 +26,7 @@ CREATE TYPE "report_kind" AS ENUM ('safety', 'other');
 CREATE TYPE "item_status" AS ENUM ('open', 'done', 'expired');
 
 CREATE TABLE "users" (
-  "account_status" varchar(20) NOT NULL DEFAULT 'active',
+  "account_status" account_status NOT NULL DEFAULT 'active',
   "deactivation_requested_at" timestamptz,
   "id" uuid NOT NULL DEFAULT gen_random_uuid(),
   "phone_number" varchar(20) NOT NULL,
