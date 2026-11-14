@@ -5,6 +5,7 @@ import (
 	"time"
 	"zedlancer/backend/internal/domain/entities"
 	"zedlancer/backend/internal/domain/ports"
+	"zedlancer/backend/internal/domain/valueobjects"
 )
 
 type JobSeekerParentInput struct {
@@ -14,8 +15,8 @@ type JobSeekerParentInput struct {
 	Skip      bool
 }
 
-type ParentStageResult struct {
-	SignupStatus   string     `json:"signup_status"`
+type ParentApprovalResult struct {
+	valueobjects.JobSeekerApproval
 	ParentID       *uint64    `json:"parent_id,omitempty"`
 	InvitationCode string     `json:"invitation_code,omitempty"`
 	ExpiresAt      *time.Time `json:"expires_at,omitempty"`
@@ -39,7 +40,8 @@ type SignupParent struct {
 }
 
 type ParentService interface {
-	SetJobSeekerParent(context.Context, uint64, JobSeekerParentInput) (*ParentStageResult, error)
+	InviteParent(context.Context, uint64, JobSeekerParentInput) (*ParentApprovalResult, error)
+	LinkRegisteredParent(context.Context, uint64, string) (*ParentApprovalResult, error)
 	ValidateInvitation(context.Context, string) (*ParentInvitationInfo, error)
 	Signup(context.Context, SignupParent) error
 	ResendOTP(context.Context, string) error

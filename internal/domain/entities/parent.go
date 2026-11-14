@@ -5,12 +5,8 @@ import (
 	"zedlancer/backend/internal/domain/valueobjects"
 )
 
-const (
-	SignupFirstStageCompleted  = "first_stage_completed"
-	SignupSecondStageCompleted = "second_stage_completed"
-)
-
 type Parent struct {
+	valueobjects.AdminReview
 	Relationship      string                     `json:"relationship"`
 	ID                uint64                     `json:"id"`
 	FirstName         string                     `json:"first_name"`

@@ -34,6 +34,8 @@ func SetUpGeneralRoutes(v1 *gin.RouterGroup, app *wire.Application) {
 	jobSeekers.POST("/otp", controller.RequestOTP)
 	jobSeekers.POST("/signup", controller.Signup)
 	jobSeekers.POST("/verify-otp", controller.VerifyOTP)
+	jobSeekers.POST("/forgot-password", controller.ForgotPassword)
+	jobSeekers.POST("/reset-password", controller.ResetPassword)
 	authController := app.Controllers.GeneralControllers.JobSeekerAuthController
 	jobSeekers.POST("/login", authController.Login)
 	jobSeekers.POST("/logout", authController.Logout)
@@ -44,7 +46,8 @@ func SetUpGeneralRoutes(v1 *gin.RouterGroup, app *wire.Application) {
 	jobSeekers.POST("/phone-change/verify", auth.Require, controller.VerifyPhoneChange)
 	jobSeekers.DELETE("/me", auth.Require, controller.DeleteAccount)
 	parentController := app.Controllers.GeneralControllers.ParentController
-	jobSeekers.POST("/parent-approval", auth.Require, parentController.SetJobSeekerParent)
+	jobSeekers.POST("/parent-approval/registered", auth.Require, parentController.LinkRegisteredParent)
+	jobSeekers.POST("/parent-approval/invite", auth.Require, parentController.InviteParent)
 	parents := v1.Group("/parents")
 	parents.POST("/invitations/validate", parentController.ValidateInvitation)
 	parents.POST("/signup", parentController.Signup)

@@ -22,6 +22,607 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/admin/job-seekers": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Lists minors with a connected parent and adults aged 18 or above, including adults who have not used the optional parent stage. Defaults to pending overall acceptance, excluding rejected job seeker reviews but including approved minors awaiting parent admin approval. Minors are approved only when all three approval flags are true; adults need only admin_approved. Pending users can still log in.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "List job seekers ready for admin review",
+                "parameters": [
+                    {
+                        "enum": [
+                            "pending",
+                            "approved",
+                            "rejected",
+                            "all"
+                        ],
+                        "type": "string",
+                        "default": "pending",
+                        "description": "Overall approval (rejected selects job seeker admin rejection)",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 20,
+                        "description": "Page size (1-100)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 0,
+                        "description": "Nonnegative offset",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/general.AdminJobSeekersResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/job-seekers/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Get a job seeker's profile for review",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Job seeker ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/general.AdminJobSeekerResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/job-seekers/{id}/documents/video": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns a private signed download URL valid for five minutes.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Download a job seeker's verification video",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Job seeker ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/general.DocumentURLResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/job-seekers/{id}/review": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Minors require a connected parent before review and remain pending until that parent also receives admin approval. Adults aged 18 and above need only their own admin approval; the optional parent stage is not required. Submit approved=true or false; message is optional. The decision and message are visible in job seeker login and /me responses. Rejection without a message uses a default message.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Approve or reject a job seeker",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Job seeker ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Approval decision and optional message",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/general.AdminReviewRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/general.AdminJobSeekerReviewResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/login": {
+            "post": {
+                "description": "No signup or OTP. Admin credentials are provisioned through SQL. Passwords must be bcrypt hashes in the database. Five failed login attempts per username within 15 minutes trigger a temporary lockout. Returns an admin-only JWT and automatically authorizes Swagger.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Admin login with username and password",
+                "parameters": [
+                    {
+                        "description": "Admin credentials",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/general.AdminLoginRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/general.AdminLoginResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/parents": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Defaults to pending parent reviews. Rejected parents are returned only by status=rejected or status=all.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "List parents awaiting or having received admin review",
+                "parameters": [
+                    {
+                        "enum": [
+                            "pending",
+                            "approved",
+                            "rejected",
+                            "all"
+                        ],
+                        "type": "string",
+                        "default": "pending",
+                        "description": "Review status",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 20,
+                        "description": "Page size (1-100)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 0,
+                        "description": "Nonnegative offset",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/general.AdminParentsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/parents/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Get a parent profile for review",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Parent ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/general.AdminParentResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/parents/{id}/documents/{kind}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns a private signed download URL valid for five minutes.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Download a parent's identity image or consent video",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Parent ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "enum": [
+                            "identity",
+                            "consent-video"
+                        ],
+                        "type": "string",
+                        "description": "Document kind",
+                        "name": "kind",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/general.DocumentURLResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/parents/{id}/review": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Submit approved=true or false with an optional message. A parent's admin review does not overwrite their children's own admin review decisions, but controls overall acceptance for all linked minors. Rejecting a parent returns those minors to pending; adults do not depend on parent approval.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Approve or reject a parent",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Parent ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Approval decision and optional message",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/general.AdminReviewRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/general.AdminParentReviewResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/individual-employers/documents/{kind}": {
             "get": {
                 "security": [
@@ -34,7 +635,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Individual employer"
+                    "Individual employers"
                 ],
                 "summary": "Get private download link for your own employer document",
                 "parameters": [
@@ -95,7 +696,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Individual employer"
+                    "Individual employers"
                 ],
                 "summary": "Login individual employer using phone and password",
                 "parameters": [
@@ -151,7 +752,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "Individual employer"
+                    "Individual employers"
                 ],
                 "summary": "Logout current individual employer token",
                 "responses": {
@@ -184,7 +785,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Individual employer"
+                    "Individual employers"
                 ],
                 "summary": "Get authenticated individual employer identity",
                 "responses": {
@@ -219,7 +820,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Individual employer"
+                    "Individual employers"
                 ],
                 "summary": "Resend individual employer verification OTP",
                 "parameters": [
@@ -283,7 +884,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Individual employer"
+                    "Individual employers"
                 ],
                 "summary": "Submit employer information and automatically send verification OTP",
                 "parameters": [
@@ -496,7 +1097,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Individual employer"
+                    "Individual employers"
                 ],
                 "summary": "Get individual employer signup choices",
                 "responses": {
@@ -520,7 +1121,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Individual employer"
+                    "Individual employers"
                 ],
                 "summary": "Verify individual employer and complete signup",
                 "parameters": [
@@ -579,7 +1180,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Job seeker authentication"
+                    "Job seekers"
                 ],
                 "summary": "Get a private download link for your own verification video",
                 "responses": {
@@ -616,6 +1217,64 @@ const docTemplate = `{
                 }
             }
         },
+        "/job-seekers/forgot-password": {
+            "post": {
+                "description": "Public endpoint. Sends an OTP to the registered, verified phone. Repeat to resend after 60 seconds. Codes expire after five minutes and permit five failed attempts. Unknown or unverified phones receive the same 202 response without sending SMS. Reset OTPs are separate from signup and phone-change OTPs.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Job seekers"
+                ],
+                "summary": "Send a job seeker password reset OTP",
+                "parameters": [
+                    {
+                        "description": "Registered job seeker phone",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/general.ForgotJobSeekerPasswordRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Accepted",
+                        "schema": {
+                            "$ref": "#/definitions/general.OTPResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/job-seekers/login": {
             "post": {
                 "description": "Requires a verified account. Returns an expiring JWT. Swagger automatically authorizes subsequent requests after successful login. Other clients must send Authorization: Bearer \u003caccess_token\u003e. Five failed attempts per phone within 15 minutes block further login attempts until the window ends.",
@@ -626,7 +1285,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Job seeker authentication"
+                    "Job seekers"
                 ],
                 "summary": "Login with phone and password",
                 "parameters": [
@@ -683,7 +1342,7 @@ const docTemplate = `{
                 ],
                 "description": "Permanently revokes this token until its expiration. Other login sessions stay active. Repeating logout with the same unexpired token returns 204. Swagger clears its authorization after successful logout.",
                 "tags": [
-                    "Job seeker authentication"
+                    "Job seekers"
                 ],
                 "summary": "Logout the current access token",
                 "responses": {
@@ -717,7 +1376,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Job seeker authentication"
+                    "Job seekers"
                 ],
                 "summary": "Get the logged-in job seeker",
                 "responses": {
@@ -755,7 +1414,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Job seeker account"
+                    "Job seekers"
                 ],
                 "summary": "Delete your job seeker account with password confirmation",
                 "parameters": [
@@ -813,7 +1472,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Job seeker signup"
+                    "Job seekers"
                 ],
                 "summary": "Resend signup OTP",
                 "parameters": [
@@ -873,14 +1532,14 @@ const docTemplate = `{
                 }
             }
         },
-        "/job-seekers/parent-approval": {
+        "/job-seekers/parent-approval/invite": {
             "post": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "Requires stage-one job seeker login. Supply parent first_name, last_name and phone. Existing verified parents link immediately and complete stage two. New parents receive a single-use invitation code valid for seven days; stage one remains the status until parent verification. Repeating this request replaces the previous code. For ages 18 and above, submit skip=true to complete stage two without a parent. Under 18 cannot skip.",
+                "description": "Requires a verified job seeker login. Supply first_name, last_name and phone for an unregistered parent. Returns an eight-character invitation code valid for seven days. Registered parents return 409; use the registered-parent endpoint instead. Repeating this request replaces the previous code. Ages 18 and above may submit skip=true to cancel an invitation; minors cannot skip. Only an existing parent connection blocks this API, returning 409: parent already connected. Skipping stores no completion flag.",
                 "consumes": [
                     "application/json"
                 ],
@@ -888,9 +1547,9 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Job seeker parent approval"
+                    "Job seekers"
                 ],
-                "summary": "Complete job seeker stage two or invite a parent",
+                "summary": "Invite a new parent or skip optional parent approval",
                 "parameters": [
                     {
                         "description": "Parent details or skip=true",
@@ -906,7 +1565,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/usecase.ParentStageResult"
+                            "$ref": "#/definitions/usecase.ParentApprovalResult"
                         }
                     },
                     "400": {
@@ -917,6 +1576,75 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/job-seekers/parent-approval/registered": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Requires job seeker login. Accepts only the parent's phone number. Links the verified parent immediately. Does not request names or generate an invitation code. If the parent is not registered, returns 400; use the invitation endpoint instead. If a parent is already connected, returns 409: parent already connected.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Job seekers"
+                ],
+                "summary": "Connect an already registered parent by phone",
+                "parameters": [
+                    {
+                        "description": "Registered parent phone",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/general.RegisteredParentRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/usecase.ParentApprovalResult"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
                         "schema": {
                             "$ref": "#/definitions/general.ErrorResponse"
                         }
@@ -945,7 +1673,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Job seeker account"
+                    "Job seekers"
                 ],
                 "summary": "Send an OTP to a new job seeker phone number",
                 "parameters": [
@@ -1020,7 +1748,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Job seeker account"
+                    "Job seekers"
                 ],
                 "summary": "Verify the new phone and change your number",
                 "parameters": [
@@ -1068,6 +1796,58 @@ const docTemplate = `{
                 }
             }
         },
+        "/job-seekers/reset-password": {
+            "post": {
+                "description": "Public endpoint. Submit the registered phone, its password-reset OTP and a new password (8-72 bytes). Atomically consumes the OTP, replaces the bcrypt password, clears login failures, invalidates all existing job seeker login tokens and cancels pending phone-change challenges. Login again with the new password. Approval and parent connection are preserved.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Job seekers"
+                ],
+                "summary": "Reset a job seeker password using phone and OTP",
+                "parameters": [
+                    {
+                        "description": "Phone, reset OTP and new password",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/general.ResetJobSeekerPasswordRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/general.PasswordResetResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/job-seekers/signup": {
             "post": {
                 "description": "Submit the complete profile, password and required private verification video before OTP is sent. Video must be MP4/MOV, 1-20 seconds, up to 50 MiB. Pending signup lasts 30 minutes; then verify the received OTP. Birth date is Jalali. Job seeker age must be between 15 and 22 years inclusive; otherwise returns HTTP 400 with an error message. Password must be 8-72 bytes.",
@@ -1078,7 +1858,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Job seeker signup"
+                    "Job seekers"
                 ],
                 "summary": "Start signup and automatically send OTP",
                 "parameters": [
@@ -1235,7 +2015,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Job seeker signup"
+                    "Job seekers"
                 ],
                 "summary": "Get signup choices",
                 "responses": {
@@ -1258,7 +2038,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Job seeker signup"
+                    "Job seekers"
                 ],
                 "summary": "Verify OTP and complete signup",
                 "parameters": [
@@ -1318,7 +2098,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Legal employer"
+                    "Legal employers"
                 ],
                 "summary": "Get private download link for your own employer document",
                 "parameters": [
@@ -1381,7 +2161,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Legal employer"
+                    "Legal employers"
                 ],
                 "summary": "Login legal employer using phone and password",
                 "parameters": [
@@ -1437,7 +2217,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "Legal employer"
+                    "Legal employers"
                 ],
                 "summary": "Logout current legal employer token",
                 "responses": {
@@ -1470,7 +2250,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Legal employer"
+                    "Legal employers"
                 ],
                 "summary": "Get authenticated legal employer identity",
                 "responses": {
@@ -1505,7 +2285,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Legal employer"
+                    "Legal employers"
                 ],
                 "summary": "Resend legal employer verification OTP",
                 "parameters": [
@@ -1569,7 +2349,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Legal employer"
+                    "Legal employers"
                 ],
                 "summary": "Submit employer information and automatically send verification OTP",
                 "parameters": [
@@ -1825,7 +2605,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Legal employer"
+                    "Legal employers"
                 ],
                 "summary": "Get legal employer signup choices",
                 "responses": {
@@ -1849,7 +2629,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Legal employer"
+                    "Legal employers"
                 ],
                 "summary": "Verify legal employer and complete signup",
                 "parameters": [
@@ -1907,7 +2687,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Parent signup"
+                    "Parents"
                 ],
                 "summary": "Check a parent invitation before signup",
                 "parameters": [
@@ -1959,7 +2739,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Parent signup"
+                    "Parents"
                 ],
                 "summary": "Resend parent signup OTP",
                 "parameters": [
@@ -2017,7 +2797,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Parent signup"
+                    "Parents"
                 ],
                 "summary": "Submit parent documents and send OTP to the saved phone",
                 "parameters": [
@@ -2116,7 +2896,7 @@ const docTemplate = `{
         },
         "/parents/verify-otp": {
             "post": {
-                "description": "Requires the same valid invitation used during signup. OTP expires in five minutes and permits five failed attempts. Creation, invitation consumption, link and second_stage_completed status commit atomically. Existing parents are reused by phone for other children without another signup.",
+                "description": "Submit the saved parent phone and received OTP. The pending signup must still have a valid invitation; its code is checked internally and is not submitted here. OTP expires in five minutes and permits five failed attempts. Parent creation, invitation consumption and the parent connection commit atomically.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2124,12 +2904,12 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Parent signup"
+                    "Parents"
                 ],
                 "summary": "Verify parent OTP, create parent, and link the job seeker",
                 "parameters": [
                     {
-                        "description": "Invitation code and SMS OTP",
+                        "description": "Parent phone and SMS OTP",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -2174,6 +2954,19 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "enums.AdminReviewStatus": {
+            "type": "string",
+            "enum": [
+                "pending",
+                "approved",
+                "rejected"
+            ],
+            "x-enum-varnames": [
+                "AdminReviewPending",
+                "AdminReviewApproved",
+                "AdminReviewRejected"
+            ]
+        },
         "enums.City": {
             "type": "string",
             "enum": [
@@ -2322,6 +3115,231 @@ const docTemplate = `{
                 "RepresentativeAttorney"
             ]
         },
+        "general.AdminJobSeekerResponse": {
+            "type": "object",
+            "properties": {
+                "address": {
+                    "type": "string"
+                },
+                "admin_approval_status": {
+                    "$ref": "#/definitions/enums.AdminReviewStatus"
+                },
+                "admin_approved": {
+                    "type": "boolean"
+                },
+                "admin_approved_parent": {
+                    "type": "boolean"
+                },
+                "admin_review_message": {
+                    "type": "string"
+                },
+                "admin_reviewed_at": {
+                    "type": "string"
+                },
+                "birth_date": {
+                    "type": "string"
+                },
+                "city": {
+                    "$ref": "#/definitions/enums.City"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "first_name": {
+                    "type": "string",
+                    "example": "علی"
+                },
+                "gender": {
+                    "$ref": "#/definitions/enums.Gender"
+                },
+                "has_verification_video": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "interests": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/enums.Interest"
+                    }
+                },
+                "last_name": {
+                    "type": "string",
+                    "example": "رضایی"
+                },
+                "national_code": {
+                    "type": "string"
+                },
+                "parent_approval_required": {
+                    "type": "boolean"
+                },
+                "parent_connected": {
+                    "type": "boolean"
+                },
+                "parent_id": {
+                    "type": "integer"
+                },
+                "parent_relationship": {
+                    "type": "string"
+                },
+                "phone": {
+                    "type": "string",
+                    "example": "09123456789"
+                },
+                "signup_status": {
+                    "type": "string",
+                    "enum": [
+                        "pending",
+                        "approved"
+                    ],
+                    "example": "pending"
+                }
+            }
+        },
+        "general.AdminJobSeekerReviewResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/general.AdminJobSeekerResponse"
+                },
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "general.AdminJobSeekersResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/general.AdminJobSeekerResponse"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "general.AdminLoginRequest": {
+            "type": "object",
+            "required": [
+                "password",
+                "username"
+            ],
+            "properties": {
+                "password": {
+                    "type": "string",
+                    "example": "your-admin-password"
+                },
+                "username": {
+                    "type": "string",
+                    "example": "admin"
+                }
+            }
+        },
+        "general.AdminLoginResponse": {
+            "type": "object",
+            "properties": {
+                "access_token": {
+                    "type": "string"
+                },
+                "expires_at": {
+                    "type": "string"
+                },
+                "token_type": {
+                    "type": "string",
+                    "example": "Bearer"
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
+        "general.AdminParentResponse": {
+            "type": "object",
+            "properties": {
+                "admin_approval_status": {
+                    "$ref": "#/definitions/enums.AdminReviewStatus"
+                },
+                "admin_review_message": {
+                    "type": "string"
+                },
+                "admin_reviewed_at": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "first_name": {
+                    "type": "string",
+                    "example": "علی"
+                },
+                "has_consent_video": {
+                    "type": "boolean"
+                },
+                "has_identity_document": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "last_name": {
+                    "type": "string",
+                    "example": "رضایی"
+                },
+                "phone": {
+                    "type": "string",
+                    "example": "09123456789"
+                },
+                "relationship": {
+                    "type": "string"
+                }
+            }
+        },
+        "general.AdminParentReviewResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/general.AdminParentResponse"
+                },
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "general.AdminParentsResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/general.AdminParentResponse"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "general.AdminReviewRequest": {
+            "type": "object",
+            "required": [
+                "approved"
+            ],
+            "properties": {
+                "approved": {
+                    "type": "boolean"
+                },
+                "message": {
+                    "type": "string",
+                    "example": "Please submit a clearer video"
+                }
+            }
+        },
         "general.DeleteJobSeekerRequest": {
             "type": "object",
             "required": [
@@ -2361,6 +3379,18 @@ const docTemplate = `{
                 "message": {
                     "type": "string",
                     "example": "invalid or expired OTP"
+                }
+            }
+        },
+        "general.ForgotJobSeekerPasswordRequest": {
+            "type": "object",
+            "required": [
+                "phone"
+            ],
+            "properties": {
+                "phone": {
+                    "type": "string",
+                    "example": "09123456789"
                 }
             }
         },
@@ -2423,6 +3453,21 @@ const docTemplate = `{
         "general.JobSeekerIdentity": {
             "type": "object",
             "properties": {
+                "admin_approval_status": {
+                    "$ref": "#/definitions/enums.AdminReviewStatus"
+                },
+                "admin_approved": {
+                    "type": "boolean"
+                },
+                "admin_approved_parent": {
+                    "type": "boolean"
+                },
+                "admin_review_message": {
+                    "type": "string"
+                },
+                "admin_reviewed_at": {
+                    "type": "string"
+                },
                 "created_at": {
                     "type": "string"
                 },
@@ -2441,6 +3486,9 @@ const docTemplate = `{
                 "parent_approval_required": {
                     "type": "boolean"
                 },
+                "parent_connected": {
+                    "type": "boolean"
+                },
                 "parent_id": {
                     "type": "integer"
                 },
@@ -2453,7 +3501,11 @@ const docTemplate = `{
                 },
                 "signup_status": {
                     "type": "string",
-                    "example": "first_stage_completed"
+                    "enum": [
+                        "pending",
+                        "approved"
+                    ],
+                    "example": "pending"
                 }
             }
         },
@@ -2650,6 +3702,15 @@ const docTemplate = `{
         "general.ParentSignupResponse": {
             "type": "object",
             "properties": {
+                "admin_approval_status": {
+                    "$ref": "#/definitions/enums.AdminReviewStatus"
+                },
+                "admin_review_message": {
+                    "type": "string"
+                },
+                "admin_reviewed_at": {
+                    "type": "string"
+                },
                 "first_name": {
                     "type": "string"
                 },
@@ -2673,16 +3734,26 @@ const docTemplate = `{
         "general.ParentVerifyOTPRequest": {
             "type": "object",
             "required": [
-                "code",
-                "otp"
+                "otp",
+                "phone"
             ],
             "properties": {
-                "code": {
-                    "type": "string"
-                },
                 "otp": {
                     "type": "string",
                     "example": "123456"
+                },
+                "phone": {
+                    "type": "string",
+                    "example": "09129876543"
+                }
+            }
+        },
+        "general.PasswordResetResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string",
+                    "example": "Password reset successfully. Please log in with your new password."
                 }
             }
         },
@@ -2698,12 +3769,46 @@ const docTemplate = `{
                 }
             }
         },
+        "general.RegisteredParentRequest": {
+            "type": "object",
+            "required": [
+                "phone"
+            ],
+            "properties": {
+                "phone": {
+                    "type": "string",
+                    "example": "09129876543"
+                }
+            }
+        },
         "general.ResendOTPRequest": {
             "type": "object",
             "required": [
                 "phone"
             ],
             "properties": {
+                "phone": {
+                    "type": "string",
+                    "example": "09123456789"
+                }
+            }
+        },
+        "general.ResetJobSeekerPasswordRequest": {
+            "type": "object",
+            "required": [
+                "new_password",
+                "otp",
+                "phone"
+            ],
+            "properties": {
+                "new_password": {
+                    "type": "string",
+                    "example": "your-new-password"
+                },
+                "otp": {
+                    "type": "string",
+                    "example": "123456"
+                },
                 "phone": {
                     "type": "string",
                     "example": "09123456789"
@@ -2777,6 +3882,40 @@ const docTemplate = `{
                 }
             }
         },
+        "usecase.ParentApprovalResult": {
+            "type": "object",
+            "properties": {
+                "admin_approved": {
+                    "type": "boolean"
+                },
+                "admin_approved_parent": {
+                    "type": "boolean"
+                },
+                "expires_at": {
+                    "type": "string"
+                },
+                "invitation_code": {
+                    "type": "string"
+                },
+                "parent_approval_required": {
+                    "type": "boolean"
+                },
+                "parent_connected": {
+                    "type": "boolean"
+                },
+                "parent_id": {
+                    "type": "integer"
+                },
+                "signup_status": {
+                    "type": "string",
+                    "enum": [
+                        "pending",
+                        "approved"
+                    ],
+                    "example": "pending"
+                }
+            }
+        },
         "usecase.ParentInvitationInfo": {
             "type": "object",
             "properties": {
@@ -2793,23 +3932,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "phone": {
-                    "type": "string"
-                }
-            }
-        },
-        "usecase.ParentStageResult": {
-            "type": "object",
-            "properties": {
-                "expires_at": {
-                    "type": "string"
-                },
-                "invitation_code": {
-                    "type": "string"
-                },
-                "parent_id": {
-                    "type": "integer"
-                },
-                "signup_status": {
                     "type": "string"
                 }
             }

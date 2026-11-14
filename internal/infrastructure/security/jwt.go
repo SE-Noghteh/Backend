@@ -22,7 +22,8 @@ type JWTManager struct {
 	ttl              time.Duration
 }
 type accessClaims struct {
-	Role string `json:"role"`
+	SessionVersion uint64 `json:"session_version,omitempty"`
+	Role           string `json:"role"`
 	jwt.RegisteredClaims
 }
 
@@ -46,6 +47,14 @@ func NewJWTManager(secret, issuer, audience string, ttl time.Duration) (*JWTMana
 }
 
 func (m *JWTManager) IssueAccessToken(id uint64, role enums.AccountRole) (*valueobjects.AccessToken, error) {
+	return m.issueAccessToken(id, role, 0)
+}
+
+func (m *JWTManager) IssueJobSeekerAccessToken(id, version uint64) (*valueobjects.AccessToken, error) {
+	return m.issueAccessToken(id, enums.RoleJobSeeker, version)
+}
+
+func (m *JWTManager) issueAccessToken(id uint64, role enums.AccountRole, version uint64) (*valueobjects.AccessToken, error) {
 	if id == 0 || !role.Valid() {
 		return nil, fmt.Errorf("cannot issue token without a valid identity and role")
 	}
@@ -56,7 +65,8 @@ func (m *JWTManager) IssueAccessToken(id uint64, role enums.AccountRole) (*value
 		return nil, err
 	}
 	claims := accessClaims{
-		Role: string(role),
+		SessionVersion: version,
+		Role:           string(role),
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    m.issuer,
 			Audience:  jwt.ClaimStrings{m.audience},
@@ -94,5 +104,5 @@ func (m *JWTManager) VerifyAccessToken(value string, role enums.AccountRole) (*v
 	if err != nil || id == 0 {
 		return nil, domainerrors.ErrUnauthenticated
 	}
-	return &valueobjects.Principal{ID: id, TokenID: claims.ID, ExpiresAt: claims.ExpiresAt.Time}, nil
+	return &valueobjects.Principal{ID: id, TokenID: claims.ID, ExpiresAt: claims.ExpiresAt.Time, SessionVersion: claims.SessionVersion}, nil
 }

@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
-	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -16,8 +15,10 @@ import (
 
 	"zedlancer/backend/internal/application/usecase"
 	"zedlancer/backend/internal/domain/entities"
+	"zedlancer/backend/internal/domain/enums"
 	domainerrors "zedlancer/backend/internal/domain/errors"
 	"zedlancer/backend/internal/domain/ports"
+	"zedlancer/backend/internal/domain/valueobjects"
 )
 
 const parentInvitationLifetime = 7 * 24 * time.Hour
@@ -34,6 +35,10 @@ func NewParentService(uow ports.UnitOfWork, sender ports.OTPSender, passwords po
 	return &ParentService{uow: uow, sender: sender, passwords: passwords, storage: storage, media: media}
 }
 func invitationHash(code string) string {
+	code = strings.TrimSpace(code)
+	if len(code) == 8 {
+		code = strings.ToUpper(code)
+	}
 	hash := sha256.Sum256([]byte(code))
 	return hex.EncodeToString(hash[:])
 }
@@ -53,11 +58,19 @@ func jobSeekerAge(seeker *entities.JobSeeker, now time.Time) (int, error) {
 	return age, nil
 }
 
-func (s *ParentService) SetJobSeekerParent(ctx context.Context, id uint64, in usecase.JobSeekerParentInput) (*usecase.ParentStageResult, error) {
+func (s *ParentService) InviteParent(ctx context.Context, id uint64, in usecase.JobSeekerParentInput) (*usecase.ParentApprovalResult, error) {
+	return s.setJobSeekerParent(ctx, id, in, false)
+}
+
+func (s *ParentService) LinkRegisteredParent(ctx context.Context, id uint64, phone string) (*usecase.ParentApprovalResult, error) {
+	return s.setJobSeekerParent(ctx, id, usecase.JobSeekerParentInput{Phone: phone}, true)
+}
+
+func (s *ParentService) setJobSeekerParent(ctx context.Context, id uint64, in usecase.JobSeekerParentInput, registered bool) (*usecase.ParentApprovalResult, error) {
 	var phone string
 	if !in.Skip {
 		in.FirstName, in.LastName = strings.TrimSpace(in.FirstName), strings.TrimSpace(in.LastName)
-		if in.FirstName == "" || in.LastName == "" || utf8.RuneCountInString(in.FirstName) > 100 || utf8.RuneCountInString(in.LastName) > 100 {
+		if !registered && (in.FirstName == "" || in.LastName == "" || utf8.RuneCountInString(in.FirstName) > 100 || utf8.RuneCountInString(in.LastName) > 100) {
 			return nil, invalidParent("parent first_name and last_name are required and must be at most 100 characters")
 		}
 		var err error
@@ -66,7 +79,7 @@ func (s *ParentService) SetJobSeekerParent(ctx context.Context, id uint64, in us
 			return nil, err
 		}
 	}
-	var result *usecase.ParentStageResult
+	var result *usecase.ParentApprovalResult
 	err := s.uow.WithTransaction(func(f ports.RepositoryFactory) error {
 		parents := f.ParentRepository()
 		// Parent-phone locks always precede account locks, across invitation and OTP operations.
@@ -86,6 +99,9 @@ func (s *ParentService) SetJobSeekerParent(ctx context.Context, id uint64, in us
 		if seeker == nil || seeker.PhoneVerifiedAt.IsZero() {
 			return domainerrors.ErrUnauthenticated
 		}
+		if seeker.ParentID != nil {
+			return domainerrors.ErrParentAlreadyConnected
+		}
 		if in.Skip {
 			age, err := jobSeekerAge(seeker, time.Now())
 			if err != nil {
@@ -97,10 +113,7 @@ func (s *ParentService) SetJobSeekerParent(ctx context.Context, id uint64, in us
 			if err := parents.DeleteInvitation(ctx, id); err != nil {
 				return err
 			}
-			if err := parents.SetSignupStage(ctx, id, entities.SignupSecondStageCompleted, seeker.ParentID, seeker.ParentRelationship); err != nil {
-				return err
-			}
-			result = &usecase.ParentStageResult{SignupStatus: entities.SignupSecondStageCompleted, ParentID: seeker.ParentID}
+			result = &usecase.ParentApprovalResult{ParentID: seeker.ParentID}
 			return nil
 		}
 		if phone == seeker.Phone {
@@ -110,37 +123,48 @@ func (s *ParentService) SetJobSeekerParent(ctx context.Context, id uint64, in us
 		if err != nil {
 			return err
 		}
-		if parent != nil && !parent.PhoneVerifiedAt.IsZero() {
-			if err := parents.SetSignupStage(ctx, id, entities.SignupSecondStageCompleted, &parent.ID, parent.Relationship); err != nil {
+		if registered {
+			if parent == nil || parent.PhoneVerifiedAt.IsZero() {
+				return domainerrors.ErrParentNotRegistered
+			}
+			if err := parents.SetParentConnection(ctx, id, &parent.ID, parent.Relationship); err != nil {
 				return err
 			}
 			if err := parents.DeleteInvitation(ctx, id); err != nil {
 				return err
 			}
-			result = &usecase.ParentStageResult{SignupStatus: entities.SignupSecondStageCompleted, ParentID: &parent.ID}
+			result = &usecase.ParentApprovalResult{ParentID: &parent.ID}
 			return nil
 		}
-		if seeker.ParentID != nil {
-			return invalidParent("a parent is already linked to this job seeker")
+		if parent != nil {
+			return domainerrors.ErrParentAlreadyRegistered
 		}
-		nonce := make([]byte, 32)
+		nonce := make([]byte, 8)
 		if _, err := rand.Read(nonce); err != nil {
 			return err
 		}
-		code := base64.RawURLEncoding.EncodeToString(nonce)
+		const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+		for n := range nonce {
+			nonce[n] = alphabet[int(nonce[n])%len(alphabet)]
+		}
+		code := string(nonce)
 		expires := time.Now().UTC().Add(parentInvitationLifetime)
 		invitation := &entities.ParentInvitation{JobSeekerID: id, CodeHash: invitationHash(code), FirstName: in.FirstName, LastName: in.LastName, Phone: phone, ExpiresAt: expires}
 		if err := parents.SaveInvitation(ctx, invitation); err != nil {
 			return err
 		}
-		if err := parents.SetSignupStage(ctx, id, entities.SignupFirstStageCompleted, nil, ""); err != nil {
-			return err
-		}
-		result = &usecase.ParentStageResult{SignupStatus: entities.SignupFirstStageCompleted, InvitationCode: code, ExpiresAt: &expires}
+		result = &usecase.ParentApprovalResult{InvitationCode: code, ExpiresAt: &expires}
 		return nil
 	})
 	if err != nil {
 		return nil, err
+	}
+	seeker, err := s.uow.Factory().JobSeekerRepository().FindByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if seeker != nil {
+		result.JobSeekerApproval, _ = seeker.ApprovalAt(time.Now())
 	}
 	return result, nil
 }
@@ -148,11 +172,17 @@ func (s *ParentService) SetJobSeekerParent(ctx context.Context, id uint64, in us
 // Check and lock the invitation's account after acquiring the parent phone lock.
 // Re-read after locking so replacement, skipping, or deletion invalidates old codes.
 func lockedParentInvitation(ctx context.Context, f ports.RepositoryFactory, code string) (*entities.ParentInvitation, error) {
-	if len(code) != 43 {
+	code = strings.TrimSpace(code)
+	// Existing long invitations remain valid until their original expiry.
+	if len(code) != 8 && len(code) != 43 {
 		return nil, domainerrors.ErrInvalidInvitation
 	}
+	return lockedParentInvitationByHash(ctx, f, invitationHash(code))
+}
+
+func lockedParentInvitationByHash(ctx context.Context, f ports.RepositoryFactory, hash string) (*entities.ParentInvitation, error) {
 	repo := f.ParentRepository()
-	i, err := repo.FindInvitation(ctx, invitationHash(code))
+	i, err := repo.FindInvitation(ctx, hash)
 	if err != nil {
 		return nil, err
 	}
@@ -168,7 +198,7 @@ func lockedParentInvitation(ctx context.Context, f ports.RepositoryFactory, code
 		}
 		return nil, err
 	}
-	i, err = repo.FindInvitation(ctx, invitationHash(code))
+	i, err = repo.FindInvitation(ctx, hash)
 	if err != nil {
 		return nil, err
 	}
@@ -256,7 +286,7 @@ func (s *ParentService) Signup(ctx context.Context, in usecase.SignupParent) err
 			return err
 		}
 		now := time.Now().UTC()
-		registration := &entities.Parent{FirstName: i.FirstName, LastName: i.LastName, Phone: i.Phone, Relationship: in.Relationship, PasswordHash: hash, IdentityDocument: objects["identity"], ConsentVideo: objects["consent-video"], ConsentAcceptedAt: now, CreatedAt: now}
+		registration := &entities.Parent{AdminReview: valueobjects.AdminReview{AdminApprovalStatus: enums.AdminReviewPending}, FirstName: i.FirstName, LastName: i.LastName, Phone: i.Phone, Relationship: in.Relationship, PasswordHash: hash, IdentityDocument: objects["identity"], ConsentVideo: objects["consent-video"], ConsentAcceptedAt: now, CreatedAt: now}
 		pending := &entities.PendingParentSignup{InvitationHash: i.CodeHash, Relationship: in.Relationship, Registration: registration}
 		if err := s.sendParentChallenge(ctx, repo, pending); err != nil {
 			return err
@@ -323,16 +353,26 @@ func (s *ParentService) ResendOTP(ctx context.Context, code string) error {
 		return s.sendParentChallenge(ctx, repo, p)
 	})
 }
-func (s *ParentService) VerifyOTP(ctx context.Context, code, otpCode string) (*entities.Parent, error) {
+func (s *ParentService) VerifyOTP(ctx context.Context, rawPhone, otpCode string) (*entities.Parent, error) {
+	phone, err := normalizePhone(rawPhone)
+	if err != nil {
+		return nil, err
+	}
 	var result *entities.Parent
 	var verifyErr error
-	err := s.uow.WithTransaction(func(f ports.RepositoryFactory) error {
-		i, err := lockedParentInvitation(ctx, f, code)
+	err = s.uow.WithTransaction(func(f ports.RepositoryFactory) error {
+		repo := f.ParentRepository()
+		if err := repo.LockPhone(ctx, phone); err != nil {
+			return err
+		}
+		p, err := repo.GetPending(ctx, phone)
 		if err != nil {
 			return err
 		}
-		repo := f.ParentRepository()
-		p, err := repo.GetPending(ctx, i.Phone)
+		if p == nil {
+			return domainerrors.ErrInvalidOTP
+		}
+		i, err := lockedParentInvitationByHash(ctx, f, p.InvitationHash)
 		if err != nil {
 			return err
 		}
@@ -358,7 +398,7 @@ func (s *ParentService) VerifyOTP(ctx context.Context, code, otpCode string) (*e
 		if err := repo.Create(ctx, result); err != nil {
 			return err
 		}
-		if err := repo.SetSignupStage(ctx, i.JobSeekerID, entities.SignupSecondStageCompleted, &result.ID, p.Relationship); err != nil {
+		if err := repo.SetParentConnection(ctx, i.JobSeekerID, &result.ID, p.Relationship); err != nil {
 			return err
 		}
 		if err := repo.DeleteInvitation(ctx, i.JobSeekerID); err != nil {

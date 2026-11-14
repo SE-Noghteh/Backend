@@ -46,6 +46,67 @@ func TestSwaggerServesUIAndSignupContract(t *testing.T) {
 		if spec.BasePath != "/v1" || spec.Host != "" {
 			t.Fatal("Swagger must use /v1 on the current host and port")
 		}
+		for _, path := range []string{"/job-seekers/forgot-password", "/job-seekers/reset-password"} {
+			var operation struct {
+				Security []json.RawMessage `json:"security"`
+			}
+			if err := json.Unmarshal(spec.Paths[path]["post"], &operation); err != nil {
+				t.Fatalf("missing password reset endpoint %s: %v", path, err)
+			}
+			if len(operation.Security) != 0 {
+				t.Fatal("password reset endpoint must be public", path)
+			}
+		}
+		for path, methods := range spec.Paths {
+			var expected string
+			switch {
+			case strings.HasPrefix(path, "/admin/"):
+				expected = "Admin"
+			case strings.HasPrefix(path, "/job-seekers/"):
+				expected = "Job seekers"
+			case strings.HasPrefix(path, "/parents/"):
+				expected = "Parents"
+			case strings.HasPrefix(path, "/individual-employers/"):
+				expected = "Individual employers"
+			case strings.HasPrefix(path, "/legal-employers/"):
+				expected = "Legal employers"
+			default:
+				continue
+			}
+			for _, raw := range methods {
+				var operation struct {
+					Tags []string `json:"tags"`
+				}
+				if err := json.Unmarshal(raw, &operation); err != nil {
+					t.Fatal(err)
+				}
+				if len(operation.Tags) != 1 || operation.Tags[0] != expected {
+					t.Fatalf("incorrect Swagger group for %s: %v", path, operation.Tags)
+				}
+			}
+		}
+		for path, method := range map[string]string{"/admin/login": "post", "/admin/job-seekers": "get", "/admin/job-seekers/{id}": "get", "/admin/job-seekers/{id}/documents/video": "get", "/admin/job-seekers/{id}/review": "post", "/admin/parents": "get", "/admin/parents/{id}": "get", "/admin/parents/{id}/documents/{kind}": "get", "/admin/parents/{id}/review": "post"} {
+			var operation struct {
+				Security []map[string][]string `json:"security"`
+			}
+			if err := json.Unmarshal(spec.Paths[path][method], &operation); err != nil {
+				t.Fatalf("missing admin endpoint %s: %v", path, err)
+			}
+			if path != "/admin/login" && (len(operation.Security) != 1 || operation.Security[0]["BearerAuth"] == nil) {
+				t.Fatalf("admin security missing: %s", path)
+			}
+		}
+		if spec.Paths["/job-seekers/parent-approval"] != nil {
+			t.Fatal("combined parent approval endpoint still documented")
+		}
+		phoneRequired := spec.Definitions["general.RegisteredParentRequest"].Required
+		if len(phoneRequired) != 1 || phoneRequired[0] != "phone" {
+			t.Fatal("registered parent should require only phone")
+		}
+		verificationRequired := spec.Definitions["general.ParentVerifyOTPRequest"].Required
+		if len(verificationRequired) != 2 || strings.Join(verificationRequired, ",") != "otp,phone" {
+			t.Fatal("parent verification must require phone and OTP")
+		}
 		for path, method := range map[string]string{"/job-seekers/signup-options": "get", "/job-seekers/otp": "post", "/job-seekers/signup": "post", "/job-seekers/verify-otp": "post", "/job-seekers/login": "post", "/job-seekers/me": "get", "/job-seekers/logout": "post"} {
 			if spec.Paths[path][method] == nil {
 				t.Fatalf("missing documented endpoint %s %s", method, path)
@@ -95,7 +156,7 @@ func TestSwaggerServesUIAndSignupContract(t *testing.T) {
 				t.Fatalf("missing bearer security for %s %s", method, path)
 			}
 		}
-		for _, path := range []string{"/job-seekers/parent-approval", "/parents/invitations/validate", "/parents/signup", "/parents/otp", "/parents/verify-otp"} {
+		for _, path := range []string{"/job-seekers/parent-approval/registered", "/job-seekers/parent-approval/invite", "/parents/invitations/validate", "/parents/signup", "/parents/otp", "/parents/verify-otp"} {
 			if spec.Paths[path]["post"] == nil {
 				t.Fatalf("missing parent endpoint %s", path)
 			}

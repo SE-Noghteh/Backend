@@ -18,10 +18,10 @@ func (r *ParentRepository) LockPhone(ctx context.Context, phone string) error {
 	return r.db.WithContext(ctx).Exec("SELECT pg_advisory_xact_lock(hashtextextended(?, 2))", phone).Error
 }
 func parentToModel(p *entities.Parent) *models.ParentModel {
-	return &models.ParentModel{ID: p.ID, Relationship: p.Relationship, FirstName: p.FirstName, LastName: p.LastName, Phone: p.Phone, PasswordHash: p.PasswordHash, IdentityDocument: p.IdentityDocument, ConsentVideo: p.ConsentVideo, ConsentAcceptedAt: p.ConsentAcceptedAt, PhoneVerifiedAt: p.PhoneVerifiedAt, CreatedAt: p.CreatedAt}
+	return &models.ParentModel{AdminReviewModel: adminReviewToModel(p.AdminReview), ID: p.ID, Relationship: p.Relationship, FirstName: p.FirstName, LastName: p.LastName, Phone: p.Phone, PasswordHash: p.PasswordHash, IdentityDocument: p.IdentityDocument, ConsentVideo: p.ConsentVideo, ConsentAcceptedAt: p.ConsentAcceptedAt, PhoneVerifiedAt: p.PhoneVerifiedAt, CreatedAt: p.CreatedAt}
 }
 func parentFromModel(p *models.ParentModel) *entities.Parent {
-	return &entities.Parent{ID: p.ID, Relationship: p.Relationship, FirstName: p.FirstName, LastName: p.LastName, Phone: p.Phone, PasswordHash: p.PasswordHash, IdentityDocument: p.IdentityDocument, ConsentVideo: p.ConsentVideo, ConsentAcceptedAt: p.ConsentAcceptedAt, PhoneVerifiedAt: p.PhoneVerifiedAt, CreatedAt: p.CreatedAt}
+	return &entities.Parent{AdminReview: adminReviewFromModel(p.AdminReviewModel), ID: p.ID, Relationship: p.Relationship, FirstName: p.FirstName, LastName: p.LastName, Phone: p.Phone, PasswordHash: p.PasswordHash, IdentityDocument: p.IdentityDocument, ConsentVideo: p.ConsentVideo, ConsentAcceptedAt: p.ConsentAcceptedAt, PhoneVerifiedAt: p.PhoneVerifiedAt, CreatedAt: p.CreatedAt}
 }
 func (r *ParentRepository) FindByPhone(ctx context.Context, phone string) (*entities.Parent, error) {
 	var row models.ParentModel
@@ -85,8 +85,8 @@ func (r *ParentRepository) SavePending(ctx context.Context, p *entities.PendingP
 func (r *ParentRepository) DeletePending(ctx context.Context, phone string) error {
 	return r.db.WithContext(ctx).Where("phone = ?", phone).Delete(&models.ParentSignupOTPModel{}).Error
 }
-func (r *ParentRepository) SetSignupStage(ctx context.Context, id uint64, status string, parentID *uint64, relationship string) error {
-	result := r.db.WithContext(ctx).Model(&models.JobSeekerModel{}).Where("id = ?", id).Updates(map[string]any{"signup_status": status, "parent_id": parentID, "parent_relationship": relationship})
+func (r *ParentRepository) SetParentConnection(ctx context.Context, id uint64, parentID *uint64, relationship string) error {
+	result := r.db.WithContext(ctx).Model(&models.JobSeekerModel{}).Where("id = ?", id).Updates(map[string]any{"parent_id": parentID, "parent_relationship": relationship})
 	if result.Error != nil {
 		return result.Error
 	}

@@ -110,6 +110,9 @@ func (s *JobSeekerService) VerifyPhoneChange(ctx context.Context, id uint64, in 
 		if err := repo.UpdatePhone(ctx, id, phone); err != nil {
 			return err
 		}
+		if err := repo.DeletePasswordResetOTP(ctx, id); err != nil {
+			return err
+		}
 		if err := repo.DeletePhoneChangeOTP(ctx, id); err != nil {
 			return err
 		}
@@ -154,6 +157,9 @@ func (s *JobSeekerService) DeleteAccount(ctx context.Context, id uint64, passwor
 			return attemptRepo.SaveLoginAttempt(ctx, attempt)
 		}
 		if err := repo.DeletePhoneChangeOTP(ctx, id); err != nil {
+			return err
+		}
+		if err := repo.DeletePasswordResetOTP(ctx, id); err != nil {
 			return err
 		}
 		if err := attemptRepo.DeleteLoginAttempt(ctx, seeker.Phone); err != nil {

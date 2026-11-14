@@ -38,6 +38,43 @@ function setup(storage = new Map()) {
   return { config, authorizations, logouts, storage };
 }
 
+test("API groups follow the requested order", () => {
+  const { config } = setup();
+  const groups = ["Admin", "Legal employers", "Parents", "Individual employers", "Job seekers"];
+  assert.deepEqual(groups.sort(config.tagsSorter), ["Job seekers", "Parents", "Individual employers", "Legal employers", "Admin"]);
+});
+
+test("admin login authorizes protected review requests", () => {
+  const { config, authorizations } = setup();
+  config.responseInterceptor({ url: "/v1/admin/login", status: 200, obj: { access_token: "admin.jwt.token" } });
+  assert.deepEqual(authorizations, [{ name: "BearerAuth", value: "Bearer admin.jwt.token" }]);
+  const request = { url: "/v1/admin/parents", headers: { Authorization: "admin.jwt.token" } };
+  config.requestInterceptor(request);
+  assert.equal(request.headers.Authorization, "Bearer admin.jwt.token");
+});
+
+test("operations follow signup and account workflow rather than alphabetical order", () => {
+  const { config } = setup();
+  function operation(method, path) { return { get: key => key === "method" ? method : path }; }
+  function key(op) { return op.get("method") + " " + op.get("path"); }
+  const seeker = [
+    operation("delete", "/job-seekers/me"), operation("post", "/job-seekers/logout"),
+    operation("get", "/job-seekers/me"), operation("post", "/job-seekers/login"),
+    operation("post", "/job-seekers/verify-otp"), operation("post", "/job-seekers/signup"),
+    operation("get", "/job-seekers/signup-options"),
+  ];
+  assert.deepEqual(seeker.sort(config.operationsSorter).map(key), [
+    "get /job-seekers/signup-options", "post /job-seekers/signup", "post /job-seekers/verify-otp",
+    "post /job-seekers/login", "get /job-seekers/me", "post /job-seekers/logout", "delete /job-seekers/me",
+  ]);
+  for (const group of ["individual-employers", "legal-employers"]) {
+    const operations = ["logout", "login", "verify-otp", "signup"].map(step => operation("post", "/" + group + "/" + step));
+    assert.deepEqual(operations.sort(config.operationsSorter).map(key), ["signup", "verify-otp", "login", "logout"].map(step => "post /" + group + "/" + step));
+  }
+  const parent = ["otp", "verify-otp", "signup", "invitations/validate"].map(step => operation("post", "/parents/" + step));
+  assert.deepEqual(parent.sort(config.operationsSorter).map(key), ["invitations/validate", "signup", "verify-otp", "otp"].map(step => "post /parents/" + step));
+});
+
 test("successful login automatically authorizes following requests", () => {
   const { config, authorizations } = setup();
   const response = { url: "http://localhost:8081/v1/job-seekers/login", status: 200, obj: { access_token: "test.jwt.token" } };

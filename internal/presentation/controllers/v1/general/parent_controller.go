@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"time"
 	"zedlancer/backend/internal/application/usecase"
+	"zedlancer/backend/internal/domain/enums"
+	"zedlancer/backend/internal/domain/valueobjects"
 	"zedlancer/backend/internal/presentation/middleware"
 )
 
@@ -24,9 +26,12 @@ type JobSeekerParentRequest struct {
 type ParentCodeRequest struct {
 	Code string `json:"code" binding:"required"`
 }
+type RegisteredParentRequest struct {
+	Phone string `json:"phone" binding:"required" example:"09129876543"`
+}
 type ParentVerifyOTPRequest struct {
-	Code string `json:"code" binding:"required"`
-	OTP  string `json:"otp" binding:"required" example:"123456"`
+	Phone string `json:"phone" binding:"required" example:"09129876543"`
+	OTP   string `json:"otp" binding:"required" example:"123456"`
 }
 type ParentSignupRequest struct {
 	Code            string `form:"code" binding:"required"`
@@ -35,6 +40,7 @@ type ParentSignupRequest struct {
 	ConsentAccepted bool   `form:"consent_accepted"`
 }
 type ParentSignupResponse struct {
+	valueobjects.AdminReview
 	ID           uint64 `json:"id"`
 	FirstName    string `json:"first_name"`
 	LastName     string `json:"last_name"`
@@ -53,18 +59,18 @@ func bindParentJSON(ctx *gin.Context, in any) bool {
 	return true
 }
 
-// SetJobSeekerParent godoc
-// @Summary Complete job seeker stage two or invite a parent
-// @Description Requires stage-one job seeker login. Supply parent first_name, last_name and phone. Existing verified parents link immediately and complete stage two. New parents receive a single-use invitation code valid for seven days; stage one remains the status until parent verification. Repeating this request replaces the previous code. For ages 18 and above, submit skip=true to complete stage two without a parent. Under 18 cannot skip.
-// @Tags Job seeker parent approval
+// InviteParent godoc
+// @Summary Invite a new parent or skip optional parent approval
+// @Description Requires a verified job seeker login. Supply first_name, last_name and phone for an unregistered parent. Returns an eight-character invitation code valid for seven days. Registered parents return 409; use the registered-parent endpoint instead. Repeating this request replaces the previous code. Ages 18 and above may submit skip=true to cancel an invitation; minors cannot skip. Only an existing parent connection blocks this API, returning 409: parent already connected. Skipping stores no completion flag.
+// @Tags Job seekers
 // @Security BearerAuth
 // @Accept json
 // @Produce json
 // @Param request body JobSeekerParentRequest true "Parent details or skip=true"
-// @Success 200 {object} usecase.ParentStageResult
-// @Failure 400,401,500 {object} ErrorResponse
-// @Router /job-seekers/parent-approval [post]
-func (c *ParentController) SetJobSeekerParent(ctx *gin.Context) {
+// @Success 200 {object} usecase.ParentApprovalResult
+// @Failure 400,401,409,500 {object} ErrorResponse
+// @Router /job-seekers/parent-approval/invite [post]
+func (c *ParentController) InviteParent(ctx *gin.Context) {
 	seeker, ok := middleware.CurrentJobSeeker(ctx)
 	if !ok {
 		ctx.AbortWithStatusJSON(http.StatusUnauthorized, ErrorResponse{Message: "authentication required"})
@@ -74,7 +80,36 @@ func (c *ParentController) SetJobSeekerParent(ctx *gin.Context) {
 	if !bindParentJSON(ctx, &in) {
 		return
 	}
-	result, err := c.service.SetJobSeekerParent(ctx.Request.Context(), seeker.ID, usecase.JobSeekerParentInput{FirstName: in.FirstName, LastName: in.LastName, Phone: in.Phone, Skip: in.Skip})
+	result, err := c.service.InviteParent(ctx.Request.Context(), seeker.ID, usecase.JobSeekerParentInput{FirstName: in.FirstName, LastName: in.LastName, Phone: in.Phone, Skip: in.Skip})
+	if err != nil {
+		respondAPIError(ctx, err)
+		return
+	}
+	ctx.JSON(http.StatusOK, result)
+}
+
+// LinkRegisteredParent godoc
+// @Summary Connect an already registered parent by phone
+// @Description Requires job seeker login. Accepts only the parent's phone number. Links the verified parent immediately. Does not request names or generate an invitation code. If the parent is not registered, returns 400; use the invitation endpoint instead. If a parent is already connected, returns 409: parent already connected.
+// @Tags Job seekers
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param request body RegisteredParentRequest true "Registered parent phone"
+// @Success 200 {object} usecase.ParentApprovalResult
+// @Failure 400,401,409,500 {object} ErrorResponse
+// @Router /job-seekers/parent-approval/registered [post]
+func (c *ParentController) LinkRegisteredParent(ctx *gin.Context) {
+	seeker, ok := middleware.CurrentJobSeeker(ctx)
+	if !ok {
+		ctx.AbortWithStatusJSON(http.StatusUnauthorized, ErrorResponse{Message: "authentication required"})
+		return
+	}
+	var in RegisteredParentRequest
+	if !bindParentJSON(ctx, &in) {
+		return
+	}
+	result, err := c.service.LinkRegisteredParent(ctx.Request.Context(), seeker.ID, in.Phone)
 	if err != nil {
 		respondAPIError(ctx, err)
 		return
@@ -85,7 +120,7 @@ func (c *ParentController) SetJobSeekerParent(ctx *gin.Context) {
 // ValidateInvitation godoc
 // @Summary Check a parent invitation before signup
 // @Description A parent cannot sign up without an unexpired code generated by a verified job seeker. Returns the saved parent identity and phone; these cannot be overridden in signup. Checking a code does not consume it.
-// @Tags Parent signup
+// @Tags Parents
 // @Accept json
 // @Produce json
 // @Param request body ParentCodeRequest true "Invitation code"
@@ -108,7 +143,7 @@ func (c *ParentController) ValidateInvitation(ctx *gin.Context) {
 // Signup godoc
 // @Summary Submit parent documents and send OTP to the saved phone
 // @Description Invitation required. Name and phone come from the job seeker's invitation. Relationship is father or mother. Requires consent, password (8-72 bytes), identity image (PNG/JPEG up to 5 MiB) and consent video (MP4/MOV, 1-20 seconds, up to 50 MiB). No parent account or link exists until OTP verification. Pending submission lasts 30 minutes; invitation remains subject to its seven-day expiry.
-// @Tags Parent signup
+// @Tags Parents
 // @Accept multipart/form-data
 // @Produce json
 // @Param code formData string true "Invitation code"
@@ -156,7 +191,7 @@ func (c *ParentController) Signup(ctx *gin.Context) {
 // ResendOTP godoc
 // @Summary Resend parent signup OTP
 // @Description Requires a valid invitation and pending parent signup. Wait 60 seconds between sends. Sends only to the saved parent phone.
-// @Tags Parent signup
+// @Tags Parents
 // @Accept json
 // @Produce json
 // @Param request body ParentCodeRequest true "Invitation code"
@@ -177,11 +212,11 @@ func (c *ParentController) ResendOTP(ctx *gin.Context) {
 
 // VerifyOTP godoc
 // @Summary Verify parent OTP, create parent, and link the job seeker
-// @Description Requires the same valid invitation used during signup. OTP expires in five minutes and permits five failed attempts. Creation, invitation consumption, link and second_stage_completed status commit atomically. Existing parents are reused by phone for other children without another signup.
-// @Tags Parent signup
+// @Description Submit the saved parent phone and received OTP. The pending signup must still have a valid invitation; its code is checked internally and is not submitted here. OTP expires in five minutes and permits five failed attempts. Parent creation, invitation consumption and the parent connection commit atomically.
+// @Tags Parents
 // @Accept json
 // @Produce json
-// @Param request body ParentVerifyOTPRequest true "Invitation code and SMS OTP"
+// @Param request body ParentVerifyOTPRequest true "Parent phone and SMS OTP"
 // @Success 201 {object} ParentSignupResponse
 // @Failure 400,401,409,500 {object} ErrorResponse
 // @Router /parents/verify-otp [post]
@@ -190,10 +225,14 @@ func (c *ParentController) VerifyOTP(ctx *gin.Context) {
 	if !bindParentJSON(ctx, &in) {
 		return
 	}
-	parent, err := c.service.VerifyOTP(ctx.Request.Context(), in.Code, in.OTP)
+	parent, err := c.service.VerifyOTP(ctx.Request.Context(), in.Phone, in.OTP)
 	if err != nil {
 		respondAPIError(ctx, err)
 		return
 	}
-	ctx.JSON(http.StatusCreated, ParentSignupResponse{ID: parent.ID, FirstName: parent.FirstName, LastName: parent.LastName, Phone: parent.Phone, Relationship: parent.Relationship, Message: "Parent signup completed and job seeker linked successfully"})
+	review := parent.AdminReview
+	if review.AdminApprovalStatus == "" {
+		review.AdminApprovalStatus = enums.AdminReviewPending
+	}
+	ctx.JSON(http.StatusCreated, ParentSignupResponse{AdminReview: review, ID: parent.ID, FirstName: parent.FirstName, LastName: parent.LastName, Phone: parent.Phone, Relationship: parent.Relationship, Message: "Parent signup completed and job seeker linked successfully"})
 }

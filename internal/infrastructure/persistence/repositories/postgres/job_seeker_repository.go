@@ -39,14 +39,14 @@ func (r *JobSeekerRepository) Create(ctx context.Context, seeker *entities.JobSe
 }
 
 func (r *JobSeekerRepository) FindByPhone(ctx context.Context, phone string) (*entities.JobSeeker, error) {
-	return r.find(ctx, "phone = ?", phone)
+	return r.find(ctx, "job_seekers.phone = ?", phone)
 }
 func (r *JobSeekerRepository) FindByID(ctx context.Context, id uint64) (*entities.JobSeeker, error) {
-	return r.find(ctx, "id = ?", id)
+	return r.find(ctx, "job_seekers.id = ?", id)
 }
 func (r *JobSeekerRepository) find(ctx context.Context, query string, value any) (*entities.JobSeeker, error) {
 	var model models.JobSeekerModel
-	err := r.db.WithContext(ctx).Where(query, value).Take(&model).Error
+	err := jobSeekerApprovalQuery(r.db.WithContext(ctx)).Where(query, value).Take(&model).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
@@ -54,4 +54,8 @@ func (r *JobSeekerRepository) find(ctx context.Context, query string, value any)
 		return nil, err
 	}
 	return jobSeekerFromModel(&model)
+}
+
+func jobSeekerApprovalQuery(db *gorm.DB) *gorm.DB {
+	return db.Model(&models.JobSeekerModel{}).Select("job_seekers.*, approval_parent.admin_approval_status AS parent_admin_approval_status").Joins("LEFT JOIN parents AS approval_parent ON approval_parent.id = job_seekers.parent_id")
 }

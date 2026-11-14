@@ -15,5 +15,5 @@ type ParentRepository interface {
 	GetPending(context.Context, string) (*entities.PendingParentSignup, error)
 	SavePending(context.Context, *entities.PendingParentSignup) error
 	DeletePending(context.Context, string) error
-	SetSignupStage(context.Context, uint64, string, *uint64, string) error
+	SetParentConnection(context.Context, uint64, *uint64, string) error
 }

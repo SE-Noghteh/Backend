@@ -37,9 +37,12 @@ func NewPostgresDatabase() *gorm.DB {
 		// seeder.ClearAll()
 
 		if err := db.AutoMigrate(
+			&models.AdminModel{},
+			&models.AdminLoginAttemptModel{},
 			&models.JobSeekerModel{},
 			&models.SignupOTPModel{},
 			&models.JobSeekerPhoneChangeOTPModel{},
+			&models.JobSeekerPasswordResetOTPModel{},
 			&models.ParentModel{},
 			&models.ParentInvitationModel{},
 			&models.ParentSignupOTPModel{},
@@ -52,6 +55,10 @@ func NewPostgresDatabase() *gorm.DB {
 			&models.LegalEmployerSignupOTPModel{},
 			&models.EmployerLoginAttemptModel{},
 		); err != nil {
+			panic(err)
+		}
+		// Parent connection is the flow state; remove the obsolete stage column.
+		if err := db.Exec("ALTER TABLE job_seekers DROP COLUMN IF EXISTS signup_status").Error; err != nil {
 			panic(err)
 		}
 		if err := migrateLegacyEmployerTerms(db); err != nil {

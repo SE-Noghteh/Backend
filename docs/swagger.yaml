@@ -2,6 +2,16 @@ basePath: /v1
 consumes:
 - application/json
 definitions:
+  enums.AdminReviewStatus:
+    enum:
+    - pending
+    - approved
+    - rejected
+    type: string
+    x-enum-varnames:
+    - AdminReviewPending
+    - AdminReviewApproved
+    - AdminReviewRejected
   enums.City:
     enum:
     - تهران
@@ -126,6 +136,158 @@ definitions:
     - RepresentativeCEO
     - RepresentativeAuthorizedSignatory
     - RepresentativeAttorney
+  general.AdminJobSeekerResponse:
+    properties:
+      address:
+        type: string
+      admin_approval_status:
+        $ref: '#/definitions/enums.AdminReviewStatus'
+      admin_approved:
+        type: boolean
+      admin_approved_parent:
+        type: boolean
+      admin_review_message:
+        type: string
+      admin_reviewed_at:
+        type: string
+      birth_date:
+        type: string
+      city:
+        $ref: '#/definitions/enums.City'
+      created_at:
+        type: string
+      first_name:
+        example: علی
+        type: string
+      gender:
+        $ref: '#/definitions/enums.Gender'
+      has_verification_video:
+        type: boolean
+      id:
+        example: 1
+        type: integer
+      interests:
+        items:
+          $ref: '#/definitions/enums.Interest'
+        type: array
+      last_name:
+        example: رضایی
+        type: string
+      national_code:
+        type: string
+      parent_approval_required:
+        type: boolean
+      parent_connected:
+        type: boolean
+      parent_id:
+        type: integer
+      parent_relationship:
+        type: string
+      phone:
+        example: "09123456789"
+        type: string
+      signup_status:
+        enum:
+        - pending
+        - approved
+        example: pending
+        type: string
+    type: object
+  general.AdminJobSeekerReviewResponse:
+    properties:
+      data:
+        $ref: '#/definitions/general.AdminJobSeekerResponse'
+      message:
+        type: string
+    type: object
+  general.AdminJobSeekersResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/general.AdminJobSeekerResponse'
+        type: array
+      total:
+        type: integer
+    type: object
+  general.AdminLoginRequest:
+    properties:
+      password:
+        example: your-admin-password
+        type: string
+      username:
+        example: admin
+        type: string
+    required:
+    - password
+    - username
+    type: object
+  general.AdminLoginResponse:
+    properties:
+      access_token:
+        type: string
+      expires_at:
+        type: string
+      token_type:
+        example: Bearer
+        type: string
+      username:
+        type: string
+    type: object
+  general.AdminParentResponse:
+    properties:
+      admin_approval_status:
+        $ref: '#/definitions/enums.AdminReviewStatus'
+      admin_review_message:
+        type: string
+      admin_reviewed_at:
+        type: string
+      created_at:
+        type: string
+      first_name:
+        example: علی
+        type: string
+      has_consent_video:
+        type: boolean
+      has_identity_document:
+        type: boolean
+      id:
+        example: 1
+        type: integer
+      last_name:
+        example: رضایی
+        type: string
+      phone:
+        example: "09123456789"
+        type: string
+      relationship:
+        type: string
+    type: object
+  general.AdminParentReviewResponse:
+    properties:
+      data:
+        $ref: '#/definitions/general.AdminParentResponse'
+      message:
+        type: string
+    type: object
+  general.AdminParentsResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/general.AdminParentResponse'
+        type: array
+      total:
+        type: integer
+    type: object
+  general.AdminReviewRequest:
+    properties:
+      approved:
+        type: boolean
+      message:
+        example: Please submit a clearer video
+        type: string
+    required:
+    - approved
+    type: object
   general.DeleteJobSeekerRequest:
     properties:
       password:
@@ -153,6 +315,14 @@ definitions:
       message:
         example: invalid or expired OTP
         type: string
+    type: object
+  general.ForgotJobSeekerPasswordRequest:
+    properties:
+      phone:
+        example: "09123456789"
+        type: string
+    required:
+    - phone
     type: object
   general.IndividualEmployerIdentity:
     properties:
@@ -194,6 +364,16 @@ definitions:
     type: object
   general.JobSeekerIdentity:
     properties:
+      admin_approval_status:
+        $ref: '#/definitions/enums.AdminReviewStatus'
+      admin_approved:
+        type: boolean
+      admin_approved_parent:
+        type: boolean
+      admin_review_message:
+        type: string
+      admin_reviewed_at:
+        type: string
       created_at:
         type: string
       first_name:
@@ -207,6 +387,8 @@ definitions:
         type: string
       parent_approval_required:
         type: boolean
+      parent_connected:
+        type: boolean
       parent_id:
         type: integer
       parent_relationship:
@@ -215,7 +397,10 @@ definitions:
         example: "09123456789"
         type: string
       signup_status:
-        example: first_stage_completed
+        enum:
+        - pending
+        - approved
+        example: pending
         type: string
     type: object
   general.JobSeekerParentRequest:
@@ -348,6 +533,12 @@ definitions:
     type: object
   general.ParentSignupResponse:
     properties:
+      admin_approval_status:
+        $ref: '#/definitions/enums.AdminReviewStatus'
+      admin_review_message:
+        type: string
+      admin_reviewed_at:
+        type: string
       first_name:
         type: string
       id:
@@ -363,14 +554,21 @@ definitions:
     type: object
   general.ParentVerifyOTPRequest:
     properties:
-      code:
-        type: string
       otp:
         example: "123456"
         type: string
+      phone:
+        example: "09129876543"
+        type: string
     required:
-    - code
     - otp
+    - phone
+    type: object
+  general.PasswordResetResponse:
+    properties:
+      message:
+        example: Password reset successfully. Please log in with your new password.
+        type: string
     type: object
   general.PhoneChangeRequest:
     properties:
@@ -380,12 +578,36 @@ definitions:
     required:
     - new_phone
     type: object
+  general.RegisteredParentRequest:
+    properties:
+      phone:
+        example: "09129876543"
+        type: string
+    required:
+    - phone
+    type: object
   general.ResendOTPRequest:
     properties:
       phone:
         example: "09123456789"
         type: string
     required:
+    - phone
+    type: object
+  general.ResetJobSeekerPasswordRequest:
+    properties:
+      new_password:
+        example: your-new-password
+        type: string
+      otp:
+        example: "123456"
+        type: string
+      phone:
+        example: "09123456789"
+        type: string
+    required:
+    - new_password
+    - otp
     - phone
     type: object
   general.SignupOptionsResponse:
@@ -434,6 +656,29 @@ definitions:
     - new_phone
     - otp
     type: object
+  usecase.ParentApprovalResult:
+    properties:
+      admin_approved:
+        type: boolean
+      admin_approved_parent:
+        type: boolean
+      expires_at:
+        type: string
+      invitation_code:
+        type: string
+      parent_approval_required:
+        type: boolean
+      parent_connected:
+        type: boolean
+      parent_id:
+        type: integer
+      signup_status:
+        enum:
+        - pending
+        - approved
+        example: pending
+        type: string
+    type: object
   usecase.ParentInvitationInfo:
     properties:
       expires_at:
@@ -447,17 +692,6 @@ definitions:
       phone:
         type: string
     type: object
-  usecase.ParentStageResult:
-    properties:
-      expires_at:
-        type: string
-      invitation_code:
-        type: string
-      parent_id:
-        type: integer
-      signup_status:
-        type: string
-    type: object
 info:
   contact: {}
   description: Submit signup information and password to automatically receive an
@@ -466,6 +700,413 @@ info:
   title: Zedlancer Backend API
   version: "1.0"
 paths:
+  /admin/job-seekers:
+    get:
+      description: Lists minors with a connected parent and adults aged 18 or above,
+        including adults who have not used the optional parent stage. Defaults to
+        pending overall acceptance, excluding rejected job seeker reviews but including
+        approved minors awaiting parent admin approval. Minors are approved only when
+        all three approval flags are true; adults need only admin_approved. Pending
+        users can still log in.
+      parameters:
+      - default: pending
+        description: Overall approval (rejected selects job seeker admin rejection)
+        enum:
+        - pending
+        - approved
+        - rejected
+        - all
+        in: query
+        name: status
+        type: string
+      - default: 20
+        description: Page size (1-100)
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: Nonnegative offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/general.AdminJobSeekersResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List job seekers ready for admin review
+      tags:
+      - Admin
+  /admin/job-seekers/{id}:
+    get:
+      parameters:
+      - description: Job seeker ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/general.AdminJobSeekerResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get a job seeker's profile for review
+      tags:
+      - Admin
+  /admin/job-seekers/{id}/documents/video:
+    get:
+      description: Returns a private signed download URL valid for five minutes.
+      parameters:
+      - description: Job seeker ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/general.DocumentURLResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Download a job seeker's verification video
+      tags:
+      - Admin
+  /admin/job-seekers/{id}/review:
+    post:
+      consumes:
+      - application/json
+      description: Minors require a connected parent before review and remain pending
+        until that parent also receives admin approval. Adults aged 18 and above need
+        only their own admin approval; the optional parent stage is not required.
+        Submit approved=true or false; message is optional. The decision and message
+        are visible in job seeker login and /me responses. Rejection without a message
+        uses a default message.
+      parameters:
+      - description: Job seeker ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Approval decision and optional message
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/general.AdminReviewRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/general.AdminJobSeekerReviewResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Approve or reject a job seeker
+      tags:
+      - Admin
+  /admin/login:
+    post:
+      consumes:
+      - application/json
+      description: No signup or OTP. Admin credentials are provisioned through SQL.
+        Passwords must be bcrypt hashes in the database. Five failed login attempts
+        per username within 15 minutes trigger a temporary lockout. Returns an admin-only
+        JWT and automatically authorizes Swagger.
+      parameters:
+      - description: Admin credentials
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/general.AdminLoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/general.AdminLoginResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+      summary: Admin login with username and password
+      tags:
+      - Admin
+  /admin/parents:
+    get:
+      description: Defaults to pending parent reviews. Rejected parents are returned
+        only by status=rejected or status=all.
+      parameters:
+      - default: pending
+        description: Review status
+        enum:
+        - pending
+        - approved
+        - rejected
+        - all
+        in: query
+        name: status
+        type: string
+      - default: 20
+        description: Page size (1-100)
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: Nonnegative offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/general.AdminParentsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List parents awaiting or having received admin review
+      tags:
+      - Admin
+  /admin/parents/{id}:
+    get:
+      parameters:
+      - description: Parent ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/general.AdminParentResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get a parent profile for review
+      tags:
+      - Admin
+  /admin/parents/{id}/documents/{kind}:
+    get:
+      description: Returns a private signed download URL valid for five minutes.
+      parameters:
+      - description: Parent ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Document kind
+        enum:
+        - identity
+        - consent-video
+        in: path
+        name: kind
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/general.DocumentURLResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Download a parent's identity image or consent video
+      tags:
+      - Admin
+  /admin/parents/{id}/review:
+    post:
+      consumes:
+      - application/json
+      description: Submit approved=true or false with an optional message. A parent's
+        admin review does not overwrite their children's own admin review decisions,
+        but controls overall acceptance for all linked minors. Rejecting a parent
+        returns those minors to pending; adults do not depend on parent approval.
+      parameters:
+      - description: Parent ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Approval decision and optional message
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/general.AdminReviewRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/general.AdminParentReviewResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Approve or reject a parent
+      tags:
+      - Admin
   /individual-employers/documents/{kind}:
     get:
       description: The signed link expires in five minutes. No public S3 URLs or credentials
@@ -507,7 +1148,7 @@ paths:
       - BearerAuth: []
       summary: Get private download link for your own employer document
       tags:
-      - Individual employer
+      - Individual employers
   /individual-employers/login:
     post:
       consumes:
@@ -547,7 +1188,7 @@ paths:
             $ref: '#/definitions/general.ErrorResponse'
       summary: Login individual employer using phone and password
       tags:
-      - Individual employer
+      - Individual employers
   /individual-employers/logout:
     post:
       responses:
@@ -565,7 +1206,7 @@ paths:
       - BearerAuth: []
       summary: Logout current individual employer token
       tags:
-      - Individual employer
+      - Individual employers
   /individual-employers/me:
     get:
       produces:
@@ -587,7 +1228,7 @@ paths:
       - BearerAuth: []
       summary: Get authenticated individual employer identity
       tags:
-      - Individual employer
+      - Individual employers
   /individual-employers/otp:
     post:
       consumes:
@@ -631,7 +1272,7 @@ paths:
             $ref: '#/definitions/general.ErrorResponse'
       summary: Resend individual employer verification OTP
       tags:
-      - Individual employer
+      - Individual employers
   /individual-employers/signup:
     post:
       consumes:
@@ -788,7 +1429,7 @@ paths:
             $ref: '#/definitions/general.ErrorResponse'
       summary: Submit employer information and automatically send verification OTP
       tags:
-      - Individual employer
+      - Individual employers
   /individual-employers/signup-options:
     get:
       produces:
@@ -801,7 +1442,7 @@ paths:
             type: object
       summary: Get individual employer signup choices
       tags:
-      - Individual employer
+      - Individual employers
   /individual-employers/verify-otp:
     post:
       consumes:
@@ -841,7 +1482,7 @@ paths:
             $ref: '#/definitions/general.ErrorResponse'
       summary: Verify individual employer and complete signup
       tags:
-      - Individual employer
+      - Individual employers
   /job-seekers/documents/video:
     get:
       produces:
@@ -871,7 +1512,49 @@ paths:
       - BearerAuth: []
       summary: Get a private download link for your own verification video
       tags:
-      - Job seeker authentication
+      - Job seekers
+  /job-seekers/forgot-password:
+    post:
+      consumes:
+      - application/json
+      description: Public endpoint. Sends an OTP to the registered, verified phone.
+        Repeat to resend after 60 seconds. Codes expire after five minutes and permit
+        five failed attempts. Unknown or unverified phones receive the same 202 response
+        without sending SMS. Reset OTPs are separate from signup and phone-change
+        OTPs.
+      parameters:
+      - description: Registered job seeker phone
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/general.ForgotJobSeekerPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            $ref: '#/definitions/general.OTPResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+      summary: Send a job seeker password reset OTP
+      tags:
+      - Job seekers
   /job-seekers/login:
     post:
       consumes:
@@ -913,7 +1596,7 @@ paths:
             $ref: '#/definitions/general.ErrorResponse'
       summary: Login with phone and password
       tags:
-      - Job seeker authentication
+      - Job seekers
   /job-seekers/logout:
     post:
       description: Permanently revokes this token until its expiration. Other login
@@ -934,7 +1617,7 @@ paths:
       - BearerAuth: []
       summary: Logout the current access token
       tags:
-      - Job seeker authentication
+      - Job seekers
   /job-seekers/me:
     delete:
       consumes:
@@ -977,7 +1660,7 @@ paths:
       - BearerAuth: []
       summary: Delete your job seeker account with password confirmation
       tags:
-      - Job seeker account
+      - Job seekers
     get:
       description: Returns the identity of the verified account identified by the
         JWT.
@@ -1000,7 +1683,7 @@ paths:
       - BearerAuth: []
       summary: Get the logged-in job seeker
       tags:
-      - Job seeker authentication
+      - Job seekers
   /job-seekers/otp:
     post:
       consumes:
@@ -1048,17 +1731,18 @@ paths:
             $ref: '#/definitions/general.ErrorResponse'
       summary: Resend signup OTP
       tags:
-      - Job seeker signup
-  /job-seekers/parent-approval:
+      - Job seekers
+  /job-seekers/parent-approval/invite:
     post:
       consumes:
       - application/json
-      description: Requires stage-one job seeker login. Supply parent first_name,
-        last_name and phone. Existing verified parents link immediately and complete
-        stage two. New parents receive a single-use invitation code valid for seven
-        days; stage one remains the status until parent verification. Repeating this
-        request replaces the previous code. For ages 18 and above, submit skip=true
-        to complete stage two without a parent. Under 18 cannot skip.
+      description: 'Requires a verified job seeker login. Supply first_name, last_name
+        and phone for an unregistered parent. Returns an eight-character invitation
+        code valid for seven days. Registered parents return 409; use the registered-parent
+        endpoint instead. Repeating this request replaces the previous code. Ages
+        18 and above may submit skip=true to cancel an invitation; minors cannot skip.
+        Only an existing parent connection blocks this API, returning 409: parent
+        already connected. Skipping stores no completion flag.'
       parameters:
       - description: Parent details or skip=true
         in: body
@@ -1072,7 +1756,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/usecase.ParentStageResult'
+            $ref: '#/definitions/usecase.ParentApprovalResult'
         "400":
           description: Bad Request
           schema:
@@ -1081,15 +1765,63 @@ paths:
           description: Unauthorized
           schema:
             $ref: '#/definitions/general.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
             $ref: '#/definitions/general.ErrorResponse'
       security:
       - BearerAuth: []
-      summary: Complete job seeker stage two or invite a parent
+      summary: Invite a new parent or skip optional parent approval
       tags:
-      - Job seeker parent approval
+      - Job seekers
+  /job-seekers/parent-approval/registered:
+    post:
+      consumes:
+      - application/json
+      description: 'Requires job seeker login. Accepts only the parent''s phone number.
+        Links the verified parent immediately. Does not request names or generate
+        an invitation code. If the parent is not registered, returns 400; use the
+        invitation endpoint instead. If a parent is already connected, returns 409:
+        parent already connected.'
+      parameters:
+      - description: Registered parent phone
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/general.RegisteredParentRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/usecase.ParentApprovalResult'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Connect an already registered parent by phone
+      tags:
+      - Job seekers
   /job-seekers/phone-change:
     post:
       consumes:
@@ -1139,7 +1871,7 @@ paths:
       - BearerAuth: []
       summary: Send an OTP to a new job seeker phone number
       tags:
-      - Job seeker account
+      - Job seekers
   /job-seekers/phone-change/verify:
     post:
       consumes:
@@ -1181,7 +1913,45 @@ paths:
       - BearerAuth: []
       summary: Verify the new phone and change your number
       tags:
-      - Job seeker account
+      - Job seekers
+  /job-seekers/reset-password:
+    post:
+      consumes:
+      - application/json
+      description: Public endpoint. Submit the registered phone, its password-reset
+        OTP and a new password (8-72 bytes). Atomically consumes the OTP, replaces
+        the bcrypt password, clears login failures, invalidates all existing job seeker
+        login tokens and cancels pending phone-change challenges. Login again with
+        the new password. Approval and parent connection are preserved.
+      parameters:
+      - description: Phone, reset OTP and new password
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/general.ResetJobSeekerPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/general.PasswordResetResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+      summary: Reset a job seeker password using phone and OTP
+      tags:
+      - Job seekers
   /job-seekers/signup:
     post:
       consumes:
@@ -1296,7 +2066,7 @@ paths:
             $ref: '#/definitions/general.ErrorResponse'
       summary: Start signup and automatically send OTP
       tags:
-      - Job seeker signup
+      - Job seekers
   /job-seekers/signup-options:
     get:
       description: Fetch the predefined Persian cities, interests, and genders before
@@ -1310,7 +2080,7 @@ paths:
             $ref: '#/definitions/general.SignupOptionsResponse'
       summary: Get signup choices
       tags:
-      - Job seeker signup
+      - Job seekers
   /job-seekers/verify-otp:
     post:
       consumes:
@@ -1350,7 +2120,7 @@ paths:
             $ref: '#/definitions/general.ErrorResponse'
       summary: Verify OTP and complete signup
       tags:
-      - Job seeker signup
+      - Job seekers
   /legal-employers/documents/{kind}:
     get:
       description: The signed link expires in five minutes. No public S3 URLs or credentials
@@ -1394,7 +2164,7 @@ paths:
       - BearerAuth: []
       summary: Get private download link for your own employer document
       tags:
-      - Legal employer
+      - Legal employers
   /legal-employers/login:
     post:
       consumes:
@@ -1434,7 +2204,7 @@ paths:
             $ref: '#/definitions/general.ErrorResponse'
       summary: Login legal employer using phone and password
       tags:
-      - Legal employer
+      - Legal employers
   /legal-employers/logout:
     post:
       responses:
@@ -1452,7 +2222,7 @@ paths:
       - BearerAuth: []
       summary: Logout current legal employer token
       tags:
-      - Legal employer
+      - Legal employers
   /legal-employers/me:
     get:
       produces:
@@ -1474,7 +2244,7 @@ paths:
       - BearerAuth: []
       summary: Get authenticated legal employer identity
       tags:
-      - Legal employer
+      - Legal employers
   /legal-employers/otp:
     post:
       consumes:
@@ -1518,7 +2288,7 @@ paths:
             $ref: '#/definitions/general.ErrorResponse'
       summary: Resend legal employer verification OTP
       tags:
-      - Legal employer
+      - Legal employers
   /legal-employers/signup:
     post:
       consumes:
@@ -1715,7 +2485,7 @@ paths:
             $ref: '#/definitions/general.ErrorResponse'
       summary: Submit employer information and automatically send verification OTP
       tags:
-      - Legal employer
+      - Legal employers
   /legal-employers/signup-options:
     get:
       produces:
@@ -1728,7 +2498,7 @@ paths:
             type: object
       summary: Get legal employer signup choices
       tags:
-      - Legal employer
+      - Legal employers
   /legal-employers/verify-otp:
     post:
       consumes:
@@ -1768,7 +2538,7 @@ paths:
             $ref: '#/definitions/general.ErrorResponse'
       summary: Verify legal employer and complete signup
       tags:
-      - Legal employer
+      - Legal employers
   /parents/invitations/validate:
     post:
       consumes:
@@ -1804,7 +2574,7 @@ paths:
             $ref: '#/definitions/general.ErrorResponse'
       summary: Check a parent invitation before signup
       tags:
-      - Parent signup
+      - Parents
   /parents/otp:
     post:
       consumes:
@@ -1843,7 +2613,7 @@ paths:
             $ref: '#/definitions/general.ErrorResponse'
       summary: Resend parent signup OTP
       tags:
-      - Parent signup
+      - Parents
   /parents/signup:
     post:
       consumes:
@@ -1921,17 +2691,17 @@ paths:
             $ref: '#/definitions/general.ErrorResponse'
       summary: Submit parent documents and send OTP to the saved phone
       tags:
-      - Parent signup
+      - Parents
   /parents/verify-otp:
     post:
       consumes:
       - application/json
-      description: Requires the same valid invitation used during signup. OTP expires
-        in five minutes and permits five failed attempts. Creation, invitation consumption,
-        link and second_stage_completed status commit atomically. Existing parents
-        are reused by phone for other children without another signup.
+      description: Submit the saved parent phone and received OTP. The pending signup
+        must still have a valid invitation; its code is checked internally and is
+        not submitted here. OTP expires in five minutes and permits five failed attempts.
+        Parent creation, invitation consumption and the parent connection commit atomically.
       parameters:
-      - description: Invitation code and SMS OTP
+      - description: Parent phone and SMS OTP
         in: body
         name: request
         required: true
@@ -1962,7 +2732,7 @@ paths:
             $ref: '#/definitions/general.ErrorResponse'
       summary: Verify parent OTP, create parent, and link the job seeker
       tags:
-      - Parent signup
+      - Parents
 produces:
 - application/json
 securityDefinitions:

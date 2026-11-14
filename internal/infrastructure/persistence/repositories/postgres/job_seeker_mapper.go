@@ -11,7 +11,8 @@ import (
 
 func jobSeekerToModel(seeker *entities.JobSeeker) *models.JobSeekerModel {
 	return &models.JobSeekerModel{
-		SignupStatus:       seeker.SignupStatus,
+		SessionVersion:     seeker.SessionVersion,
+		AdminReviewModel:   adminReviewToModel(seeker.AdminReview),
 		ParentID:           seeker.ParentID,
 		ParentRelationship: seeker.ParentRelationship,
 		ID:                 seeker.ID,
@@ -37,22 +38,24 @@ func jobSeekerFromModel(model *models.JobSeekerModel) (*entities.JobSeeker, erro
 		return nil, fmt.Errorf("invalid persisted birth date")
 	}
 	return &entities.JobSeeker{
-		SignupStatus:       model.SignupStatus,
-		ParentID:           model.ParentID,
-		ParentRelationship: model.ParentRelationship,
-		ID:                 model.ID,
-		FirstName:          model.FirstName,
-		LastName:           model.LastName,
-		NationalCode:       model.NationalCode,
-		City:               enums.City(model.City),
-		Address:            model.Address,
-		BirthDate:          birth,
-		Gender:             enums.Gender(model.Gender),
-		Interests:          model.Interests,
-		Phone:              model.Phone,
-		PasswordHash:       model.PasswordHash,
-		PhoneVerifiedAt:    model.PhoneVerifiedAt,
-		CreatedAt:          model.CreatedAt,
-		VerificationVideo:  model.VerificationVideo,
+		SessionVersion:            model.SessionVersion,
+		ParentAdminApprovalStatus: model.ParentAdminApprovalStatus,
+		AdminReview:               adminReviewFromModel(model.AdminReviewModel),
+		ParentID:                  model.ParentID,
+		ParentRelationship:        model.ParentRelationship,
+		ID:                        model.ID,
+		FirstName:                 model.FirstName,
+		LastName:                  model.LastName,
+		NationalCode:              model.NationalCode,
+		City:                      enums.City(model.City),
+		Address:                   model.Address,
+		BirthDate:                 birth,
+		Gender:                    enums.Gender(model.Gender),
+		Interests:                 model.Interests,
+		Phone:                     model.Phone,
+		PasswordHash:              model.PasswordHash,
+		PhoneVerifiedAt:           model.PhoneVerifiedAt,
+		CreatedAt:                 model.CreatedAt,
+		VerificationVideo:         model.VerificationVideo,
 	}, nil
 }

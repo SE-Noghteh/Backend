@@ -6,6 +6,7 @@ import (
 )
 
 type ParentModel struct {
+	AdminReviewModel
 	Relationship      string                     `gorm:"size:6;not null"`
 	ID                uint64                     `gorm:"primaryKey"`
 	FirstName         string                     `gorm:"size:100;not null"`

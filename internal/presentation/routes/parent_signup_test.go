@@ -22,6 +22,7 @@ import (
 type parentAPI struct {
 	id           uint64
 	code, otp    string
+	phone        string
 	stage        usecase.JobSeekerParentInput
 	signup       usecase.SignupParent
 	image, video []byte
@@ -29,10 +30,16 @@ type parentAPI struct {
 	err          error
 }
 
-func (s *parentAPI) SetJobSeekerParent(_ context.Context, id uint64, in usecase.JobSeekerParentInput) (*usecase.ParentStageResult, error) {
+func (s *parentAPI) InviteParent(_ context.Context, id uint64, in usecase.JobSeekerParentInput) (*usecase.ParentApprovalResult, error) {
 	s.calls++
 	s.id, s.stage = id, in
-	return &usecase.ParentStageResult{SignupStatus: entities.SignupFirstStageCompleted, InvitationCode: "invitation"}, s.err
+	return &usecase.ParentApprovalResult{InvitationCode: "invitation"}, s.err
+}
+func (s *parentAPI) LinkRegisteredParent(_ context.Context, id uint64, phone string) (*usecase.ParentApprovalResult, error) {
+	s.calls++
+	s.id, s.stage = id, usecase.JobSeekerParentInput{Phone: phone}
+	parentID := uint64(9)
+	return &usecase.ParentApprovalResult{ParentID: &parentID}, s.err
 }
 func (s *parentAPI) ValidateInvitation(_ context.Context, code string) (*usecase.ParentInvitationInfo, error) {
 	s.calls++
@@ -51,9 +58,9 @@ func (s *parentAPI) ResendOTP(_ context.Context, code string) error {
 	s.code = code
 	return s.err
 }
-func (s *parentAPI) VerifyOTP(_ context.Context, code, otp string) (*entities.Parent, error) {
+func (s *parentAPI) VerifyOTP(_ context.Context, phone, otp string) (*entities.Parent, error) {
 	s.calls++
-	s.code, s.otp = code, otp
+	s.phone, s.otp = phone, otp
 	return &entities.Parent{ID: 9, FirstName: "Saved", LastName: "Parent", Phone: "09129876543", Relationship: "father", PasswordHash: "must-not-leak"}, s.err
 }
 func parentRouter(s *parentAPI) *gin.Engine {
@@ -70,10 +77,11 @@ func TestParentJSONRoutes(t *testing.T) {
 		status     int
 		auth       bool
 	}{
-		{"/v1/job-seekers/parent-approval", `{"first_name":"Saved","last_name":"Parent","phone":"09129876543"}`, 200, true},
+		{"/v1/job-seekers/parent-approval/invite", `{"first_name":"Saved","last_name":"Parent","phone":"09129876543"}`, 200, true},
+		{"/v1/job-seekers/parent-approval/registered", `{"phone":"09129876543"}`, 200, true},
 		{"/v1/parents/invitations/validate", `{"code":"invitation"}`, 200, false},
 		{"/v1/parents/otp", `{"code":"invitation"}`, 202, false},
-		{"/v1/parents/verify-otp", `{"code":"invitation","otp":"123456"}`, 201, false},
+		{"/v1/parents/verify-otp", `{"phone":"09129876543","otp":"123456"}`, 201, false},
 	} {
 		for _, scenario := range []string{"success", "malformed", "service error"} {
 			t.Run(tc.path+scenario, func(t *testing.T) {
@@ -108,11 +116,14 @@ func TestParentJSONRoutes(t *testing.T) {
 				if tc.auth && (s.id != 7 || s.stage.Phone != "09129876543") {
 					t.Fatal("stage two did not use authenticated child")
 				}
-				if !tc.auth && s.code != "invitation" {
+				if !tc.auth && !strings.HasSuffix(tc.path, "verify-otp") && s.code != "invitation" {
 					t.Fatal("invitation code missing")
 				}
-				if strings.HasSuffix(tc.path, "verify-otp") && (s.otp != "123456" || strings.Contains(r.Body.String(), "must-not-leak")) {
+				if strings.HasSuffix(tc.path, "verify-otp") && (s.phone != "09129876543" || s.otp != "123456" || strings.Contains(r.Body.String(), "must-not-leak")) {
 					t.Fatal("OTP not passed or sensitive fields leaked")
+				}
+				if scenario == "success" && strings.HasSuffix(tc.path, "/registered") && strings.Contains(r.Body.String(), "invitation_code") {
+					t.Fatal("registered endpoint created a code")
 				}
 			})
 		}
@@ -120,7 +131,7 @@ func TestParentJSONRoutes(t *testing.T) {
 	s := &parentAPI{}
 	router := parentRouter(s)
 	r := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/v1/job-seekers/parent-approval", strings.NewReader(`{"skip":true}`))
+	req := httptest.NewRequest(http.MethodPost, "/v1/job-seekers/parent-approval/invite", strings.NewReader(`{"skip":true}`))
 	req.Header.Set("Content-Type", "application/json")
 	router.ServeHTTP(r, req)
 	if r.Code != 401 || s.calls != 0 {
@@ -178,6 +189,25 @@ func TestParentSignupMultipart(t *testing.T) {
 			}
 			if r.Code != 202 || s.calls != 1 || s.signup.Code != "invitation" || s.signup.Relationship != "mother" || !s.signup.ConsentAccepted || s.signup.Password != "parent-password" || string(s.image) != "image" || string(s.video) != "video" {
 				t.Fatalf("multipart fields/files not bound: %d %s", r.Code, r.Body.String())
+			}
+		})
+	}
+}
+
+func TestParentApprovalAlreadyConnectedResponse(t *testing.T) {
+	for _, endpoint := range []struct{ path, body string }{
+		{"/v1/job-seekers/parent-approval/registered", `{"phone":"09129876543"}`},
+		{"/v1/job-seekers/parent-approval/invite", `{"first_name":"New","last_name":"Parent","phone":"09121111111"}`},
+	} {
+		t.Run(endpoint.path, func(t *testing.T) {
+			s := &parentAPI{err: domainerrors.ErrParentAlreadyConnected}
+			req := httptest.NewRequest(http.MethodPost, endpoint.path, strings.NewReader(endpoint.body))
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("Authorization", "Bearer test-token")
+			r := httptest.NewRecorder()
+			parentRouter(s).ServeHTTP(r, req)
+			if r.Code != http.StatusConflict || strings.TrimSpace(r.Body.String()) != `{"message":"parent already connected"}` {
+				t.Fatalf("unexpected response: %d %s", r.Code, r.Body.String())
 			}
 		})
 	}

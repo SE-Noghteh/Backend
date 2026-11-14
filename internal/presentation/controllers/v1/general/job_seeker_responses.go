@@ -5,6 +5,7 @@ import (
 
 	"zedlancer/backend/internal/domain/entities"
 	"zedlancer/backend/internal/domain/enums"
+	"zedlancer/backend/internal/domain/valueobjects"
 )
 
 type SignupOptionsResponse struct {
@@ -29,10 +30,10 @@ type SignupIdentity struct {
 
 type JobSeekerIdentity struct {
 	SignupIdentity
-	SignupStatus           string  `json:"signup_status" example:"first_stage_completed"`
-	ParentApprovalRequired bool    `json:"parent_approval_required"`
-	ParentID               *uint64 `json:"parent_id,omitempty"`
-	ParentRelationship     string  `json:"parent_relationship,omitempty"`
+	valueobjects.AdminReview
+	valueobjects.JobSeekerApproval
+	ParentID           *uint64 `json:"parent_id,omitempty"`
+	ParentRelationship string  `json:"parent_relationship,omitempty"`
 }
 
 type SignupResponse struct {
@@ -43,20 +44,12 @@ type ErrorResponse struct {
 }
 
 func identityFromJobSeeker(seeker *entities.JobSeeker) JobSeekerIdentity {
-	status := seeker.SignupStatus
-	if status == "" {
-		status = entities.SignupFirstStageCompleted
+	approval, _ := seeker.ApprovalAt(time.Now())
+	review := seeker.AdminReview
+	if review.AdminApprovalStatus == "" {
+		review.AdminApprovalStatus = enums.AdminReviewPending
 	}
-	required := false
-	if birth, err := seeker.BirthDate.Gregorian(); err == nil {
-		now := time.Now().UTC()
-		age := now.Year() - birth.Year()
-		if now.Before(birth.AddDate(age, 0, 0)) {
-			age--
-		}
-		required = age < 18
-	}
-	return JobSeekerIdentity{SignupIdentity: SignupIdentity{ID: seeker.ID, FirstName: seeker.FirstName, LastName: seeker.LastName, Phone: seeker.Phone, CreatedAt: seeker.CreatedAt}, SignupStatus: status, ParentApprovalRequired: required, ParentID: seeker.ParentID, ParentRelationship: seeker.ParentRelationship}
+	return JobSeekerIdentity{SignupIdentity: SignupIdentity{ID: seeker.ID, FirstName: seeker.FirstName, LastName: seeker.LastName, Phone: seeker.Phone, CreatedAt: seeker.CreatedAt}, ParentID: seeker.ParentID, ParentRelationship: seeker.ParentRelationship, AdminReview: review, JobSeekerApproval: approval}
 }
 
 type AccessTokenResponse struct {

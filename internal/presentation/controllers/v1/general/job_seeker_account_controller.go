@@ -28,7 +28,7 @@ type DeleteJobSeekerResponse struct {
 // RequestPhoneChange godoc
 // @Summary Send an OTP to a new job seeker phone number
 // @Description Requires login. Keeps the current number until verification succeeds. Repeat this request to resend after 60 seconds. Only the latest destination/code is valid. Code expires after five minutes and allows five failed attempts.
-// @Tags Job seeker account
+// @Tags Job seekers
 // @Security BearerAuth
 // @Accept json
 // @Produce json
@@ -59,7 +59,7 @@ func (c *JobSeekerController) RequestPhoneChange(ctx *gin.Context) {
 // VerifyPhoneChange godoc
 // @Summary Verify the new phone and change your number
 // @Description Requires the same logged-in account that requested the code. Consumes the OTP atomically. Login subsequently uses the new number; existing access tokens remain valid.
-// @Tags Job seeker account
+// @Tags Job seekers
 // @Security BearerAuth
 // @Accept json
 // @Produce json
@@ -91,7 +91,7 @@ func (c *JobSeekerController) VerifyPhoneChange(ctx *gin.Context) {
 // DeleteAccount godoc
 // @Summary Delete your job seeker account with password confirmation
 // @Description Requires login and your current password. Permanently deletes the account and pending phone change, then removes its verification video. All existing tokens become unusable. Five failed password confirmations share the login throttle (15-minute window).
-// @Tags Job seeker account
+// @Tags Job seekers
 // @Security BearerAuth
 // @Accept json
 // @Produce json

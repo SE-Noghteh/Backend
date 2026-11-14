@@ -17,6 +17,7 @@ import (
 )
 
 type signupMemory struct {
+	passwordReset  *entities.SignupOTP
 	phoneChange    *entities.SignupOTP
 	occupiedPhone  string
 	otp            *entities.SignupOTP
@@ -38,6 +39,7 @@ func (m *signupMemory) ParentRepository() ports.ParentRepository { return nil }
 func (m *signupMemory) WithTransaction(fn func(ports.RepositoryFactory) error) error {
 	previousOTP, previousSeeker, previousAttempt := cloneOTP(m.otp), cloneSeeker(m.seeker), cloneAttempt(m.attempt)
 	previousPhoneChange := cloneOTP(m.phoneChange)
+	previousReset := cloneOTP(m.passwordReset)
 	err := fn(m)
 	if err == nil {
 		err = m.commitErr
@@ -45,6 +47,7 @@ func (m *signupMemory) WithTransaction(fn func(ports.RepositoryFactory) error) e
 	if err != nil {
 		m.otp, m.seeker, m.attempt = previousOTP, previousSeeker, previousAttempt
 		m.phoneChange = previousPhoneChange
+		m.passwordReset = previousReset
 	}
 	return err
 }
@@ -446,3 +449,6 @@ func (m *signupMemory) EmployerLoginAttemptRepository() ports.LoginAttemptReposi
 func (m *signupMemory) LegalEmployerSignupRepository() ports.LegalEmployerSignupRepository {
 	return nil
 }
+
+func (m *signupMemory) AdminRepository() ports.AdminRepository             { return nil }
+func (m *signupMemory) AdminReviewRepository() ports.AdminReviewRepository { return nil }

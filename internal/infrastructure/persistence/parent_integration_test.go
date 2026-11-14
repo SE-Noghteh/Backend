@@ -89,7 +89,7 @@ func TestPostgresParentSignupAndSharedParent(t *testing.T) {
 			if err != nil {
 				return nil, "", err
 			}
-			child := &entities.JobSeeker{FirstName: "Child", LastName: "Test", NationalCode: national, City: enums.CityTehran, Address: "Test address", BirthDate: valueobjects.JalaliDate{Year: time.Now().Year() - 621 - 16, Month: 1, Day: 1}, Gender: enums.GenderMale, Interests: []enums.Interest{enums.InterestProgramming}, Phone: phone, PasswordHash: hash, PhoneVerifiedAt: time.Now().UTC(), CreatedAt: time.Now().UTC(), SignupStatus: entities.SignupFirstStageCompleted}
+			child := &entities.JobSeeker{FirstName: "Child", LastName: "Test", NationalCode: national, City: enums.CityTehran, Address: "Test address", BirthDate: valueobjects.JalaliDate{Year: time.Now().Year() - 621 - 16, Month: 1, Day: 1}, Gender: enums.GenderMale, Interests: []enums.Interest{enums.InterestProgramming}, Phone: phone, PasswordHash: hash, PhoneVerifiedAt: time.Now().UTC(), CreatedAt: time.Now().UTC()}
 			if err := uow.Factory().JobSeekerRepository().Create(ctx, child); err != nil {
 				return nil, "", err
 			}
@@ -103,7 +103,7 @@ func TestPostgresParentSignupAndSharedParent(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		if r := callAPI(router, "POST", "/v1/job-seekers/parent-approval", `{"skip":true}`, bearer); r.Code != 400 {
+		if r := callAPI(router, "POST", "/v1/job-seekers/parent-approval/invite", `{"skip":true}`, bearer); r.Code != 400 {
 			t.Fatal("minor skipped stage two")
 		}
 		parentPhone, _, err := fixtureIdentity()
@@ -111,15 +111,15 @@ func TestPostgresParentSignupAndSharedParent(t *testing.T) {
 			return err
 		}
 		stageBody := fmt.Sprintf(`{"first_name":"Saved","last_name":"Parent","phone":%q}`, parentPhone)
-		r := callAPI(router, "POST", "/v1/job-seekers/parent-approval", stageBody, bearer)
+		r := callAPI(router, "POST", "/v1/job-seekers/parent-approval/invite", stageBody, bearer)
 		if r.Code != 200 {
 			t.Fatalf("parent invitation: %d %s", r.Code, r.Body.String())
 		}
-		var invitation usecase.ParentStageResult
+		var invitation usecase.ParentApprovalResult
 		if err := json.Unmarshal(r.Body.Bytes(), &invitation); err != nil {
 			return err
 		}
-		if invitation.InvitationCode == "" || invitation.SignupStatus != entities.SignupFirstStageCompleted {
+		if invitation.InvitationCode == "" || invitation.JobSeekerApproval.SignupStatus != valueobjects.JobSeekerPending {
 			t.Fatal("missing invitation or incorrect stage")
 		}
 		codeBody := fmt.Sprintf(`{"code":%q}`, invitation.InvitationCode)
@@ -163,7 +163,7 @@ func TestPostgresParentSignupAndSharedParent(t *testing.T) {
 		if p, err := parents.FindByPhone(ctx, parentPhone); err != nil || p != nil {
 			t.Fatal("parent exists before OTP verification", err)
 		}
-		wrongBody := fmt.Sprintf(`{"code":%q,"otp":"bad"}`, invitation.InvitationCode)
+		wrongBody := fmt.Sprintf(`{"phone":%q,"otp":"bad"}`, parentPhone)
 		if r := callAPI(router, "POST", "/v1/parents/verify-otp", wrongBody, ""); r.Code != 401 {
 			t.Fatal("invalid parent OTP accepted")
 		}
@@ -174,7 +174,7 @@ func TestPostgresParentSignupAndSharedParent(t *testing.T) {
 		if pending.Challenge.Attempts != 1 {
 			t.Fatal("failed parent OTP attempt rolled back")
 		}
-		verifyBody := fmt.Sprintf(`{"code":%q,"otp":%q}`, invitation.InvitationCode, sms.code)
+		verifyBody := fmt.Sprintf(`{"phone":%q,"otp":%q}`, parentPhone, sms.code)
 		if r := callAPI(router, "POST", "/v1/parents/verify-otp", verifyBody, ""); r.Code != 201 {
 			t.Fatalf("parent verification: %d %s", r.Code, r.Body.String())
 		}
@@ -186,7 +186,7 @@ func TestPostgresParentSignupAndSharedParent(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		if parent == nil || linked.ParentID == nil || *linked.ParentID != parent.ID || linked.SignupStatus != entities.SignupSecondStageCompleted || linked.ParentRelationship != "mother" {
+		if parent == nil || linked.ParentID == nil || *linked.ParentID != parent.ID || linked.ParentRelationship != "mother" {
 			t.Fatal("parent and stage were not linked atomically")
 		}
 		if r := callAPI(router, "POST", "/v1/parents/invitations/validate", codeBody, ""); r.Code != 400 {
@@ -196,14 +196,14 @@ func TestPostgresParentSignupAndSharedParent(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		if r := callAPI(router, "POST", "/v1/job-seekers/parent-approval", stageBody, bearer2); r.Code != 200 {
+		if r := callAPI(router, "POST", "/v1/job-seekers/parent-approval/registered", fmt.Sprintf(`{"phone":%q}`, parentPhone), bearer2); r.Code != 200 {
 			t.Fatalf("reuse parent: %d %s", r.Code, r.Body.String())
 		}
 		linked2, err := uow.Factory().JobSeekerRepository().FindByID(ctx, second.ID)
 		if err != nil {
 			return err
 		}
-		if linked2.ParentID == nil || *linked2.ParentID != parent.ID || linked2.SignupStatus != entities.SignupSecondStageCompleted {
+		if linked2.ParentID == nil || *linked2.ParentID != parent.ID {
 			t.Fatal("second child did not share the same parent")
 		}
 		if r := callAPI(router, "DELETE", "/v1/job-seekers/me", `{"password":"child-password"}`, bearer); r.Code != 200 {

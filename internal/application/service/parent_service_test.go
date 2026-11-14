@@ -112,11 +112,11 @@ func (r *memoryParentRepository) DeletePending(_ context.Context, phone string) 
 	delete(r.m.pending, phone)
 	return nil
 }
-func (r *memoryParentRepository) SetSignupStage(_ context.Context, id uint64, status string, parentID *uint64, relationship string) error {
+func (r *memoryParentRepository) SetParentConnection(_ context.Context, id uint64, parentID *uint64, relationship string) error {
 	if r.m.seeker == nil || r.m.seeker.ID != id {
 		return domainerrors.ErrUnauthenticated
 	}
-	r.m.seeker.SignupStatus, r.m.seeker.ParentID, r.m.seeker.ParentRelationship = status, parentID, relationship
+	r.m.seeker.ParentID, r.m.seeker.ParentRelationship = parentID, relationship
 	return nil
 }
 func parentFixture(t *testing.T) (*parentMemory, *ParentService, *employerMemory) {
@@ -130,11 +130,11 @@ func parentFixture(t *testing.T) (*parentMemory, *ParentService, *employerMemory
 }
 func parentInvitation(t *testing.T, s *ParentService) string {
 	t.Helper()
-	r, err := s.SetJobSeekerParent(context.Background(), 1, usecase.JobSeekerParentInput{FirstName: " Parent ", LastName: " Family ", Phone: "+989129876543"})
+	r, err := s.InviteParent(context.Background(), 1, usecase.JobSeekerParentInput{FirstName: " Parent ", LastName: " Family ", Phone: "+989129876543"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if r.SignupStatus != entities.SignupFirstStageCompleted || r.ParentID != nil || len(r.InvitationCode) != 43 || r.ExpiresAt == nil || time.Until(*r.ExpiresAt) < 7*24*time.Hour-time.Minute {
+	if r.SignupStatus != valueobjects.JobSeekerPending || r.ParentID != nil || len(r.InvitationCode) != 8 || r.ExpiresAt == nil || time.Until(*r.ExpiresAt) < 7*24*time.Hour-time.Minute {
 		t.Fatalf("invalid invitation response: %+v", r)
 	}
 	return r.InvitationCode
@@ -163,26 +163,25 @@ func TestParentInvitationSignupAndSecondChild(t *testing.T) {
 	if m.pending[changedPhone].Registration.PasswordHash != "hash:parent-password" {
 		t.Fatal("password was not hashed")
 	}
-	parent, err := s.VerifyOTP(ctx, code, m.smsCode)
+	parent, err := s.VerifyOTP(ctx, changedPhone, m.smsCode)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if parent.FirstName != "Parent" || parent.Phone != changedPhone || parent.PhoneVerifiedAt.IsZero() || m.seeker.ParentID == nil || *m.seeker.ParentID != parent.ID || m.seeker.SignupStatus != entities.SignupSecondStageCompleted || m.seeker.ParentRelationship != "father" {
+	if parent.FirstName != "Parent" || parent.Phone != changedPhone || parent.PhoneVerifiedAt.IsZero() || m.seeker.ParentID == nil || *m.seeker.ParentID != parent.ID || m.seeker.ParentRelationship != "father" {
 		t.Fatal("parent was not created and linked")
 	}
 	if len(m.pending) != 0 || len(m.invitations) != 0 {
 		t.Fatal("successful verification did not consume challenge/code")
 	}
-	if _, err := s.VerifyOTP(ctx, code, m.smsCode); !errors.Is(err, domainerrors.ErrInvalidInvitation) {
+	if _, err := s.VerifyOTP(ctx, changedPhone, m.smsCode); !errors.Is(err, domainerrors.ErrInvalidOTP) {
 		t.Fatal("invitation replay accepted")
 	}
 	firstChild := cloneSeeker(m.seeker)
 	m.seeker = cloneSeeker(firstChild)
 	m.seeker.ID = 2
 	m.seeker.ParentID = nil
-	m.seeker.SignupStatus = entities.SignupFirstStageCompleted
-	r, err := s.SetJobSeekerParent(ctx, 2, usecase.JobSeekerParentInput{FirstName: "Ignored", LastName: "Name", Phone: changedPhone})
-	if err != nil || r.InvitationCode != "" || r.ParentID == nil || *r.ParentID != parent.ID || r.SignupStatus != entities.SignupSecondStageCompleted || len(m.parents) != 1 || *firstChild.ParentID != *m.seeker.ParentID {
+	r, err := s.LinkRegisteredParent(ctx, 2, changedPhone)
+	if err != nil || r.InvitationCode != "" || r.ParentID == nil || *r.ParentID != parent.ID || r.SignupStatus != valueobjects.JobSeekerPending || len(m.parents) != 1 || *firstChild.ParentID != *m.seeker.ParentID {
 		t.Fatalf("existing parent was not reused: %+v %v", r, err)
 	}
 	if m.parents[changedPhone].FirstName != "Parent" {
@@ -193,22 +192,49 @@ func TestParentInvitationSignupAndSecondChild(t *testing.T) {
 func TestParentMandatoryForMinorsAndOptionalForAdults(t *testing.T) {
 	m, s, _ := parentFixture(t)
 	ctx := context.Background()
-	if _, err := s.SetJobSeekerParent(ctx, 1, usecase.JobSeekerParentInput{Skip: true}); !errors.Is(err, domainerrors.ErrParentRequired) {
+	if _, err := s.InviteParent(ctx, 1, usecase.JobSeekerParentInput{Skip: true}); !errors.Is(err, domainerrors.ErrParentRequired) {
 		t.Fatal("minor skipped parent approval", err)
 	}
 	code := parentInvitation(t, s)
 	m.seeker.BirthDate = valueobjects.JalaliDate{Year: time.Now().Year() - 621 - 18, Month: 1, Day: 1}
-	r, err := s.SetJobSeekerParent(ctx, 1, usecase.JobSeekerParentInput{Skip: true})
-	if err != nil || r.SignupStatus != entities.SignupSecondStageCompleted || r.ParentID != nil {
+	r, err := s.InviteParent(ctx, 1, usecase.JobSeekerParentInput{Skip: true})
+	if err != nil || r.SignupStatus != valueobjects.JobSeekerPending || r.ParentID != nil {
 		t.Fatalf("adult could not skip: %+v %v", r, err)
 	}
 	if _, err := s.ValidateInvitation(ctx, code); !errors.Is(err, domainerrors.ErrInvalidInvitation) {
 		t.Fatal("skip left active invitation")
 	}
-	// Adults can also choose the parent flow after skipping.
+	// Skipping creates no hidden completion state; an unconnected adult may invite later.
 	code = parentInvitation(t, s)
 	if _, err := s.ValidateInvitation(ctx, code); err != nil {
-		t.Fatal(err)
+		t.Fatal("unconnected adult could not invite after skipping", err)
+	}
+}
+
+func TestConnectedParentBlocksBothParentApprovalAPIs(t *testing.T) {
+	for _, flow := range []string{"registered", "invite", "skip"} {
+		t.Run(flow, func(t *testing.T) {
+			m, s, _ := parentFixture(t)
+			id := uint64(9)
+			m.seeker.ParentID = &id
+			m.seeker.ParentRelationship = "mother"
+			m.parents[changedPhone] = &entities.Parent{ID: 10, Phone: changedPhone, PhoneVerifiedAt: time.Now().UTC()}
+			var err error
+			switch flow {
+			case "registered":
+				_, err = s.LinkRegisteredParent(context.Background(), 1, changedPhone)
+			case "invite":
+				_, err = s.InviteParent(context.Background(), 1, usecase.JobSeekerParentInput{FirstName: "New", LastName: "Parent", Phone: "09121111111"})
+			case "skip":
+				_, err = s.InviteParent(context.Background(), 1, usecase.JobSeekerParentInput{Skip: true})
+			}
+			if !errors.Is(err, domainerrors.ErrParentAlreadyConnected) {
+				t.Fatalf("expected already connected, got %v", err)
+			}
+			if len(m.invitations) != 0 || m.seeker.ParentID == nil || *m.seeker.ParentID != 9 || m.seeker.ParentRelationship != "mother" {
+				t.Fatal("existing connection was changed or invitation generated")
+			}
+		})
 	}
 }
 
@@ -232,7 +258,7 @@ func TestParentInvitationExpiryReplacementAndDeletedSeeker(t *testing.T) {
 			case "deleted":
 				m.seeker = nil
 			case "missing":
-				code = strings.Repeat("x", 43)
+				code = strings.Repeat("x", 8)
 			}
 			if scenario != "pending expired" {
 				if _, err := s.ValidateInvitation(ctx, code); !errors.Is(err, domainerrors.ErrInvalidInvitation) {
@@ -245,7 +271,7 @@ func TestParentInvitationExpiryReplacementAndDeletedSeeker(t *testing.T) {
 					t.Fatal("invalid code uploaded files")
 				}
 			}
-			if _, err := s.VerifyOTP(ctx, code, m.smsCode); err == nil {
+			if _, err := s.VerifyOTP(ctx, changedPhone, m.smsCode); err == nil {
 				t.Fatal("invalid invitation/pending signup accepted")
 			}
 			if len(m.parents) != 0 {
@@ -301,14 +327,14 @@ func TestParentOTPResendAttemptsAndExpiry(t *testing.T) {
 		t.Fatal("resend cooldown bypassed")
 	}
 	for i := 0; i < maxOTPAttempts; i++ {
-		if _, err := s.VerifyOTP(ctx, code, "bad"); !errors.Is(err, domainerrors.ErrInvalidOTP) {
+		if _, err := s.VerifyOTP(ctx, changedPhone, "bad"); !errors.Is(err, domainerrors.ErrInvalidOTP) {
 			t.Fatal(err)
 		}
 	}
 	if m.pending[changedPhone].Challenge.Attempts != maxOTPAttempts {
 		t.Fatal("failed attempts were rolled back")
 	}
-	if _, err := s.VerifyOTP(ctx, code, m.smsCode); !errors.Is(err, domainerrors.ErrInvalidOTP) {
+	if _, err := s.VerifyOTP(ctx, changedPhone, m.smsCode); !errors.Is(err, domainerrors.ErrInvalidOTP) {
 		t.Fatal("locked code accepted")
 	}
 	m.pending[changedPhone].Challenge.SentAt = time.Now().Add(-2 * time.Minute)
@@ -319,7 +345,7 @@ func TestParentOTPResendAttemptsAndExpiry(t *testing.T) {
 		t.Fatal("resend reuploaded documents")
 	}
 	m.pending[changedPhone].Challenge.ExpiresAt = time.Now().Add(-time.Second)
-	if _, err := s.VerifyOTP(ctx, code, m.smsCode); !errors.Is(err, domainerrors.ErrInvalidOTP) {
+	if _, err := s.VerifyOTP(ctx, changedPhone, m.smsCode); !errors.Is(err, domainerrors.ErrInvalidOTP) {
 		t.Fatal("expired OTP accepted")
 	}
 }
@@ -347,7 +373,7 @@ func TestParentSignupFailuresAndVerificationRollback(t *testing.T) {
 					t.Fatal(err)
 				}
 				m.commitErr = errors.New("verify failed")
-				if _, err := s.VerifyOTP(ctx, code, m.smsCode); err == nil {
+				if _, err := s.VerifyOTP(ctx, changedPhone, m.smsCode); err == nil {
 					t.Fatal("failed verification accepted")
 				}
 				if len(m.parents) != 0 || m.seeker.ParentID != nil || len(m.pending) != 1 || len(m.invitations) != 1 || len(storage.objects) != 2 {
@@ -360,6 +386,74 @@ func TestParentSignupFailuresAndVerificationRollback(t *testing.T) {
 			}
 			if len(m.parents) != 0 || len(m.pending) != 0 || len(storage.objects) != 0 || m.seeker.ParentID != nil {
 				t.Fatal("failed signup left data or uploads")
+			}
+		})
+	}
+}
+
+func TestParentApprovalEndpointsDoNotSwitchFlows(t *testing.T) {
+	m, s, _ := parentFixture(t)
+	ctx := context.Background()
+	if _, err := s.LinkRegisteredParent(ctx, 1, changedPhone); !errors.Is(err, domainerrors.ErrParentNotRegistered) {
+		t.Fatalf("unregistered phone accepted: %v", err)
+	}
+	if len(m.invitations) != 0 || m.seeker.ParentID != nil {
+		t.Fatal("registered endpoint created invitation or link for a new parent")
+	}
+	m.parents[changedPhone] = &entities.Parent{ID: 9, Phone: changedPhone, FirstName: "Saved", LastName: "Parent", Relationship: "mother", PhoneVerifiedAt: time.Now().UTC()}
+	if _, err := s.InviteParent(ctx, 1, usecase.JobSeekerParentInput{FirstName: "New", LastName: "Name", Phone: changedPhone}); !errors.Is(err, domainerrors.ErrParentAlreadyRegistered) {
+		t.Fatalf("invitation silently linked existing parent: %v", err)
+	}
+	if len(m.invitations) != 0 || m.seeker.ParentID != nil {
+		t.Fatal("wrong endpoint changed state")
+	}
+	r, err := s.LinkRegisteredParent(ctx, 1, "+989129876543")
+	if err != nil || r.ParentID == nil || *r.ParentID != 9 || r.InvitationCode != "" || r.ExpiresAt != nil || len(m.invitations) != 0 {
+		t.Fatalf("registered link created a code or required names: %+v %v", r, err)
+	}
+}
+
+func TestShortParentInvitationAndLegacyCode(t *testing.T) {
+	m, s, _ := parentFixture(t)
+	code := parentInvitation(t, s)
+	if strings.Trim(code, "ABCDEFGHJKLMNPQRSTUVWXYZ23456789") != "" {
+		t.Fatalf("unexpected characters: %s", code)
+	}
+	if _, err := s.ValidateInvitation(context.Background(), " "+strings.ToLower(code)+" "); err != nil {
+		t.Fatal("lowercase short code rejected", err)
+	}
+	legacy := strings.Repeat("aB3_", 10) + "xYz"
+	i := m.invitations[invitationHash(code)]
+	delete(m.invitations, invitationHash(code))
+	i.CodeHash = invitationHash(legacy)
+	m.invitations[i.CodeHash] = i
+	if _, err := s.ValidateInvitation(context.Background(), legacy); err != nil {
+		t.Fatal("previous long code invalidated", err)
+	}
+}
+
+func TestParentPhoneVerificationChecksSavedInvitation(t *testing.T) {
+	for _, scenario := range []string{"expired", "replaced", "deleted"} {
+		t.Run(scenario, func(t *testing.T) {
+			m, s, _ := parentFixture(t)
+			ctx := context.Background()
+			code := parentInvitation(t, s)
+			if err := s.Signup(ctx, parentSignup(code)); err != nil {
+				t.Fatal(err)
+			}
+			switch scenario {
+			case "expired":
+				m.invitations[invitationHash(code)].ExpiresAt = time.Now().Add(-time.Second)
+			case "replaced":
+				_ = parentInvitation(t, s)
+			case "deleted":
+				m.seeker = nil
+			}
+			if _, err := s.VerifyOTP(ctx, "+989129876543", m.smsCode); !errors.Is(err, domainerrors.ErrInvalidInvitation) {
+				t.Fatalf("invalid saved invitation accepted: %v", err)
+			}
+			if len(m.parents) != 0 {
+				t.Fatal("phone verification bypassed invitation")
 			}
 		})
 	}

@@ -7,8 +7,10 @@ import (
 
 	"zedlancer/backend/internal/application/usecase"
 	"zedlancer/backend/internal/domain/entities"
+	"zedlancer/backend/internal/domain/enums"
 	domainerrors "zedlancer/backend/internal/domain/errors"
 	"zedlancer/backend/internal/domain/ports"
+	"zedlancer/backend/internal/domain/valueobjects"
 )
 
 type JobSeekerService struct {
@@ -41,6 +43,7 @@ func (s *JobSeekerService) Signup(ctx context.Context, in usecase.SignupJobSeeke
 		return err
 	}
 	registration := &entities.JobSeeker{
+		AdminReview:  valueobjects.AdminReview{AdminApprovalStatus: enums.AdminReviewPending},
 		FirstName:    in.FirstName,
 		LastName:     in.LastName,
 		NationalCode: in.NationalCode,
@@ -188,7 +191,6 @@ func (s *JobSeekerService) VerifyOTP(ctx context.Context, in usecase.VerifySignu
 			return domainerrors.ErrSignupConflict
 		}
 		result = otp.Registration
-		result.SignupStatus = entities.SignupFirstStageCompleted
 		result.PhoneVerifiedAt, result.CreatedAt = now, now
 		if err := repo.Create(ctx, result); err != nil {
 			return err
