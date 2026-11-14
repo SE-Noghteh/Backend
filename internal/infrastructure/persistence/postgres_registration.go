@@ -2,11 +2,13 @@ package persistence
 
 import (
 	"fmt"
-	"zedlancer/backend/bootstrap"
 	"sync"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+
+	"zedlancer/backend/bootstrap"
+	"zedlancer/backend/internal/infrastructure/persistence/models"
 )
 
 var dbInstance *gorm.DB
@@ -35,8 +37,20 @@ func NewPostgresDatabase() *gorm.DB {
 		// seeder.ClearAll()
 
 		if err := db.AutoMigrate(
-			// &entities.User{},
+			&models.JobSeekerModel{},
+			&models.SignupOTPModel{},
+			&models.LoginAttemptModel{},
+			&models.RevokedAccessTokenModel{},
+			&models.EmployerModel{},
+			&models.IndividualEmployerModel{},
+			&models.LegalEmployerModel{},
+			&models.EmployerSignupOTPModel{},
+			&models.LegalEmployerSignupOTPModel{},
+			&models.EmployerLoginAttemptModel{},
 		); err != nil {
+			panic(err)
+		}
+		if err := migrateLegacyEmployerTerms(db); err != nil {
 			panic(err)
 		}
 

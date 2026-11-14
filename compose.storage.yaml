@@ -1,0 +1,27 @@
+name: zedlancer-storage
+
+services:
+  s3:
+    image: rustfs/rustfs:1.0.4
+    restart: unless-stopped
+    ports:
+      - "${SERVER_IP:-127.0.0.1}:9000:9000"
+      - "${SERVER_IP:-127.0.0.1}:9001:9001"
+    environment:
+      RUSTFS_ACCESS_KEY: ${AWS_ACCESS_KEY_ID:?AWS_ACCESS_KEY_ID required}
+      RUSTFS_SECRET_KEY: ${AWS_SECRET_ACCESS_KEY:?AWS_SECRET_ACCESS_KEY required}
+      RUSTFS_ADDRESS: ":9000"
+      RUSTFS_CONSOLE_ADDRESS: ":9001"
+      RUSTFS_CONSOLE_ENABLE: "true"
+    command: ["/data"]
+    volumes:
+      - s3_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:9000/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+
+volumes:
+  s3_data:

@@ -1,0 +1,81 @@
+name: zedlancer
+
+services:
+  api:
+    build: .
+    image: zedlancer-backend:local
+    restart: unless-stopped
+    ports:
+      - "${SERVER_IP:-127.0.0.1}:${API_HOST_PORT:-8081}:8081"
+    environment:
+      GIN_MODE: release
+      APP_PORT: "8081"
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_NAME: ${DB_NAME:?DB_NAME required}
+      DB_USER: ${DB_USER:?DB_USER required}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD required}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET required}
+      JWT_ISSUER: ${JWT_ISSUER:-zedlancer}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-zedlancer-api}
+      JWT_ACCESS_TOKEN_TTL: ${JWT_ACCESS_TOKEN_TTL:-1h}
+      SMS_TOKEN: ${SMS_TOKEN:?SMS_TOKEN required}
+      S3_BUCKET: ${S3_BUCKET:-zedlancer-local}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      S3_ENDPOINT: http://s3:9000
+      S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:-http://${SERVER_IP:-127.0.0.1}:9000}
+      S3_USE_PATH_STYLE: "true"
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:?AWS_ACCESS_KEY_ID required}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:?AWS_SECRET_ACCESS_KEY required}
+    depends_on:
+      db:
+        condition: service_healthy
+      storage-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "-O", "/dev/null", "http://127.0.0.1:8081/v1/job-seekers/signup-options"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+      start_period: 15s
+
+  s3:
+    extends:
+      file: compose.storage.yaml
+      service: s3
+
+  storage-init:
+    build: .
+    image: zedlancer-storage-init:local
+    command: ["/app/storage-init"]
+    restart: "no"
+    environment:
+      S3_BUCKET: ${S3_BUCKET:-zedlancer-local}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      S3_ENDPOINT: http://s3:9000
+      S3_USE_PATH_STYLE: "true"
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:?AWS_ACCESS_KEY_ID required}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:?AWS_SECRET_ACCESS_KEY required}
+    depends_on:
+      s3:
+        condition: service_healthy
+
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:?DB_NAME required}
+      POSTGRES_USER: ${DB_USER:?DB_USER required}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD required}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  postgres_data:
+  s3_data:
+    name: zedlancer-storage_s3_data
