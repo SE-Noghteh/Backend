@@ -188,6 +188,7 @@ func (s *JobSeekerService) VerifyOTP(ctx context.Context, in usecase.VerifySignu
 			return domainerrors.ErrSignupConflict
 		}
 		result = otp.Registration
+		result.SignupStatus = entities.SignupFirstStageCompleted
 		result.PhoneVerifiedAt, result.CreatedAt = now, now
 		if err := repo.Create(ctx, result); err != nil {
 			return err

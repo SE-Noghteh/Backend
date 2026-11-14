@@ -13,4 +13,10 @@ type JobSeekerRepository interface {
 	Create(context.Context, *entities.JobSeeker) error
 	FindByPhone(context.Context, string) (*entities.JobSeeker, error)
 	FindByID(context.Context, uint64) (*entities.JobSeeker, error)
+	LockAccount(context.Context, uint64) error
+	UpdatePhone(context.Context, uint64, string) error
+	Delete(context.Context, uint64) error
+	GetPhoneChangeOTP(context.Context, uint64) (*entities.SignupOTP, error)
+	SavePhoneChangeOTP(context.Context, uint64, *entities.SignupOTP) error
+	DeletePhoneChangeOTP(context.Context, uint64) error
 }

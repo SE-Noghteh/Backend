@@ -39,6 +39,10 @@ func NewPostgresDatabase() *gorm.DB {
 		if err := db.AutoMigrate(
 			&models.JobSeekerModel{},
 			&models.SignupOTPModel{},
+			&models.JobSeekerPhoneChangeOTPModel{},
+			&models.ParentModel{},
+			&models.ParentInvitationModel{},
+			&models.ParentSignupOTPModel{},
 			&models.LoginAttemptModel{},
 			&models.RevokedAccessTokenModel{},
 			&models.EmployerModel{},

@@ -7,7 +7,7 @@
     ],
     "swagger": "2.0",
     "info": {
-        "description": "JIGILI JIGILI",
+        "description": "Submit signup information and password to automatically receive an SMS OTP, verify the code, then login to obtain a JWT. Birth dates use the Jalali calendar. Signup and OTP resend send real SMS messages.",
         "title": "Zedlancer Backend API",
         "contact": {},
         "version": "1.0"
@@ -732,6 +732,67 @@
                         }
                     }
                 }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Requires login and your current password. Permanently deletes the account and pending phone change, then removes its verification video. All existing tokens become unusable. Five failed password confirmations share the login throttle (15-minute window).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Job seeker account"
+                ],
+                "summary": "Delete your job seeker account with password confirmation",
+                "parameters": [
+                    {
+                        "description": "Current password",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/general.DeleteJobSeekerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/general.DeleteJobSeekerResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
             }
         },
         "/job-seekers/otp": {
@@ -804,9 +865,204 @@
                 }
             }
         },
+        "/job-seekers/parent-approval": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Requires stage-one job seeker login. Supply parent first_name, last_name and phone. Existing verified parents link immediately and complete stage two. New parents receive a single-use invitation code valid for seven days; stage one remains the status until parent verification. Repeating this request replaces the previous code. For ages 18 and above, submit skip=true to complete stage two without a parent. Under 18 cannot skip.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Job seeker parent approval"
+                ],
+                "summary": "Complete job seeker stage two or invite a parent",
+                "parameters": [
+                    {
+                        "description": "Parent details or skip=true",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/general.JobSeekerParentRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/usecase.ParentStageResult"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/job-seekers/phone-change": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Requires login. Keeps the current number until verification succeeds. Repeat this request to resend after 60 seconds. Only the latest destination/code is valid. Code expires after five minutes and allows five failed attempts.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Job seeker account"
+                ],
+                "summary": "Send an OTP to a new job seeker phone number",
+                "parameters": [
+                    {
+                        "description": "New mobile number",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/general.PhoneChangeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Accepted",
+                        "schema": {
+                            "$ref": "#/definitions/general.OTPResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/job-seekers/phone-change/verify": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Requires the same logged-in account that requested the code. Consumes the OTP atomically. Login subsequently uses the new number; existing access tokens remain valid.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Job seeker account"
+                ],
+                "summary": "Verify the new phone and change your number",
+                "parameters": [
+                    {
+                        "description": "New mobile number and received code",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/general.VerifyPhoneChangeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/general.SignupResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/job-seekers/signup": {
             "post": {
-                "description": "Submit the complete profile, password and required private verification video before OTP is sent. Video must be MP4/MOV, 1-20 seconds, up to 50 MiB. Pending signup lasts 30 minutes; then verify the received OTP. Birth date is Jalali. Password must be 8-72 bytes.",
+                "description": "Submit the complete profile, password and required private verification video before OTP is sent. Video must be MP4/MOV, 1-20 seconds, up to 50 MiB. Pending signup lasts 30 minutes; then verify the received OTP. Birth date is Jalali. Job seeker age must be between 15 and 22 years inclusive; otherwise returns HTTP 400 with an error message. Password must be 8-72 bytes.",
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -1632,6 +1888,281 @@
                     }
                 }
             }
+        },
+        "/parents/invitations/validate": {
+            "post": {
+                "description": "A parent cannot sign up without an unexpired code generated by a verified job seeker. Returns the saved parent identity and phone; these cannot be overridden in signup. Checking a code does not consume it.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Parent signup"
+                ],
+                "summary": "Check a parent invitation before signup",
+                "parameters": [
+                    {
+                        "description": "Invitation code",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/general.ParentCodeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/usecase.ParentInvitationInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/parents/otp": {
+            "post": {
+                "description": "Requires a valid invitation and pending parent signup. Wait 60 seconds between sends. Sends only to the saved parent phone.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Parent signup"
+                ],
+                "summary": "Resend parent signup OTP",
+                "parameters": [
+                    {
+                        "description": "Invitation code",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/general.ParentCodeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Accepted",
+                        "schema": {
+                            "$ref": "#/definitions/general.OTPResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/parents/signup": {
+            "post": {
+                "description": "Invitation required. Name and phone come from the job seeker's invitation. Relationship is father or mother. Requires consent, password (8-72 bytes), identity image (PNG/JPEG up to 5 MiB) and consent video (MP4/MOV, 1-20 seconds, up to 50 MiB). No parent account or link exists until OTP verification. Pending submission lasts 30 minutes; invitation remains subject to its seven-day expiry.",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Parent signup"
+                ],
+                "summary": "Submit parent documents and send OTP to the saved phone",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Invitation code",
+                        "name": "code",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "enum": [
+                            "father",
+                            "mother"
+                        ],
+                        "type": "string",
+                        "description": "Relationship",
+                        "name": "relationship",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Password (8-72 bytes)",
+                        "name": "password",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Parent accepts the rules and approves the child",
+                        "name": "consent_accepted",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "First page of parent identity document (PNG/JPEG, \u003c=5 MiB)",
+                        "name": "identity_document",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "Parent consent video (MP4/MOV, 1-20 seconds, \u003c=50 MiB)",
+                        "name": "consent_video",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Accepted",
+                        "schema": {
+                            "$ref": "#/definitions/general.OTPResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "413": {
+                        "description": "Request Entity Too Large",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/parents/verify-otp": {
+            "post": {
+                "description": "Requires the same valid invitation used during signup. OTP expires in five minutes and permits five failed attempts. Creation, invitation consumption, link and second_stage_completed status commit atomically. Existing parents are reused by phone for other children without another signup.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Parent signup"
+                ],
+                "summary": "Verify parent OTP, create parent, and link the job seeker",
+                "parameters": [
+                    {
+                        "description": "Invitation code and SMS OTP",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/general.ParentVerifyOTPRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/general.ParentSignupResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -1783,6 +2314,27 @@
                 "RepresentativeAttorney"
             ]
         },
+        "general.DeleteJobSeekerRequest": {
+            "type": "object",
+            "required": [
+                "password"
+            ],
+            "properties": {
+                "password": {
+                    "type": "string",
+                    "example": "your-current-password"
+                }
+            }
+        },
+        "general.DeleteJobSeekerResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string",
+                    "example": "Account deleted successfully"
+                }
+            }
+        },
         "general.DocumentURLResponse": {
             "type": "object",
             "properties": {
@@ -1857,6 +2409,63 @@
             "properties": {
                 "data": {
                     "$ref": "#/definitions/general.IndividualEmployerIdentity"
+                }
+            }
+        },
+        "general.JobSeekerIdentity": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "first_name": {
+                    "type": "string",
+                    "example": "علی"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "last_name": {
+                    "type": "string",
+                    "example": "رضایی"
+                },
+                "parent_approval_required": {
+                    "type": "boolean"
+                },
+                "parent_id": {
+                    "type": "integer"
+                },
+                "parent_relationship": {
+                    "type": "string"
+                },
+                "phone": {
+                    "type": "string",
+                    "example": "09123456789"
+                },
+                "signup_status": {
+                    "type": "string",
+                    "example": "first_stage_completed"
+                }
+            }
+        },
+        "general.JobSeekerParentRequest": {
+            "type": "object",
+            "properties": {
+                "first_name": {
+                    "type": "string",
+                    "example": "Ali"
+                },
+                "last_name": {
+                    "type": "string",
+                    "example": "Ahmadi"
+                },
+                "phone": {
+                    "type": "string",
+                    "example": "09129876543"
+                },
+                "skip": {
+                    "type": "boolean"
                 }
             }
         },
@@ -1991,7 +2600,7 @@
                     "type": "string"
                 },
                 "data": {
-                    "$ref": "#/definitions/general.SignupIdentity"
+                    "$ref": "#/definitions/general.JobSeekerIdentity"
                 },
                 "expires_at": {
                     "type": "string"
@@ -2019,36 +2628,74 @@
                 }
             }
         },
+        "general.ParentCodeRequest": {
+            "type": "object",
+            "required": [
+                "code"
+            ],
+            "properties": {
+                "code": {
+                    "type": "string"
+                }
+            }
+        },
+        "general.ParentSignupResponse": {
+            "type": "object",
+            "properties": {
+                "first_name": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "last_name": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "phone": {
+                    "type": "string"
+                },
+                "relationship": {
+                    "type": "string"
+                }
+            }
+        },
+        "general.ParentVerifyOTPRequest": {
+            "type": "object",
+            "required": [
+                "code",
+                "otp"
+            ],
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "otp": {
+                    "type": "string",
+                    "example": "123456"
+                }
+            }
+        },
+        "general.PhoneChangeRequest": {
+            "type": "object",
+            "required": [
+                "new_phone"
+            ],
+            "properties": {
+                "new_phone": {
+                    "type": "string",
+                    "example": "09129876543"
+                }
+            }
+        },
         "general.ResendOTPRequest": {
             "type": "object",
             "required": [
                 "phone"
             ],
             "properties": {
-                "phone": {
-                    "type": "string",
-                    "example": "09123456789"
-                }
-            }
-        },
-        "general.SignupIdentity": {
-            "type": "object",
-            "properties": {
-                "created_at": {
-                    "type": "string"
-                },
-                "first_name": {
-                    "type": "string",
-                    "example": "علی"
-                },
-                "id": {
-                    "type": "integer",
-                    "example": 1
-                },
-                "last_name": {
-                    "type": "string",
-                    "example": "رضایی"
-                },
                 "phone": {
                     "type": "string",
                     "example": "09123456789"
@@ -2082,7 +2729,7 @@
             "type": "object",
             "properties": {
                 "data": {
-                    "$ref": "#/definitions/general.SignupIdentity"
+                    "$ref": "#/definitions/general.JobSeekerIdentity"
                 }
             }
         },
@@ -2102,6 +2749,60 @@
                 "phone": {
                     "type": "string",
                     "example": "09123456789"
+                }
+            }
+        },
+        "general.VerifyPhoneChangeRequest": {
+            "type": "object",
+            "required": [
+                "new_phone",
+                "otp"
+            ],
+            "properties": {
+                "new_phone": {
+                    "type": "string",
+                    "example": "09129876543"
+                },
+                "otp": {
+                    "type": "string",
+                    "example": "123456"
+                }
+            }
+        },
+        "usecase.ParentInvitationInfo": {
+            "type": "object",
+            "properties": {
+                "expires_at": {
+                    "type": "string"
+                },
+                "first_name": {
+                    "type": "string"
+                },
+                "job_seeker_first_name": {
+                    "type": "string"
+                },
+                "last_name": {
+                    "type": "string"
+                },
+                "phone": {
+                    "type": "string"
+                }
+            }
+        },
+        "usecase.ParentStageResult": {
+            "type": "object",
+            "properties": {
+                "expires_at": {
+                    "type": "string"
+                },
+                "invitation_code": {
+                    "type": "string"
+                },
+                "parent_id": {
+                    "type": "integer"
+                },
+                "signup_status": {
+                    "type": "string"
                 }
             }
         }

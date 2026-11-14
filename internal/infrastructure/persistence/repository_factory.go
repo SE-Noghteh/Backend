@@ -12,6 +12,10 @@ type RepositoryFactory struct {
 	db *gorm.DB
 }
 
+func (f *RepositoryFactory) ParentRepository() ports.ParentRepository {
+	return postgres.NewParentRepository(f.db)
+}
+
 func (f *RepositoryFactory) JobSeekerRepository() ports.JobSeekerRepository {
 	return postgres.NewJobSeekerRepository(f.db)
 }

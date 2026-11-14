@@ -15,6 +15,7 @@ import (
 )
 
 type capturedJobSeekerSignup struct {
+	usecase.JobSeekerService
 	input usecase.SignupJobSeeker
 	video []byte
 	calls int

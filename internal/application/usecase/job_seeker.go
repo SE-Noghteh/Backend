@@ -33,4 +33,7 @@ type JobSeekerService interface {
 	Signup(context.Context, SignupJobSeeker) error
 	VerifyOTP(context.Context, VerifySignupOTP) (*entities.JobSeeker, error)
 	VideoURL(context.Context, uint64) (string, error)
+	RequestPhoneChange(context.Context, uint64, string) error
+	VerifyPhoneChange(context.Context, uint64, VerifySignupOTP) (*entities.JobSeeker, error)
+	DeleteAccount(context.Context, uint64, string) error
 }

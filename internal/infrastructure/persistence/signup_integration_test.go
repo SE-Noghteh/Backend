@@ -90,11 +90,11 @@ func TestPostgresSignupVerificationAndLogin(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		in := usecase.SignupJobSeeker{FirstName: "Integration", LastName: "Test", NationalCode: nationalCode, City: enums.CityTehran, Address: "Test address", BirthDate: valueobjects.JalaliDate{Year: 1380, Month: 1, Day: 1}, Gender: enums.GenderMale, Interests: []enums.Interest{enums.InterestProgramming}, Phone: phone, Password: "integration-password"}
+		in := usecase.SignupJobSeeker{FirstName: "Integration", LastName: "Test", NationalCode: nationalCode, City: enums.CityTehran, Address: "Test address", BirthDate: valueobjects.JalaliDate{Year: 1388, Month: 1, Day: 1}, Gender: enums.GenderMale, Interests: []enums.Interest{enums.InterestProgramming}, Phone: phone, Password: "integration-password"}
 		var signupBody bytes.Buffer
 		writer := multipart.NewWriter(&signupBody)
 		fields := map[string]string{"first_name": in.FirstName, "last_name": in.LastName, "national_code": in.NationalCode, "city": string(in.City), "address": in.Address,
-			"birth_year": "1380", "birth_month": "1", "birth_day": "1", "gender": string(in.Gender), "interests": string(in.Interests[0]), "phone": in.Phone, "password": in.Password}
+			"birth_year": "1388", "birth_month": "1", "birth_day": "1", "gender": string(in.Gender), "interests": string(in.Interests[0]), "phone": in.Phone, "password": in.Password}
 		for name, value := range fields {
 			if err := writer.WriteField(name, value); err != nil {
 				return err
@@ -221,6 +221,82 @@ func TestPostgresSignupVerificationAndLogin(t *testing.T) {
 		otherAuth := service.NewJobSeekerAuthService(persistence.NewUnitOfWork(tx), hasher, tokens)
 		if _, err := otherAuth.Authenticate(ctx, credentials.AccessToken); !errors.Is(err, domainerrors.ErrUnauthenticated) {
 			t.Fatal("revocation did not survive a new service/repository instance")
+		}
+		newPhone, _, err := fixtureIdentity()
+		if err != nil {
+			return err
+		}
+		changeBody := fmt.Sprintf(`{"new_phone":%q}`, newPhone)
+		bearer := "Bearer " + login.AccessToken.Value
+		for _, endpoint := range []struct{ method, path, body string }{
+			{http.MethodPost, "/v1/job-seekers/phone-change", changeBody},
+			{http.MethodPost, "/v1/job-seekers/phone-change/verify", fmt.Sprintf(`{"new_phone":%q,"otp":"123456"}`, newPhone)},
+			{http.MethodDelete, "/v1/job-seekers/me", `{"password":"integration-password"}`},
+		} {
+			if r := callAPI(router, endpoint.method, endpoint.path, endpoint.body, ""); r.Code != 401 {
+				t.Fatalf("anonymous account change accepted: %s %s", endpoint.method, endpoint.path)
+			}
+		}
+		if r := callAPI(router, http.MethodPost, "/v1/job-seekers/phone-change", changeBody, bearer); r.Code != 202 {
+			t.Fatalf("request phone change: %d %s", r.Code, r.Body.String())
+		}
+		accountRepo := uow.Factory().JobSeekerRepository()
+		challenge, err := accountRepo.GetPhoneChangeOTP(ctx, seeker.ID)
+		if err != nil {
+			return err
+		}
+		if challenge == nil || challenge.Phone != newPhone {
+			t.Fatal("phone-change challenge not persisted")
+		}
+		wrongBody := fmt.Sprintf(`{"new_phone":%q,"otp":"wrong"}`, newPhone)
+		if r := callAPI(router, http.MethodPost, "/v1/job-seekers/phone-change/verify", wrongBody, bearer); r.Code != 401 {
+			t.Fatal("wrong phone-change OTP accepted")
+		}
+		challenge, err = accountRepo.GetPhoneChangeOTP(ctx, seeker.ID)
+		if err != nil {
+			return err
+		}
+		if challenge.Attempts != 1 {
+			t.Fatal("phone-change failure did not commit")
+		}
+		verifyBody := fmt.Sprintf(`{"new_phone":%q,"otp":%q}`, newPhone, sms.code)
+		if r := callAPI(router, http.MethodPost, "/v1/job-seekers/phone-change/verify", verifyBody, bearer); r.Code != 200 {
+			t.Fatalf("verify phone change: %d %s", r.Code, r.Body.String())
+		}
+		updated, err := accountRepo.FindByID(ctx, seeker.ID)
+		if err != nil {
+			return err
+		}
+		if updated.Phone != newPhone {
+			t.Fatal("phone update did not persist")
+		}
+		if r := callAPI(router, http.MethodPost, "/v1/job-seekers/phone-change/verify", verifyBody, bearer); r.Code != 401 {
+			t.Fatal("phone-change OTP replay accepted")
+		}
+		if _, err := auth.Login(ctx, usecase.LoginJobSeeker{Phone: in.Phone, Password: in.Password}); !errors.Is(err, domainerrors.ErrInvalidCredentials) {
+			t.Fatal("old number still logs in")
+		}
+		newLogin, err := auth.Login(ctx, usecase.LoginJobSeeker{Phone: newPhone, Password: in.Password})
+		if err != nil {
+			return err
+		}
+		if r := callAPI(router, http.MethodDelete, "/v1/job-seekers/me", `{"password":"wrong-password"}`, bearer); r.Code != 401 {
+			t.Fatal("wrong deletion password accepted")
+		}
+		if r := callAPI(router, http.MethodGet, "/v1/job-seekers/me", "", bearer); r.Code != 200 {
+			t.Fatal("wrong deletion password removed account")
+		}
+		deleteBody := fmt.Sprintf(`{"password":%q}`, in.Password)
+		if r := callAPI(router, http.MethodDelete, "/v1/job-seekers/me", deleteBody, bearer); r.Code != 200 {
+			t.Fatalf("delete account: %d %s", r.Code, r.Body.String())
+		}
+		for _, token := range []string{login.AccessToken.Value, newLogin.AccessToken.Value} {
+			if r := callAPI(router, http.MethodGet, "/v1/job-seekers/me", "", "Bearer "+token); r.Code != 401 {
+				t.Fatal("deleted account session accepted")
+			}
+		}
+		if _, ok := storage.objects[seeker.VerificationVideo.Key]; ok {
+			t.Fatal("deleted account video was retained")
 		}
 		return rollback
 	})

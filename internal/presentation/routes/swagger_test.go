@@ -84,6 +84,39 @@ func TestSwaggerServesUIAndSignupContract(t *testing.T) {
 		if spec.Paths["/job-seekers/documents/video"]["get"] == nil {
 			t.Fatal("missing private job seeker video route")
 		}
+		for path, method := range map[string]string{"/job-seekers/phone-change": "post", "/job-seekers/phone-change/verify": "post", "/job-seekers/me": "delete"} {
+			var operation struct {
+				Security []map[string][]string `json:"security"`
+			}
+			if err := json.Unmarshal(spec.Paths[path][method], &operation); err != nil {
+				t.Fatal(err)
+			}
+			if len(operation.Security) != 1 || operation.Security[0]["BearerAuth"] == nil {
+				t.Fatalf("missing bearer security for %s %s", method, path)
+			}
+		}
+		for _, path := range []string{"/job-seekers/parent-approval", "/parents/invitations/validate", "/parents/signup", "/parents/otp", "/parents/verify-otp"} {
+			if spec.Paths[path]["post"] == nil {
+				t.Fatalf("missing parent endpoint %s", path)
+			}
+		}
+		var parentSignup struct {
+			Parameters []struct {
+				Name     string `json:"name"`
+				Required bool   `json:"required"`
+			} `json:"parameters"`
+		}
+		if err := json.Unmarshal(spec.Paths["/parents/signup"]["post"], &parentSignup); err != nil {
+			t.Fatal(err)
+		}
+		if len(parentSignup.Parameters) != 6 {
+			t.Fatal("parent signup must have exactly six fields")
+		}
+		for _, p := range parentSignup.Parameters {
+			if !p.Required || p.Name == "first_name" || p.Name == "last_name" || p.Name == "phone" {
+				t.Fatal("parent signup must use the saved identity and require all form fields")
+			}
+		}
 		var employerSignup struct {
 			Consumes   []string `json:"consumes"`
 			Parameters []struct {

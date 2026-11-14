@@ -26,6 +26,8 @@ var RepositoryProviderSet = wire.NewSet(
 	wire.Bind(new(ports.UnitOfWork), new(*persistence.UnitOfWork)),
 )
 var ServiceProviderSet = wire.NewSet(
+	service.NewParentService,
+	wire.Bind(new(usecase.ParentService), new(*service.ParentService)),
 	storage.NewS3Storage,
 	media.NewValidator,
 	service.NewIndividualEmployerService,
@@ -49,6 +51,7 @@ var ServiceProviderSet = wire.NewSet(
 )
 
 var GeneralControllersProviderSet = wire.NewSet(
+	general.NewParentController,
 	general.NewIndividualEmployerController,
 	general.NewLegalEmployerController,
 	general.NewJobSeekerAuthController,
@@ -69,6 +72,7 @@ var ProviderSet = wire.NewSet(
 )
 
 type GeneralControllers struct {
+	ParentController             *general.ParentController
 	LegalEmployerController      *general.LegalEmployerController
 	IndividualEmployerController *general.IndividualEmployerController
 	JobSeekerAuthController      *general.JobSeekerAuthController

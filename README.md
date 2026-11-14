@@ -31,7 +31,7 @@ curl -X POST http://localhost:8081/v1/job-seekers/signup \
   -F 'first_name=Test' -F 'last_name=User' \
   -F 'national_code=0013547895' \
   -F 'city=CITY_FROM_SIGNUP_OPTIONS' -F 'address=Your address' \
-  -F 'birth_year=1380' -F 'birth_month=1' -F 'birth_day=1' \
+  -F 'birth_year=1388' -F 'birth_month=1' -F 'birth_day=1' \
   -F 'gender=male' -F 'interests=INTEREST_FROM_SIGNUP_OPTIONS' \
   -F 'phone=09123456789' -F 'password=choose-a-private-password' \
   -F 'verification_video=@verification.mp4'
@@ -45,7 +45,7 @@ curl -X POST http://localhost:8081/v1/job-seekers/signup \
 
 Job seeker videos use random private keys under `job-seekers/` in the existing S3 bucket. Include that prefix in your bucket credentials' PutObject/GetObject/DeleteObject permissions. PostgreSQL stores the key, content type, and size in the `job_seekers.verification_video` JSONB column; pending signup JSONB also retains that reference. Startup/migration adds this nullable column without deleting existing accounts. Existing accounts without a video can still login; pending signups created without a video must be submitted again. New signups always require a video. Verification and OTP resend reuse the stored video. Failed submissions clean up new uploads; successful replacements remove the previous pending video's object after commit.
 
-Use the applicant's own national code, which must pass the Iranian checksum. Passwords must be 8–72 bytes and are stored with bcrypt. All displayed profile fields are required, with at least one distinct interest. Birth dates must be real Jalali dates within the past 120 years.
+Use the applicant's own national code, which must pass the Iranian checksum. Passwords must be 8–72 bytes and are stored with bcrypt. All displayed profile fields are required, with at least one distinct interest. Birth dates must be real Jalali dates. Job seekers must be between 15 and 22 years old inclusive, based on their full birth date. Signup returns HTTP 400 before uploading files or sending an OTP when the applicant is outside this range: `{"message":"invalid signup: job seeker is under age: minimum age is 15 years"}` for applicants under 15, or `{"message":"invalid signup: job seeker is over age: maximum age is 22 years"}` for applicants over 22.
 
 OTP codes expire after five minutes and permit five failed verification attempts, including malformed codes. Pending registration expires after 30 minutes. To resend a code, `POST /v1/job-seekers/otp` with `{"phone":"09123456789"}`. Resend requires a pending validated registration and a 60-second wait. A new challenge replaces the old challenge. If the pending registration expires, submit signup again. Only salted OTP hashes are persisted. Phone-scoped PostgreSQL transaction locks serialize signup, resend, verification, and login requests.
 
@@ -73,6 +73,36 @@ Expand each endpoint and click **Try it out**, then **Execute**:
 Swagger sends requests to the current server and port automatically. The specification is available at `/swagger/doc.json`, with generated JSON/YAML files in `docs/`. After changing endpoint annotations or request/response schemas, regenerate with `go generate ./cmd/app` and restart the server.
 
 Swagger authentication interceptor tests use Node built-in testing: `node --test internal/presentation/swagger/initializer.test.cjs`. The PostgreSQL integration test also checks HTTP login, authenticated requests, logout, replay rejection, and session isolation.
+
+## Job seeker signup stages and parent approval
+
+The existing signup and OTP verification remain stage one. After verification the account has `signup_status: "first_stage_completed"`. Signup verification, login and `/v1/job-seekers/me` responses now also include `parent_approval_required` (true for ages 15-17), and `parent_id` / `parent_relationship` when linked. Stage two is mandatory for minors; ages 18-22 can complete it by skipping or by linking a parent. First-stage accounts can still log in to finish this flow.
+
+1. With the job seeker's Bearer token, call `POST /v1/job-seekers/parent-approval` with `{"first_name":"Parent","last_name":"Family","phone":"09129876543"}`. A verified parent found by normalized phone is linked immediately, completing stage two. Their saved identity is reused, and one parent can be linked to multiple children. Otherwise the response contains a random `invitation_code` and `expires_at` seven days in the future; the job seeker remains at stage one until the parent verifies. Repeating this request replaces the previous invitation. Share the returned code with the parent; no SMS is sent at this step.
+2. Adults may instead submit `{"skip":true}` to the same endpoint. This sets `signup_status: "second_stage_completed"` without requiring a parent. Minors receive HTTP 400: `{"message":"parent approval is mandatory for job seekers under 18 years"}`.
+3. The parent first calls `POST /v1/parents/invitations/validate` with `{"code":"RETURNED_INVITATION_CODE"}`. It returns the saved first/last name, phone, child's first name and expiry. Invalid, replaced, expired or consumed codes return HTTP 400. Code validation does not consume it; the same code is required for signup and OTP verification.
+4. Submit `POST /v1/parents/signup` as multipart form data: `code`, `relationship` (`father` or `mother`), `password` (8-72 bytes), `consent_accepted=true`, `identity_document` (PNG/JPEG, up to 5 MiB) and `consent_video` (MP4/MOV, 1-20 seconds, up to 50 MiB). The complete request is limited to 56 MiB. Name and phone come only from the invitation and cannot be changed through this form. The documents are private. The API returns HTTP 202 after sending an OTP to the saved parent's phone. No parent account exists yet.
+5. Call `POST /v1/parents/verify-otp` with `{"code":"RETURNED_INVITATION_CODE","otp":"123456"}`, using the code actually received by SMS. It atomically creates the parent, links the job seeker, consumes the invitation and pending signup, and sets the child's status to `second_stage_completed`. Returns HTTP 201 with public parent identity. Passwords and document keys are not returned.
+
+Parent OTPs expire after five minutes and allow five failed attempts, including malformed codes. Resend using `POST /v1/parents/otp` with `{"code":"RETURNED_INVITATION_CODE"}` after 60 seconds. Pending parent signup lasts 30 minutes, without extending the seven-day invitation expiry. A valid invitation is required for every parent signup/OTP operation; parents cannot self-register by phone. Only invitation hashes and salted OTP hashes are stored. Parent passwords are bcrypt hashes. Failed submissions clean up newly uploaded documents, replacements clean up old pending documents after commit, and verification reuses the saved documents. Include the `parents/*` prefix in S3 PutObject/GetObject/DeleteObject permissions. Existing parents do not resubmit documents or repeat signup when another child links them.
+
+Startup/migration adds `parents`, `job_seeker_parent_invitations`, and `parent_signup_otps`, and adds signup status and parent-reference columns to the current job seeker table. Existing accounts default to `first_stage_completed`; their profiles are preserved. Deleting a job seeker invalidates their invitation and removes their link without deleting the shared parent account or other children.
+
+## Job seeker phone changes and account deletion
+
+All three endpoints require `Authorization: Bearer <access_token>` from a job seeker login and accept JSON.
+
+| Method and endpoint | JSON body | Success |
+| --- | --- | --- |
+| `POST /v1/job-seekers/phone-change` | `{"new_phone":"09129876543"}` | 202: OTP sent to the new number |
+| `POST /v1/job-seekers/phone-change/verify` | `{"new_phone":"09129876543","otp":"123456"}` | 200: updated account identity |
+| `DELETE /v1/job-seekers/me` | `{"password":"your-current-password"}` | 200: `{"message":"Account deleted successfully"}` |
+
+The current phone stays active until the new number is verified. Phone numbers are normalized just as during signup. The new number must differ from the current one and must not belong to another job seeker; availability is checked again during verification. Login uses the new number after success; existing JWT sessions stay valid because they identify the account by ID.
+
+Repeat the phone-change request to resend after 60 seconds. Only the latest destination/code is valid. Each account has its own phone-change challenge, separate from signup: codes expire after five minutes and permit five failed verification attempts. Failed attempts persist, successful verification consumes the code, and changing the destination does not bypass the resend cooldown. Never use the signup OTP endpoints to confirm a phone change.
+
+Deletion requires the current account password. Five failed password confirmations share the existing login throttle (five failures within 15 minutes). Deletion atomically removes the account, its phone-change challenge, and its login-attempt record. Existing access tokens immediately fail subsequent authentication. Its verification video is removed after the database commit; storage cleanup failures are logged for operational follow-up. Deletion is permanent. Startup/migration automatically adds `job_seeker_phone_change_otps` without changing existing profiles.
 
 ## Run everything with Docker
 

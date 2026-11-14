@@ -5,6 +5,7 @@ import (
 )
 
 type RepositoryFactory interface {
+	ParentRepository() ParentRepository
 	UserRepository() domainpostgres.UserRepository
 	JobSeekerRepository() JobSeekerRepository
 	SignupOTPRepository() SignupOTPRepository

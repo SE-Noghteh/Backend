@@ -126,6 +126,20 @@ definitions:
     - RepresentativeCEO
     - RepresentativeAuthorizedSignatory
     - RepresentativeAttorney
+  general.DeleteJobSeekerRequest:
+    properties:
+      password:
+        example: your-current-password
+        type: string
+    required:
+    - password
+    type: object
+  general.DeleteJobSeekerResponse:
+    properties:
+      message:
+        example: Account deleted successfully
+        type: string
+    type: object
   general.DocumentURLResponse:
     properties:
       expires_in:
@@ -177,6 +191,46 @@ definitions:
     properties:
       data:
         $ref: '#/definitions/general.IndividualEmployerIdentity'
+    type: object
+  general.JobSeekerIdentity:
+    properties:
+      created_at:
+        type: string
+      first_name:
+        example: علی
+        type: string
+      id:
+        example: 1
+        type: integer
+      last_name:
+        example: رضایی
+        type: string
+      parent_approval_required:
+        type: boolean
+      parent_id:
+        type: integer
+      parent_relationship:
+        type: string
+      phone:
+        example: "09123456789"
+        type: string
+      signup_status:
+        example: first_stage_completed
+        type: string
+    type: object
+  general.JobSeekerParentRequest:
+    properties:
+      first_name:
+        example: Ali
+        type: string
+      last_name:
+        example: Ahmadi
+        type: string
+      phone:
+        example: "09129876543"
+        type: string
+      skip:
+        type: boolean
     type: object
   general.LegalEmployerIdentity:
     properties:
@@ -266,7 +320,7 @@ definitions:
       access_token:
         type: string
       data:
-        $ref: '#/definitions/general.SignupIdentity'
+        $ref: '#/definitions/general.JobSeekerIdentity'
       expires_at:
         type: string
       token_type:
@@ -285,6 +339,47 @@ definitions:
         example: 60
         type: integer
     type: object
+  general.ParentCodeRequest:
+    properties:
+      code:
+        type: string
+    required:
+    - code
+    type: object
+  general.ParentSignupResponse:
+    properties:
+      first_name:
+        type: string
+      id:
+        type: integer
+      last_name:
+        type: string
+      message:
+        type: string
+      phone:
+        type: string
+      relationship:
+        type: string
+    type: object
+  general.ParentVerifyOTPRequest:
+    properties:
+      code:
+        type: string
+      otp:
+        example: "123456"
+        type: string
+    required:
+    - code
+    - otp
+    type: object
+  general.PhoneChangeRequest:
+    properties:
+      new_phone:
+        example: "09129876543"
+        type: string
+    required:
+    - new_phone
+    type: object
   general.ResendOTPRequest:
     properties:
       phone:
@@ -292,23 +387,6 @@ definitions:
         type: string
     required:
     - phone
-    type: object
-  general.SignupIdentity:
-    properties:
-      created_at:
-        type: string
-      first_name:
-        example: علی
-        type: string
-      id:
-        example: 1
-        type: integer
-      last_name:
-        example: رضایی
-        type: string
-      phone:
-        example: "09123456789"
-        type: string
     type: object
   general.SignupOptionsResponse:
     properties:
@@ -328,7 +406,7 @@ definitions:
   general.SignupResponse:
     properties:
       data:
-        $ref: '#/definitions/general.SignupIdentity'
+        $ref: '#/definitions/general.JobSeekerIdentity'
     type: object
   general.VerifyOTPRequest:
     properties:
@@ -344,9 +422,47 @@ definitions:
     - otp
     - phone
     type: object
+  general.VerifyPhoneChangeRequest:
+    properties:
+      new_phone:
+        example: "09129876543"
+        type: string
+      otp:
+        example: "123456"
+        type: string
+    required:
+    - new_phone
+    - otp
+    type: object
+  usecase.ParentInvitationInfo:
+    properties:
+      expires_at:
+        type: string
+      first_name:
+        type: string
+      job_seeker_first_name:
+        type: string
+      last_name:
+        type: string
+      phone:
+        type: string
+    type: object
+  usecase.ParentStageResult:
+    properties:
+      expires_at:
+        type: string
+      invitation_code:
+        type: string
+      parent_id:
+        type: integer
+      signup_status:
+        type: string
+    type: object
 info:
   contact: {}
-  description: JIGILI JIGILI
+  description: Submit signup information and password to automatically receive an
+    SMS OTP, verify the code, then login to obtain a JWT. Birth dates use the Jalali
+    calendar. Signup and OTP resend send real SMS messages.
   title: Zedlancer Backend API
   version: "1.0"
 paths:
@@ -820,6 +936,48 @@ paths:
       tags:
       - Job seeker authentication
   /job-seekers/me:
+    delete:
+      consumes:
+      - application/json
+      description: Requires login and your current password. Permanently deletes the
+        account and pending phone change, then removes its verification video. All
+        existing tokens become unusable. Five failed password confirmations share
+        the login throttle (15-minute window).
+      parameters:
+      - description: Current password
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/general.DeleteJobSeekerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/general.DeleteJobSeekerResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete your job seeker account with password confirmation
+      tags:
+      - Job seeker account
     get:
       description: Returns the identity of the verified account identified by the
         JWT.
@@ -891,6 +1049,139 @@ paths:
       summary: Resend signup OTP
       tags:
       - Job seeker signup
+  /job-seekers/parent-approval:
+    post:
+      consumes:
+      - application/json
+      description: Requires stage-one job seeker login. Supply parent first_name,
+        last_name and phone. Existing verified parents link immediately and complete
+        stage two. New parents receive a single-use invitation code valid for seven
+        days; stage one remains the status until parent verification. Repeating this
+        request replaces the previous code. For ages 18 and above, submit skip=true
+        to complete stage two without a parent. Under 18 cannot skip.
+      parameters:
+      - description: Parent details or skip=true
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/general.JobSeekerParentRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/usecase.ParentStageResult'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Complete job seeker stage two or invite a parent
+      tags:
+      - Job seeker parent approval
+  /job-seekers/phone-change:
+    post:
+      consumes:
+      - application/json
+      description: Requires login. Keeps the current number until verification succeeds.
+        Repeat this request to resend after 60 seconds. Only the latest destination/code
+        is valid. Code expires after five minutes and allows five failed attempts.
+      parameters:
+      - description: New mobile number
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/general.PhoneChangeRequest'
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            $ref: '#/definitions/general.OTPResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Send an OTP to a new job seeker phone number
+      tags:
+      - Job seeker account
+  /job-seekers/phone-change/verify:
+    post:
+      consumes:
+      - application/json
+      description: Requires the same logged-in account that requested the code. Consumes
+        the OTP atomically. Login subsequently uses the new number; existing access
+        tokens remain valid.
+      parameters:
+      - description: New mobile number and received code
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/general.VerifyPhoneChangeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/general.SignupResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Verify the new phone and change your number
+      tags:
+      - Job seeker account
   /job-seekers/signup:
     post:
       consumes:
@@ -898,7 +1189,8 @@ paths:
       description: Submit the complete profile, password and required private verification
         video before OTP is sent. Video must be MP4/MOV, 1-20 seconds, up to 50 MiB.
         Pending signup lasts 30 minutes; then verify the received OTP. Birth date
-        is Jalali. Password must be 8-72 bytes.
+        is Jalali. Job seeker age must be between 15 and 22 years inclusive; otherwise
+        returns HTTP 400 with an error message. Password must be 8-72 bytes.
       parameters:
       - description: First name
         in: formData
@@ -1477,6 +1769,200 @@ paths:
       summary: Verify legal employer and complete signup
       tags:
       - Legal employer
+  /parents/invitations/validate:
+    post:
+      consumes:
+      - application/json
+      description: A parent cannot sign up without an unexpired code generated by
+        a verified job seeker. Returns the saved parent identity and phone; these
+        cannot be overridden in signup. Checking a code does not consume it.
+      parameters:
+      - description: Invitation code
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/general.ParentCodeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/usecase.ParentInvitationInfo'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+      summary: Check a parent invitation before signup
+      tags:
+      - Parent signup
+  /parents/otp:
+    post:
+      consumes:
+      - application/json
+      description: Requires a valid invitation and pending parent signup. Wait 60
+        seconds between sends. Sends only to the saved parent phone.
+      parameters:
+      - description: Invitation code
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/general.ParentCodeRequest'
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            $ref: '#/definitions/general.OTPResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+      summary: Resend parent signup OTP
+      tags:
+      - Parent signup
+  /parents/signup:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Invitation required. Name and phone come from the job seeker's
+        invitation. Relationship is father or mother. Requires consent, password (8-72
+        bytes), identity image (PNG/JPEG up to 5 MiB) and consent video (MP4/MOV,
+        1-20 seconds, up to 50 MiB). No parent account or link exists until OTP verification.
+        Pending submission lasts 30 minutes; invitation remains subject to its seven-day
+        expiry.
+      parameters:
+      - description: Invitation code
+        in: formData
+        name: code
+        required: true
+        type: string
+      - description: Relationship
+        enum:
+        - father
+        - mother
+        in: formData
+        name: relationship
+        required: true
+        type: string
+      - description: Password (8-72 bytes)
+        in: formData
+        name: password
+        required: true
+        type: string
+      - description: Parent accepts the rules and approves the child
+        in: formData
+        name: consent_accepted
+        required: true
+        type: boolean
+      - description: First page of parent identity document (PNG/JPEG, <=5 MiB)
+        in: formData
+        name: identity_document
+        required: true
+        type: file
+      - description: Parent consent video (MP4/MOV, 1-20 seconds, <=50 MiB)
+        in: formData
+        name: consent_video
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            $ref: '#/definitions/general.OTPResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "413":
+          description: Request Entity Too Large
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+      summary: Submit parent documents and send OTP to the saved phone
+      tags:
+      - Parent signup
+  /parents/verify-otp:
+    post:
+      consumes:
+      - application/json
+      description: Requires the same valid invitation used during signup. OTP expires
+        in five minutes and permits five failed attempts. Creation, invitation consumption,
+        link and second_stage_completed status commit atomically. Existing parents
+        are reused by phone for other children without another signup.
+      parameters:
+      - description: Invitation code and SMS OTP
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/general.ParentVerifyOTPRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/general.ParentSignupResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+      summary: Verify parent OTP, create parent, and link the job seeker
+      tags:
+      - Parent signup
 produces:
 - application/json
 securityDefinitions:

@@ -40,4 +40,14 @@ func SetUpGeneralRoutes(v1 *gin.RouterGroup, app *wire.Application) {
 	auth := middleware.NewJobSeekerAuth(app.JobSeekerAuthService)
 	jobSeekers.GET("/me", auth.Require, authController.Me)
 	jobSeekers.GET("/documents/video", auth.Require, controller.VideoURL)
+	jobSeekers.POST("/phone-change", auth.Require, controller.RequestPhoneChange)
+	jobSeekers.POST("/phone-change/verify", auth.Require, controller.VerifyPhoneChange)
+	jobSeekers.DELETE("/me", auth.Require, controller.DeleteAccount)
+	parentController := app.Controllers.GeneralControllers.ParentController
+	jobSeekers.POST("/parent-approval", auth.Require, parentController.SetJobSeekerParent)
+	parents := v1.Group("/parents")
+	parents.POST("/invitations/validate", parentController.ValidateInvitation)
+	parents.POST("/signup", parentController.Signup)
+	parents.POST("/otp", parentController.ResendOTP)
+	parents.POST("/verify-otp", parentController.VerifyOTP)
 }

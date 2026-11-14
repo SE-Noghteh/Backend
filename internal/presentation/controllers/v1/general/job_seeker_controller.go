@@ -60,7 +60,7 @@ func (c *JobSeekerController) RequestOTP(ctx *gin.Context) {
 
 // Signup godoc
 // @Summary Start signup and automatically send OTP
-// @Description Submit the complete profile, password and required private verification video before OTP is sent. Video must be MP4/MOV, 1-20 seconds, up to 50 MiB. Pending signup lasts 30 minutes; then verify the received OTP. Birth date is Jalali. Password must be 8-72 bytes.
+// @Description Submit the complete profile, password and required private verification video before OTP is sent. Video must be MP4/MOV, 1-20 seconds, up to 50 MiB. Pending signup lasts 30 minutes; then verify the received OTP. Birth date is Jalali. Job seeker age must be between 15 and 22 years inclusive; otherwise returns HTTP 400 with an error message. Password must be 8-72 bytes.
 // @Tags Job seeker signup
 // @Accept multipart/form-data
 // @Produce json

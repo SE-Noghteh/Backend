@@ -27,15 +27,36 @@ type SignupIdentity struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
+type JobSeekerIdentity struct {
+	SignupIdentity
+	SignupStatus           string  `json:"signup_status" example:"first_stage_completed"`
+	ParentApprovalRequired bool    `json:"parent_approval_required"`
+	ParentID               *uint64 `json:"parent_id,omitempty"`
+	ParentRelationship     string  `json:"parent_relationship,omitempty"`
+}
+
 type SignupResponse struct {
-	Data SignupIdentity `json:"data"`
+	Data JobSeekerIdentity `json:"data"`
 }
 type ErrorResponse struct {
 	Message string `json:"message" example:"invalid or expired OTP"`
 }
 
-func identityFromJobSeeker(seeker *entities.JobSeeker) SignupIdentity {
-	return SignupIdentity{ID: seeker.ID, FirstName: seeker.FirstName, LastName: seeker.LastName, Phone: seeker.Phone, CreatedAt: seeker.CreatedAt}
+func identityFromJobSeeker(seeker *entities.JobSeeker) JobSeekerIdentity {
+	status := seeker.SignupStatus
+	if status == "" {
+		status = entities.SignupFirstStageCompleted
+	}
+	required := false
+	if birth, err := seeker.BirthDate.Gregorian(); err == nil {
+		now := time.Now().UTC()
+		age := now.Year() - birth.Year()
+		if now.Before(birth.AddDate(age, 0, 0)) {
+			age--
+		}
+		required = age < 18
+	}
+	return JobSeekerIdentity{SignupIdentity: SignupIdentity{ID: seeker.ID, FirstName: seeker.FirstName, LastName: seeker.LastName, Phone: seeker.Phone, CreatedAt: seeker.CreatedAt}, SignupStatus: status, ParentApprovalRequired: required, ParentID: seeker.ParentID, ParentRelationship: seeker.ParentRelationship}
 }
 
 type AccessTokenResponse struct {
@@ -46,5 +67,5 @@ type AccessTokenResponse struct {
 
 type LoginResponse struct {
 	AccessTokenResponse
-	Data SignupIdentity `json:"data"`
+	Data JobSeekerIdentity `json:"data"`
 }
