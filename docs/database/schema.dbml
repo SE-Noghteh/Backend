@@ -1,0 +1,997 @@
+Project Zedlancer {
+  database_type: "PostgreSQL"
+  Note: "PostgreSQL database schema for Zedlancer."
+}
+
+Table users {
+  account_status account_status [not null, default: 'active']
+  deactivation_requested_at timestamptz
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  phone_number varchar(20) [not null]
+  password_hash text [not null]
+  phone_verified_at timestamptz
+  email varchar(255)
+  email_verified_at timestamptz
+  terms_accepted_at timestamptz
+  privacy_accepted_at timestamptz
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+}
+
+Table addresses {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  province varchar(100) [not null]
+  city varchar(100) [not null]
+  postal_code varchar(20) [not null]
+  full_address text [not null]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+}
+
+Table parents {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  user_id uuid [unique, not null]
+  address_id uuid
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+}
+
+Table job_seekers {
+  bio text
+  interests text
+  availability_note varchar(255)
+  public_visibility varchar(30)
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  user_id uuid [unique, not null]
+  address_id uuid
+  parent_id uuid
+  first_name varchar(100) [not null]
+  last_name varchar(100) [not null]
+  national_id varchar(20) [not null]
+  gender varchar(30)
+  birth_date date [not null]
+  parent_approval_status varchar(20) [not null]
+  parent_approved_at timestamptz
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+}
+
+Table employers {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  user_id uuid [unique, not null]
+  employer_type varchar(20) [not null]
+  registration_status varchar(30) [not null]
+  verification_status varchar(30) [not null]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+}
+
+Table individual_employers {
+  employer_id uuid [pk, not null]
+  address_id uuid
+  first_name varchar(100) [not null]
+  last_name varchar(100) [not null]
+  father_name varchar(100)
+  national_id varchar(20) [not null]
+  birth_date date
+  brand_name varchar(255)
+  website_url text
+  has_business_license boolean [not null, default: `false`]
+}
+
+Table legal_employers {
+  employer_id uuid [pk, not null]
+  address_id uuid
+  organization_name varchar(255) [not null]
+  legal_entity_type varchar(50) [not null]
+  national_legal_id varchar(30) [not null]
+  registration_number varchar(50) [not null]
+  economic_code varchar(50)
+  representative_first_name varchar(100) [not null]
+  representative_last_name varchar(100) [not null]
+  representative_role varchar(100)
+  representative_national_id varchar(20) [not null]
+  has_recent_registration_changes boolean [not null, default: `false`]
+  website_url text
+}
+
+Table activity_categories {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  name varchar(150) [not null]
+  description text
+  is_active boolean [not null, default: `true`]
+}
+
+Table verification_documents {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  user_id uuid [not null]
+  document_type varchar(60) [not null]
+  file_key text [not null]
+  status varchar(30) [not null]
+  rejection_reason text
+  created_at timestamptz [not null, default: `now()`]
+  reviewed_at timestamptz
+}
+
+Table parent_invitations {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  job_seeker_id uuid [not null]
+  code_hash text [not null]
+  status varchar(20) [not null]
+  expires_at timestamptz [not null]
+  used_at timestamptz
+  parent_id uuid
+  created_at timestamptz [not null, default: `now()`]
+}
+
+Table parent_link_requests {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  job_seeker_id uuid [not null]
+  parent_id uuid [not null]
+  status varchar(20) [not null]
+  created_at timestamptz [not null, default: `now()`]
+  responded_at timestamptz
+}
+
+Table skills {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  name varchar(150) [not null]
+  description text
+  is_active boolean [not null, default: `true`]
+}
+
+Table job_seeker_skills {
+  job_seeker_id uuid [not null]
+  skill_id uuid [not null]
+
+  indexes {
+    (job_seeker_id, skill_id) [pk]
+  }
+}
+
+Table job_postings {
+  category_id uuid
+  activity_id uuid
+  opportunity_type opp_type [not null, default: 'work']
+  work_mode opp_mode
+  current_version_id uuid
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  employer_id uuid [not null]
+  title varchar(255) [not null]
+  description text [not null]
+  status varchar(30) [not null]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+}
+
+Table job_posting_skills {
+  job_posting_id uuid [not null]
+  skill_id uuid [not null]
+
+  indexes {
+    (job_posting_id, skill_id) [pk]
+  }
+}
+
+Table job_applications {
+  motivation text
+  available_hours integer
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  job_posting_id uuid [not null]
+  job_seeker_id uuid [not null]
+  status varchar(30) [not null]
+  cover_letter text
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (job_posting_id, job_seeker_id) [unique]
+  }
+}
+
+Table conversations {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  job_application_id uuid [unique, not null]
+  status varchar(20) [not null]
+  closed_reason varchar(40)
+  closed_at timestamptz
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+}
+
+Table messages {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  conversation_id uuid [not null]
+  sender_user_id uuid [not null]
+  content text
+  created_at timestamptz [not null, default: `now()`]
+  read_at timestamptz
+}
+
+Table message_attachments {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  message_id uuid [not null]
+  file_key text [not null]
+  file_name text [not null]
+  mime_type varchar(150) [not null]
+  file_size bigint [not null]
+  created_at timestamptz [not null, default: `now()`]
+}
+
+Table work_contracts {
+  current_version_id uuid
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  job_application_id uuid [unique, not null]
+  title varchar(255) [not null]
+  description text [not null]
+  status varchar(30) [not null]
+  total_amount bigint [not null]
+  funding_status varchar(30) [not null]
+  funded_at timestamptz
+  start_date timestamptz
+  end_date timestamptz
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+}
+
+Table contract_approvals {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  work_contract_id uuid [not null]
+  user_id uuid [not null]
+  role varchar(20) [not null]
+  status varchar(20) [not null]
+  contract_version integer [not null, default: `1`]
+  approved_at timestamptz
+  rejected_at timestamptz
+  created_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (work_contract_id, user_id, contract_version) [unique]
+  }
+}
+
+Table contract_milestones {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  work_contract_id uuid [not null]
+  title varchar(255) [not null]
+  description text
+  amount bigint [not null]
+  due_date timestamptz
+  status varchar(30) [not null]
+}
+
+Table payments {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  work_contract_id uuid [not null]
+  amount bigint [not null]
+  status varchar(30) [not null]
+  gateway_reference text
+  idempotency_key varchar(100) [not null]
+  paid_at timestamptz
+  created_at timestamptz [not null, default: `now()`]
+}
+
+Table payouts {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  work_contract_id uuid [not null]
+  job_seeker_id uuid [not null]
+  amount bigint [not null]
+  status varchar(30) [not null]
+  idempotency_key varchar(100) [not null]
+  paid_at timestamptz
+  created_at timestamptz [not null, default: `now()`]
+}
+
+Table financial_transactions {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  work_contract_id uuid [not null]
+  type varchar(30) [not null]
+  amount bigint [not null]
+  reference_id uuid
+  created_at timestamptz [not null, default: `now()`]
+}
+
+Table work_submissions {
+  collaboration_id uuid
+  version_no integer
+  approved_at timestamptz
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  work_contract_id uuid [not null]
+  description text [not null]
+  status varchar(30) [not null]
+  review_note text
+  submitted_at timestamptz [not null]
+}
+
+Table disputes {
+  collaboration_id uuid
+  respond_by timestamptz
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  work_contract_id uuid [not null]
+  created_by_user_id uuid [not null]
+  assigned_support_user_id uuid
+  reason text [not null]
+  status varchar(30) [not null]
+  resolution varchar(30)
+  resolution_note text
+  created_at timestamptz [not null, default: `now()`]
+  resolved_at timestamptz
+}
+
+Table dispute_evidence {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  dispute_id uuid [not null]
+  uploaded_by_user_id uuid [not null]
+  file_key text [not null]
+  file_name text [not null]
+  mime_type varchar(150) [not null]
+  file_size bigint [not null]
+  description text
+  created_at timestamptz [not null, default: `now()`]
+}
+
+Ref: parents.user_id > users.id
+Ref: parents.address_id > addresses.id
+Ref: job_seekers.user_id > users.id
+Ref: job_seekers.address_id > addresses.id
+Ref: job_seekers.parent_id > parents.id
+Ref: employers.user_id > users.id
+Ref: individual_employers.employer_id > employers.id
+Ref: individual_employers.address_id > addresses.id
+Ref: legal_employers.employer_id > employers.id
+Ref: legal_employers.address_id > addresses.id
+Ref: verification_documents.user_id > users.id
+Ref: parent_invitations.job_seeker_id > job_seekers.id
+Ref: parent_invitations.parent_id > parents.id
+Ref: parent_link_requests.job_seeker_id > job_seekers.id
+Ref: parent_link_requests.parent_id > parents.id
+Ref: job_seeker_skills.job_seeker_id > job_seekers.id
+Ref: job_seeker_skills.skill_id > skills.id
+Ref: job_postings.employer_id > employers.id
+Ref: job_posting_skills.job_posting_id > job_postings.id
+Ref: job_posting_skills.skill_id > skills.id
+Ref: job_applications.job_posting_id > job_postings.id
+Ref: job_applications.job_seeker_id > job_seekers.id
+Ref: conversations.job_application_id > job_applications.id
+Ref: messages.conversation_id > conversations.id
+Ref: messages.sender_user_id > users.id
+Ref: message_attachments.message_id > messages.id
+Ref: work_contracts.job_application_id > job_applications.id
+Ref: contract_approvals.work_contract_id > work_contracts.id
+Ref: contract_approvals.user_id > users.id
+Ref: contract_milestones.work_contract_id > work_contracts.id
+Ref: payments.work_contract_id > work_contracts.id
+Ref: payouts.work_contract_id > work_contracts.id
+Ref: payouts.job_seeker_id > job_seekers.id
+Ref: financial_transactions.work_contract_id > work_contracts.id
+Ref: work_submissions.work_contract_id > work_contracts.id
+Ref: disputes.work_contract_id > work_contracts.id
+Ref: disputes.created_by_user_id > users.id
+Ref: disputes.assigned_support_user_id > users.id
+Ref: dispute_evidence.dispute_id > disputes.id
+Ref: dispute_evidence.uploaded_by_user_id > users.id
+
+Enum account_status {
+  active
+  pending_admin_approval
+  rejected_pending_edit
+  pending_parent_approval
+  inactive
+}
+
+Enum actor_type {
+  seeker
+  parent
+  employer
+  admin
+}
+
+Enum link_status {
+  invited
+  active
+  revoked
+}
+
+Enum opp_type {
+  work
+  internship
+}
+
+Enum opp_mode {
+  online
+  onsite
+}
+
+Enum opp_status {
+  draft
+  in_review
+  published
+  closed
+  archived
+}
+
+Enum screening_status {
+  pending
+  approved
+  rejected
+  returned
+}
+
+Enum application_status {
+  sent
+  withdrawn
+  shortlisted
+  rejected
+  offered
+  accepted
+}
+
+Enum offer_status {
+  sent
+  accepted
+  declined
+  expired
+}
+
+Enum agreement_version_status {
+  proposed
+  active
+  superseded
+}
+
+Enum consent_status {
+  pending
+  granted
+  denied
+  withdrawn
+  expired
+}
+
+Enum collab_status {
+  active
+  paused
+  completed
+  cancelled
+  disputed
+}
+
+Enum deliverable_status {
+  submitted
+  revision_requested
+  approved
+}
+
+Enum stop_type {
+  pause
+  cancel
+  no_response
+  early_exit
+}
+
+Enum finance_status {
+  none
+  pending
+  success
+  failed
+  refunded
+  needs_review
+}
+
+Enum skill_basis {
+  self
+  used_in_collab
+  assessed
+}
+
+Enum activity_mode {
+  online
+  onsite
+  both
+}
+
+Enum activity_acceptance {
+  allowed_after_review
+  suspended
+  out_of_scope
+}
+
+Enum review_status {
+  hidden
+  published
+  removed
+}
+
+Enum report_kind {
+  safety
+  other
+}
+
+Enum item_status {
+  open
+  done
+  expired
+}
+
+Table parent_links {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  parent_id uuid [not null]
+  job_seeker_id uuid [not null, note: 'the teen (under 18)']
+  status link_status [not null]
+  invited_at timestamptz
+  accepted_at timestamptz
+  revoked_at timestamptz
+  indexes { (parent_id, job_seeker_id) [unique] }
+}
+
+Table admin_actions {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  admin_user_id uuid [not null]
+  target_type varchar [not null]
+  target_id uuid [not null]
+  action varchar [not null]
+  reason text [not null]
+  changes jsonb
+  created_at timestamptz [default: `now()`]
+  Note: 'Append-only. No update/delete through normal panel.'
+}
+
+Table categories {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  parent_id uuid
+  title varchar [not null]
+  active boolean [default: true]
+}
+
+Table activities {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  category_id uuid [not null]
+  title varchar [unique, not null]
+  allowed_modes activity_mode [not null]
+  min_requirements text
+  supervision_requirements text
+  acceptance activity_acceptance [not null, default: 'allowed_after_review']
+  active boolean [default: true]
+  Note: 'Catalog of ~100 sample activities. Not an approved list for under-18.'
+}
+
+Table files {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  owner_type actor_type [not null]
+  owner_id uuid [not null, note: 'polymorphic: id in the table named by owner_type']
+  mime varchar [not null]
+  size_bytes bigint [not null]
+  storage_key varchar [not null]
+  created_at timestamptz
+}
+
+Table portfolio_items {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  job_seeker_id uuid [not null]
+  title varchar
+  description text
+  file_id uuid
+  visibility varchar [not null, note: 'public/private']
+}
+
+Table skill_evidence {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  job_seeker_id uuid [not null]
+  skill_id uuid [not null]
+  collaboration_id uuid
+  portfolio_item_id uuid
+  challenge_attempt_id uuid [note: 'optional']
+  mentor_summary text [note: 'internship summary']
+}
+
+Table challenges {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  skill_id uuid [not null]
+  level varchar
+  description text
+  input_file_id uuid
+  expected_output text
+  criteria text
+  max_attempts int
+  Note: '[optional]'
+}
+
+Table challenge_attempts {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  challenge_id uuid [not null]
+  job_seeker_id uuid [not null]
+  answer_text text
+  answer_file_id uuid
+  eval_method varchar
+  result varchar
+  feedback text
+  Note: '[optional]'
+}
+
+Table growth_goals {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  job_seeker_id uuid [not null]
+  skill_id uuid [not null]
+  Note: '[optional]'
+}
+
+Table availability_slots {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  job_seeker_id uuid [not null]
+  kind varchar [note: 'free / unavailable / exam period']
+  from_at timestamptz
+  to_at timestamptz
+  Note: '[optional] calendar'
+}
+
+Table job_posting_versions {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  job_posting_id uuid [not null]
+  version_no int [not null]
+  title varchar [not null]
+  description text [not null]
+  eligibility text
+  collab_style varchar
+  duration varchar
+  expected_hours int
+  capacity int [not null, default: 1]
+  apply_deadline timestamptz
+  delivery_deadline timestamptz
+  expected_output text
+  amount decimal(14,2)
+  pay_formula varchar
+  pay_status varchar [note: 'paid / stipend / unpaid']
+  max_revisions int
+  location_info jsonb [note: 'onsite only; exact address revealed to authorized users at needed stage']
+  created_at timestamptz
+  indexes { (job_posting_id, version_no) [unique] }
+}
+
+Table job_posting_version_skills {
+  job_posting_version_id uuid [not null]
+  skill_id uuid [not null]
+  indexes { (job_posting_version_id, skill_id) [pk] }
+}
+
+Table internship_details {
+  job_posting_version_id uuid [pk]
+  learning_goal text [not null]
+  practice_skills text
+  activities text
+  prerequisites text
+  start_date date
+  end_date date
+  expected_hours int
+  mentor_name varchar [not null, note: 'entered by employer; no separate mentor account']
+  mentor_contact varchar
+  stipend decimal(14,2)
+  completion_criteria text [not null]
+}
+
+Table screening_results {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  job_posting_version_id uuid [not null]
+  rule_code varchar [not null]
+  flagged_text text
+  reason text
+  status screening_status [not null, default: 'pending']
+  decided_by_user_id uuid [note: 'admin']
+  decision_reason text
+  decided_at timestamptz
+}
+
+Table saved_job_postings {
+  job_seeker_id uuid [not null]
+  job_posting_id uuid [not null]
+  indexes { (job_seeker_id, job_posting_id) [pk] }
+}
+
+Table offers {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  job_application_id uuid [not null]
+  expires_at timestamptz [not null]
+  status offer_status [not null, default: 'sent']
+  created_at timestamptz
+}
+
+Table contract_versions {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  work_contract_id uuid [not null]
+  version_no int [not null]
+  terms jsonb [not null, note: 'tasks, deliverable/activity, schedule, amount, revisions, responsibilities, end/cancel conditions, learning plan']
+  status agreement_version_status [not null]
+  created_by_type actor_type [note: 'seeker or employer']
+  created_by_user_id uuid
+  created_at timestamptz
+  indexes { (work_contract_id, version_no) [unique] }
+}
+
+Table contract_version_acceptances {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  contract_version_id uuid [not null]
+  acceptor_type actor_type [not null, note: 'seeker or employer']
+  acceptor_user_id uuid [not null]
+  accepted_at timestamptz [not null]
+  indexes { (contract_version_id, acceptor_type, acceptor_user_id) [unique] }
+}
+
+Table contract_parent_consents {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  contract_version_id uuid [not null]
+  parent_id uuid [not null]
+  job_seeker_id uuid [not null, note: 'the teen']
+  status consent_status [not null, default: 'pending']
+  deny_reason text
+  respond_by timestamptz
+  decided_at timestamptz
+  withdrawn_at timestamptz
+}
+
+Table collaborations {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  work_contract_id uuid [unique, not null]
+  employer_id uuid [not null]
+  job_seeker_id uuid [not null]
+  active_contract_version_id uuid [not null]
+  status collab_status [not null, default: 'active']
+  started_at timestamptz
+  ended_at timestamptz
+  end_outcome varchar [note: 'success / early exit / stopped / cancelled']
+}
+
+Table tasks {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  collaboration_id uuid [not null]
+  assignee_type actor_type [note: 'seeker or employer']
+  assignee_user_id uuid
+  title varchar [not null]
+  description text
+  status varchar
+  due_at timestamptz
+}
+
+Table collaboration_message_files {
+  collaboration_message_id uuid [not null]
+  file_id uuid [not null]
+  indexes { (collaboration_message_id, file_id) [pk] }
+}
+
+Table deliverables {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  collaboration_id uuid [not null]
+  version_no int [not null]
+  note text
+  status deliverable_status [not null, default: 'submitted']
+  submitted_at timestamptz
+  approved_at timestamptz
+  indexes { (collaboration_id, version_no) [unique, note: 'new submission never overwrites previous'] }
+}
+
+Table deliverable_files {
+  deliverable_id uuid [not null]
+  file_id uuid [not null]
+  indexes { (deliverable_id, file_id) [pk] }
+}
+
+Table revision_requests {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  deliverable_id uuid [not null]
+  description text [not null]
+  annotation jsonb [note: 'optional: image point / media timestamptz']
+  status varchar
+  created_at timestamptz
+}
+
+Table stop_requests {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  collaboration_id uuid [not null]
+  requested_by_type actor_type [not null, note: 'seeker, employer or admin']
+  requested_by_user_id uuid [not null]
+  type stop_type [not null]
+  reason text
+  status varchar
+  created_at timestamptz
+}
+
+Table extension_requests {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  collaboration_id uuid [not null]
+  new_contract_version_id uuid [not null]
+  Note: 'Extension goes through a new agreement version.'
+}
+
+Table collab_events {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  collaboration_id uuid [not null]
+  actor_type actor_type
+  actor_user_id uuid
+  event_type varchar [not null]
+  payload jsonb
+  created_at timestamptz [default: `now()`]
+}
+
+Table dispute_decisions {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  dispute_id uuid [not null]
+  admin_user_id uuid [not null]
+  decision text [not null]
+  reason text [not null]
+  collab_effect varchar
+  financial_effect varchar
+  created_at timestamptz
+}
+
+Table reports {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  reporter_type actor_type [not null]
+  reporter_user_id uuid [not null]
+  target_type varchar [not null, note: 'opportunity / account / message / file / review']
+  target_id uuid [not null]
+  kind report_kind [not null]
+  reason text
+  status varchar
+  priority varchar
+  created_at timestamptz
+}
+
+Table report_actions {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  report_id uuid [not null]
+  admin_user_id uuid [not null]
+  action varchar [not null]
+  reason text
+  created_at timestamptz
+}
+
+Table appeals {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  appellant_type actor_type [not null]
+  appellant_user_id uuid [not null]
+  target_type varchar [not null, note: 'rejected opportunity / account restriction / review / dispute']
+  target_id uuid [not null]
+  reason text
+  status varchar
+  reviewer_user_id uuid [note: 'admin']
+  result text
+}
+
+Table reviews {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  collaboration_id uuid [not null]
+  author_type actor_type [not null, note: 'seeker or employer']
+  author_user_id uuid [not null]
+  subject_type actor_type [not null, note: 'seeker or employer']
+  subject_user_id uuid [not null]
+  rating int
+  criteria jsonb [note: 'work: quality/communication/commitment; internship: guidance quality/fit with goals']
+  comment text
+  status review_status [not null, default: 'hidden']
+  indexes { (collaboration_id, author_type, author_user_id) [unique] }
+}
+
+Table notifications {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  recipient_type actor_type [not null]
+  recipient_user_id uuid [not null]
+  type varchar [not null]
+  link_type varchar
+  link_id uuid
+  read_at timestamptz
+  created_at timestamptz
+}
+
+Table action_items {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  owner_type actor_type [not null]
+  owner_user_id uuid [not null]
+  kind varchar [not null]
+  ref_type varchar
+  ref_id uuid
+  status item_status [not null, default: 'open']
+  due_at timestamptz
+}
+
+Table user_sessions {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  user_id uuid [not null]
+  token_hash text [not null]
+  device_info text
+  created_at timestamptz [not null, default: `now()`]
+  expires_at timestamptz [not null]
+  revoked_at timestamptz
+}
+
+Table admin_profiles {
+  user_id uuid [pk, not null]
+  admin_scope varchar(100) [not null]
+  is_active boolean [not null, default: `true`]
+  created_at timestamptz [not null, default: `now()`]
+}
+
+Table collaboration_messages {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  collaboration_id uuid [not null]
+  sender_user_id uuid [not null]
+  body text
+  hidden boolean [not null, default: `false`]
+  read_at timestamptz
+  created_at timestamptz [not null, default: `now()`]
+}
+
+Table financial_audit_events {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  financial_transaction_id uuid [not null]
+  event_type varchar(60) [not null]
+  decision_ref uuid
+  idempotency_key varchar(100) [unique, not null]
+  created_at timestamptz [not null, default: `now()`]
+}
+
+Ref: user_sessions.user_id > users.id
+Ref: admin_profiles.user_id > users.id
+Ref: parent_links.parent_id > parents.id
+Ref: parent_links.job_seeker_id > job_seekers.id
+Ref: admin_actions.admin_user_id > users.id
+Ref: categories.parent_id > categories.id
+Ref: activities.category_id > categories.id
+Ref: portfolio_items.job_seeker_id > job_seekers.id
+Ref: portfolio_items.file_id > files.id
+Ref: skill_evidence.(job_seeker_id, skill_id) > job_seeker_skills.(job_seeker_id, skill_id)
+Ref: skill_evidence.collaboration_id > collaborations.id
+Ref: skill_evidence.portfolio_item_id > portfolio_items.id
+Ref: skill_evidence.challenge_attempt_id > challenge_attempts.id
+Ref: challenges.skill_id > skills.id
+Ref: challenges.input_file_id > files.id
+Ref: challenge_attempts.challenge_id > challenges.id
+Ref: challenge_attempts.job_seeker_id > job_seekers.id
+Ref: challenge_attempts.answer_file_id > files.id
+Ref: growth_goals.job_seeker_id > job_seekers.id
+Ref: growth_goals.skill_id > skills.id
+Ref: availability_slots.job_seeker_id > job_seekers.id
+Ref: job_postings.category_id > categories.id
+Ref: job_postings.activity_id > activities.id
+Ref: job_postings.current_version_id > job_posting_versions.id
+Ref: job_posting_versions.job_posting_id > job_postings.id
+Ref: job_posting_version_skills.job_posting_version_id > job_posting_versions.id
+Ref: job_posting_version_skills.skill_id > skills.id
+Ref: internship_details.job_posting_version_id - job_posting_versions.id
+Ref: screening_results.job_posting_version_id > job_posting_versions.id
+Ref: screening_results.decided_by_user_id > users.id
+Ref: saved_job_postings.job_seeker_id > job_seekers.id
+Ref: saved_job_postings.job_posting_id > job_postings.id
+Ref: offers.job_application_id > job_applications.id
+Ref: contract_versions.work_contract_id > work_contracts.id
+Ref: work_contracts.current_version_id > contract_versions.id
+Ref: contract_versions.created_by_user_id > users.id
+Ref: contract_version_acceptances.contract_version_id > contract_versions.id
+Ref: contract_version_acceptances.acceptor_user_id > users.id
+Ref: contract_parent_consents.contract_version_id > contract_versions.id
+Ref: contract_parent_consents.parent_id > parents.id
+Ref: contract_parent_consents.job_seeker_id > job_seekers.id
+Ref: collaborations.work_contract_id - work_contracts.id
+Ref: collaborations.employer_id > employers.id
+Ref: collaborations.job_seeker_id > job_seekers.id
+Ref: collaborations.active_contract_version_id > contract_versions.id
+Ref: tasks.collaboration_id > collaborations.id
+Ref: collaboration_messages.collaboration_id > collaborations.id
+Ref: collaboration_messages.sender_user_id > users.id
+Ref: collaboration_message_files.collaboration_message_id > collaboration_messages.id
+Ref: collaboration_message_files.file_id > files.id
+Ref: deliverables.collaboration_id > collaborations.id
+Ref: deliverable_files.deliverable_id > deliverables.id
+Ref: deliverable_files.file_id > files.id
+Ref: revision_requests.deliverable_id > deliverables.id
+Ref: stop_requests.collaboration_id > collaborations.id
+Ref: stop_requests.requested_by_user_id > users.id
+Ref: extension_requests.collaboration_id > collaborations.id
+Ref: extension_requests.new_contract_version_id > contract_versions.id
+Ref: collab_events.collaboration_id > collaborations.id
+Ref: collab_events.actor_user_id > users.id
+Ref: work_submissions.collaboration_id > collaborations.id
+Ref: disputes.collaboration_id > collaborations.id
+Ref: dispute_decisions.dispute_id > disputes.id
+Ref: dispute_decisions.admin_user_id > users.id
+Ref: report_actions.report_id > reports.id
+Ref: report_actions.admin_user_id > users.id
+Ref: appeals.reviewer_user_id > users.id
+Ref: reviews.collaboration_id > collaborations.id
+Ref: financial_audit_events.financial_transaction_id > financial_transactions.id

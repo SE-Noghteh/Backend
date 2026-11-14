@@ -1,7 +1,6 @@
 package postgres
 
 import (
-	"zedlancer/backend/internal/domain/entities"
 
 	"gorm.io/gorm"
 )
