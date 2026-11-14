@@ -21,7 +21,7 @@ func NewJobSeekerController(service usecase.JobSeekerService) *JobSeekerControll
 // Options godoc
 // @Summary Get signup choices
 // @Description Fetch the predefined Persian cities, interests, and genders before signup.
-// @Tags Job seeker signup
+// @Tags Job seekers
 // @Produce json
 // @Success 200 {object} SignupOptionsResponse
 // @Router /job-seekers/signup-options [get]
@@ -32,7 +32,7 @@ func (c *JobSeekerController) Options(ctx *gin.Context) {
 // RequestOTP godoc
 // @Summary Resend signup OTP
 // @Description Requires a pending validated signup submitted within the past 30 minutes. Resends a real SMS. Code expires in 300 seconds; wait 60 seconds before requesting another. Each code allows five failed verification attempts.
-// @Tags Job seeker signup
+// @Tags Job seekers
 // @Accept json
 // @Produce json
 // @Param request body ResendOTPRequest true "Your mobile number"
@@ -60,8 +60,8 @@ func (c *JobSeekerController) RequestOTP(ctx *gin.Context) {
 
 // Signup godoc
 // @Summary Start signup and automatically send OTP
-// @Description Submit the complete profile, password and required private verification video before OTP is sent. Video must be MP4/MOV, 1-20 seconds, up to 50 MiB. Pending signup lasts 30 minutes; then verify the received OTP. Birth date is Jalali. Password must be 8-72 bytes.
-// @Tags Job seeker signup
+// @Description Submit the complete profile, password and required private verification video before OTP is sent. Video must be MP4/MOV, 1-20 seconds, up to 50 MiB. Pending signup lasts 30 minutes; then verify the received OTP. Birth date is Jalali. Job seeker age must be between 15 and 22 years inclusive; otherwise returns HTTP 400 with an error message. Password must be 8-72 bytes.
+// @Tags Job seekers
 // @Accept multipart/form-data
 // @Produce json
 // @Param first_name formData string true "First name"
@@ -115,7 +115,7 @@ func (c *JobSeekerController) Signup(ctx *gin.Context) {
 
 // VideoURL godoc
 // @Summary Get a private download link for your own verification video
-// @Tags Job seeker authentication
+// @Tags Job seekers
 // @Security BearerAuth
 // @Produce json
 // @Success 200 {object} DocumentURLResponse
@@ -139,7 +139,7 @@ func (c *JobSeekerController) VideoURL(ctx *gin.Context) {
 // VerifyOTP godoc
 // @Summary Verify OTP and complete signup
 // @Description Creates the account from the stored validated profile and consumes the OTP atomically. Use the same phone number as signup. After success, login with your phone and password to obtain a JWT.
-// @Tags Job seeker signup
+// @Tags Job seekers
 // @Accept json
 // @Produce json
 // @Param request body VerifyOTPRequest true "Phone and received code"

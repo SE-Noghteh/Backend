@@ -26,6 +26,11 @@ var RepositoryProviderSet = wire.NewSet(
 	wire.Bind(new(ports.UnitOfWork), new(*persistence.UnitOfWork)),
 )
 var ServiceProviderSet = wire.NewSet(
+	service.NewAdminService,
+	wire.Bind(new(usecase.AdminService), new(*service.AdminService)),
+	wire.Bind(new(ports.AdminTokenManager), new(*security.JWTManager)),
+	service.NewParentService,
+	wire.Bind(new(usecase.ParentService), new(*service.ParentService)),
 	storage.NewS3Storage,
 	media.NewValidator,
 	service.NewIndividualEmployerService,
@@ -39,6 +44,7 @@ var ServiceProviderSet = wire.NewSet(
 	service.NewJobSeekerAuthService,
 	wire.Bind(new(ports.PasswordHasher), new(*security.BcryptPasswordHasher)),
 	wire.Bind(new(ports.TokenManager), new(*security.JWTManager)),
+	wire.Bind(new(ports.JobSeekerTokenManager), new(*security.JWTManager)),
 	wire.Bind(new(usecase.JobSeekerAuthService), new(*service.JobSeekerAuthService)),
 	service.NewJobSeekerService,
 	sms.NewFerzzSender,
@@ -49,6 +55,8 @@ var ServiceProviderSet = wire.NewSet(
 )
 
 var GeneralControllersProviderSet = wire.NewSet(
+	general.NewAdminController,
+	general.NewParentController,
 	general.NewIndividualEmployerController,
 	general.NewLegalEmployerController,
 	general.NewJobSeekerAuthController,
@@ -69,6 +77,8 @@ var ProviderSet = wire.NewSet(
 )
 
 type GeneralControllers struct {
+	AdminController              *general.AdminController
+	ParentController             *general.ParentController
 	LegalEmployerController      *general.LegalEmployerController
 	IndividualEmployerController *general.IndividualEmployerController
 	JobSeekerAuthController      *general.JobSeekerAuthController
@@ -81,12 +91,14 @@ type Controllers struct {
 }
 
 type Application struct {
+	AdminService         usecase.AdminService
 	Controllers          *Controllers
 	JobSeekerAuthService usecase.JobSeekerAuthService
 }
 
-func NewApplication(controllers *Controllers, auth usecase.JobSeekerAuthService) *Application {
+func NewApplication(controllers *Controllers, auth usecase.JobSeekerAuthService, admin usecase.AdminService) *Application {
 	return &Application{
+		AdminService:         admin,
 		Controllers:          controllers,
 		JobSeekerAuthService: auth,
 	}

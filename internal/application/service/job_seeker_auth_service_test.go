@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -22,10 +23,23 @@ func (f testTokens) IssueAccessToken(id uint64, role enums.AccountRole) (*valueo
 	return &valueobjects.AccessToken{Value: "valid-token", ExpiresAt: time.Now().Add(time.Hour)}, nil
 }
 func (f testTokens) VerifyAccessToken(value string, role enums.AccountRole) (*valueobjects.Principal, error) {
+	var version uint64
 	if value != "valid-token" {
-		return nil, domainerrors.ErrUnauthenticated
+		if _, err := fmt.Sscanf(value, "valid-token-v%d", &version); err != nil {
+			return nil, domainerrors.ErrUnauthenticated
+		}
 	}
-	return &valueobjects.Principal{ID: 1, TokenID: "test-token-id", ExpiresAt: time.Now().Add(time.Hour)}, nil
+	return &valueobjects.Principal{ID: 1, TokenID: "test-token-id", ExpiresAt: time.Now().Add(time.Hour), SessionVersion: version}, nil
+}
+func (f testTokens) IssueJobSeekerAccessToken(id, version uint64) (*valueobjects.AccessToken, error) {
+	token, err := f.IssueAccessToken(id, enums.RoleJobSeeker)
+	if err != nil {
+		return nil, err
+	}
+	if version > 0 {
+		token.Value = fmt.Sprintf("valid-token-v%d", version)
+	}
+	return token, nil
 }
 
 func verifiedMemory(t *testing.T) *signupMemory {

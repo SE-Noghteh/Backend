@@ -12,6 +12,10 @@ import (
 )
 
 func validateSignup(in *usecase.SignupJobSeeker) error {
+	return validateSignupAt(in, time.Now().UTC())
+}
+
+func validateSignupAt(in *usecase.SignupJobSeeker, now time.Time) error {
 	in.FirstName, in.LastName, in.Address = strings.TrimSpace(in.FirstName), strings.TrimSpace(in.LastName), strings.TrimSpace(in.Address)
 	invalid := func(field string) error { return fmt.Errorf("%w: %s", domainerrors.ErrInvalidSignup, field) }
 	if in.FirstName == "" || utf8.RuneCountInString(in.FirstName) > 100 {
@@ -49,10 +53,17 @@ func validateSignup(in *usecase.SignupJobSeeker) error {
 	if err != nil {
 		return invalid("birth_date")
 	}
-	now := time.Now().UTC()
+	now = now.UTC()
 	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
-	if birth.After(today) || birth.Before(today.AddDate(-120, 0, 0)) {
-		return invalid("birth_date must be within the past 120 years")
+	age := today.Year() - birth.Year()
+	if today.Before(birth.AddDate(age, 0, 0)) {
+		age--
+	}
+	if age < 15 {
+		return invalid("job seeker is under age: minimum age is 15 years")
+	}
+	if age > 22 {
+		return invalid("job seeker is over age: maximum age is 22 years")
 	}
 	return nil
 }

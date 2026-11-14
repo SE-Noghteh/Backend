@@ -5,6 +5,7 @@ import (
 
 	"zedlancer/backend/internal/domain/entities"
 	"zedlancer/backend/internal/domain/enums"
+	"zedlancer/backend/internal/domain/valueobjects"
 )
 
 type SignupOptionsResponse struct {
@@ -27,15 +28,28 @@ type SignupIdentity struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
+type JobSeekerIdentity struct {
+	SignupIdentity
+	valueobjects.AdminReview
+	valueobjects.JobSeekerApproval
+	ParentID           *uint64 `json:"parent_id,omitempty"`
+	ParentRelationship string  `json:"parent_relationship,omitempty"`
+}
+
 type SignupResponse struct {
-	Data SignupIdentity `json:"data"`
+	Data JobSeekerIdentity `json:"data"`
 }
 type ErrorResponse struct {
 	Message string `json:"message" example:"invalid or expired OTP"`
 }
 
-func identityFromJobSeeker(seeker *entities.JobSeeker) SignupIdentity {
-	return SignupIdentity{ID: seeker.ID, FirstName: seeker.FirstName, LastName: seeker.LastName, Phone: seeker.Phone, CreatedAt: seeker.CreatedAt}
+func identityFromJobSeeker(seeker *entities.JobSeeker) JobSeekerIdentity {
+	approval, _ := seeker.ApprovalAt(time.Now())
+	review := seeker.AdminReview
+	if review.AdminApprovalStatus == "" {
+		review.AdminApprovalStatus = enums.AdminReviewPending
+	}
+	return JobSeekerIdentity{SignupIdentity: SignupIdentity{ID: seeker.ID, FirstName: seeker.FirstName, LastName: seeker.LastName, Phone: seeker.Phone, CreatedAt: seeker.CreatedAt}, ParentID: seeker.ParentID, ParentRelationship: seeker.ParentRelationship, AdminReview: review, JobSeekerApproval: approval}
 }
 
 type AccessTokenResponse struct {
@@ -46,5 +60,5 @@ type AccessTokenResponse struct {
 
 type LoginResponse struct {
 	AccessTokenResponse
-	Data SignupIdentity `json:"data"`
+	Data JobSeekerIdentity `json:"data"`
 }

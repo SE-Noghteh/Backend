@@ -14,6 +14,29 @@ type JalaliDate struct {
 
 func (d JalaliDate) String() string { return fmt.Sprintf("%04d/%02d/%02d", d.Year, d.Month, d.Day) }
 
+func JalaliFromGregorian(date time.Time) (JalaliDate, error) {
+	date = date.UTC()
+	date = time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.UTC)
+	year := date.Year() - 621
+	start, ok := yearStart(year)
+	if !ok {
+		return JalaliDate{}, fmt.Errorf("unsupported Gregorian date")
+	}
+	if date.Before(start) {
+		year--
+		start, ok = yearStart(year)
+		if !ok {
+			return JalaliDate{}, fmt.Errorf("unsupported Gregorian date")
+		}
+	}
+	days := int(date.Sub(start).Hours() / 24)
+	if days < 186 {
+		return JalaliDate{Year: year, Month: days/31 + 1, Day: days%31 + 1}, nil
+	}
+	days -= 186
+	return JalaliDate{Year: year, Month: days/30 + 7, Day: days%30 + 1}, nil
+}
+
 // yearStart calculates Nowruz using the Jalali calendar's astronomical break years.
 func yearStart(year int) (time.Time, bool) {
 	breaks := [...]int{-61, 9, 38, 199, 426, 686, 756, 818, 1111, 1181, 1210, 1635, 2060, 2097, 2192, 2262, 2324, 2394, 2456, 3178}

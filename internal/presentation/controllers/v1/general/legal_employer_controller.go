@@ -21,7 +21,7 @@ func NewLegalEmployerController(service usecase.LegalEmployerService) *LegalEmpl
 
 // Options godoc
 // @Summary Get legal employer signup choices
-// @Tags Legal employer
+// @Tags Legal employers
 // @Produce json
 // @Success 200 {object} map[string]interface{}
 // @Router /legal-employers/signup-options [get]
@@ -36,7 +36,7 @@ func (c *LegalEmployerController) Options(ctx *gin.Context) {
 // RequestOTP godoc
 // @Summary Resend legal employer verification OTP
 // @Description Requires a complete pending signup submitted within the last 30 minutes. Signup sends the first code automatically. Resends a real SMS after a 60-second cooldown; the code expires in 5 minutes.
-// @Tags Legal employer
+// @Tags Legal employers
 // @Accept json
 // @Produce json
 // @Param request body ResendOTPRequest true "Phone number"
@@ -60,7 +60,7 @@ func (c *LegalEmployerController) RequestOTP(ctx *gin.Context) {
 // Signup godoc
 // @Summary Submit employer information and automatically send verification OTP
 // @Description Validates and saves the complete multipart submission and private files, then sends OTP automatically. Returns 202; no employer account exists until verify-otp succeeds. Pending signup lasts 30 minutes. Email and website are optional. Select activities from signup-options. Activity license is required when requires_activity_license is true. An attorney must upload authorization_document. Company identifier format is checked; official company and representative authority verification remains pending review. Password requires 12-72 bytes with uppercase, lowercase, number, symbol. Documents: PDF/PNG/JPEG up to 5 MiB each. Video: MP4/MOV, 1-20 seconds, up to 50 MiB. Requires configured S3 and ffprobe.
-// @Tags Legal employer
+// @Tags Legal employers
 // @Accept multipart/form-data
 // @Produce json
 // @Param company_name formData string true "Registered company or organization name"
@@ -143,7 +143,7 @@ func (c *LegalEmployerController) Signup(ctx *gin.Context) {
 // VerifyOTP godoc
 // @Summary Verify legal employer and complete signup
 // @Description Checks phone and code against the stored submission. Creates the shared employer and legal profile atomically and consumes the OTP. Does not require re-uploading files. Login is available after successful verification.
-// @Tags Legal employer
+// @Tags Legal employers
 // @Accept json
 // @Produce json
 // @Param request body VerifyOTPRequest true "Phone and received OTP"
@@ -169,7 +169,7 @@ func (c *LegalEmployerController) VerifyOTP(ctx *gin.Context) {
 // Login godoc
 // @Summary Login legal employer using phone and password
 // @Description Returns an legal_employer JWT; job seeker tokens cannot access employer endpoints. Five failed attempts in 15 minutes trigger lockout. Pending-review employers can login; document review is a separate administrative process.
-// @Tags Legal employer
+// @Tags Legal employers
 // @Accept json
 // @Produce json
 // @Param request body LoginRequest true "Phone and password"
@@ -194,7 +194,7 @@ func (c *LegalEmployerController) Login(ctx *gin.Context) {
 
 // Me godoc
 // @Summary Get authenticated legal employer identity
-// @Tags Legal employer
+// @Tags Legal employers
 // @Security BearerAuth
 // @Produce json
 // @Success 200 {object} LegalEmployerResponse
@@ -216,7 +216,7 @@ func (c *LegalEmployerController) Me(ctx *gin.Context) {
 
 // Logout godoc
 // @Summary Logout current legal employer token
-// @Tags Legal employer
+// @Tags Legal employers
 // @Security BearerAuth
 // @Success 204 "Logged out"
 // @Failure 401,500 {object} ErrorResponse
@@ -237,7 +237,7 @@ func (c *LegalEmployerController) Logout(ctx *gin.Context) {
 // DocumentURL godoc
 // @Summary Get private download link for your own employer document
 // @Description The signed link expires in five minutes. No public S3 URLs or credentials are exposed.
-// @Tags Legal employer
+// @Tags Legal employers
 // @Security BearerAuth
 // @Produce json
 // @Param kind path string true "Document kind" Enums(establishment,identity,activity-license,authorization,video)
