@@ -53,6 +53,8 @@ func InitializeApplication(container *bootstrap.Config) (*Application, error) {
 	jobSeekerController := general.NewJobSeekerController(jobSeekerService)
 	userService := service.NewUserService(unitOfWork)
 	generalUserController := general.NewGeneralUserController(userService)
+	employerJobPostingService := service.NewEmployerJobPostingService(unitOfWork, individualEmployerService, legalEmployerService)
+	employerJobPostingController := general.NewEmployerJobPostingController(employerJobPostingService)
 	generalControllers := &GeneralControllers{
 		AdminController:              adminController,
 		ParentController:             parentController,
@@ -61,6 +63,7 @@ func InitializeApplication(container *bootstrap.Config) (*Application, error) {
 		JobSeekerAuthController:      jobSeekerAuthController,
 		JobSeekerController:          jobSeekerController,
 		GeneralUserController:        generalUserController,
+		EmployerJobPostingController: employerJobPostingController,
 	}
 	controllers := &Controllers{
 		GeneralControllers: generalControllers,
@@ -73,9 +76,9 @@ func InitializeApplication(container *bootstrap.Config) (*Application, error) {
 
 var RepositoryProviderSet = wire.NewSet(persistence.NewRepositoryFactory, persistence.NewUnitOfWork, persistence.NewPostgresDatabase, wire.Bind(new(ports.RepositoryFactory), new(*persistence.RepositoryFactory)), wire.Bind(new(ports.UnitOfWork), new(*persistence.UnitOfWork)))
 
-var ServiceProviderSet = wire.NewSet(service.NewAdminService, wire.Bind(new(usecase.AdminService), new(*service.AdminService)), wire.Bind(new(ports.AdminTokenManager), new(*security.JWTManager)), service.NewParentService, wire.Bind(new(usecase.ParentService), new(*service.ParentService)), storage.NewS3Storage, media.NewValidator, service.NewIndividualEmployerService, service.NewLegalEmployerService, wire.Bind(new(usecase.LegalEmployerService), new(*service.LegalEmployerService)), wire.Bind(new(ports.Storage), new(*storage.S3Storage)), wire.Bind(new(ports.MediaValidator), new(*media.Validator)), wire.Bind(new(usecase.IndividualEmployerService), new(*service.IndividualEmployerService)), security.NewBcryptPasswordHasher, security.ProvideJWTManager, service.NewJobSeekerAuthService, wire.Bind(new(ports.PasswordHasher), new(*security.BcryptPasswordHasher)), wire.Bind(new(ports.TokenManager), new(*security.JWTManager)), wire.Bind(new(ports.JobSeekerTokenManager), new(*security.JWTManager)), wire.Bind(new(usecase.JobSeekerAuthService), new(*service.JobSeekerAuthService)), service.NewJobSeekerService, sms.NewFerzzSender, wire.Bind(new(ports.OTPSender), new(*sms.FerzzSender)), wire.Bind(new(usecase.JobSeekerService), new(*service.JobSeekerService)), service.NewUserService, wire.Bind(new(usecase.UserService), new(*service.UserService)))
+var ServiceProviderSet = wire.NewSet(service.NewAdminService, wire.Bind(new(usecase.AdminService), new(*service.AdminService)), wire.Bind(new(ports.AdminTokenManager), new(*security.JWTManager)), service.NewParentService, wire.Bind(new(usecase.ParentService), new(*service.ParentService)), storage.NewS3Storage, media.NewValidator, service.NewIndividualEmployerService, service.NewLegalEmployerService, wire.Bind(new(usecase.LegalEmployerService), new(*service.LegalEmployerService)), wire.Bind(new(ports.Storage), new(*storage.S3Storage)), wire.Bind(new(ports.MediaValidator), new(*media.Validator)), wire.Bind(new(usecase.IndividualEmployerService), new(*service.IndividualEmployerService)), security.NewBcryptPasswordHasher, security.ProvideJWTManager, service.NewJobSeekerAuthService, wire.Bind(new(ports.PasswordHasher), new(*security.BcryptPasswordHasher)), wire.Bind(new(ports.TokenManager), new(*security.JWTManager)), wire.Bind(new(ports.JobSeekerTokenManager), new(*security.JWTManager)), wire.Bind(new(usecase.JobSeekerAuthService), new(*service.JobSeekerAuthService)), service.NewJobSeekerService, sms.NewFerzzSender, wire.Bind(new(ports.OTPSender), new(*sms.FerzzSender)), wire.Bind(new(usecase.JobSeekerService), new(*service.JobSeekerService)), service.NewUserService, service.NewEmployerJobPostingService, wire.Bind(new(usecase.UserService), new(*service.UserService)), wire.Bind(new(usecase.EmployerJobPostingService), new(*service.EmployerJobPostingService)))
 
-var GeneralControllersProviderSet = wire.NewSet(general.NewAdminController, general.NewParentController, general.NewIndividualEmployerController, general.NewLegalEmployerController, general.NewJobSeekerAuthController, general.NewJobSeekerController, general.NewGeneralUserController, wire.Struct(new(GeneralControllers), "*"))
+var GeneralControllersProviderSet = wire.NewSet(general.NewAdminController, general.NewParentController, general.NewIndividualEmployerController, general.NewLegalEmployerController, general.NewJobSeekerAuthController, general.NewJobSeekerController, general.NewGeneralUserController, general.NewEmployerJobPostingController, wire.Struct(new(GeneralControllers), "*"))
 
 var ControllersProviderSet = wire.NewSet(wire.Struct(new(Controllers), "*"))
 
@@ -94,6 +97,7 @@ type GeneralControllers struct {
 	JobSeekerAuthController      *general.JobSeekerAuthController
 	JobSeekerController          *general.JobSeekerController
 	GeneralUserController        *general.GeneralUserController
+	EmployerJobPostingController *general.EmployerJobPostingController
 }
 
 type Controllers struct {

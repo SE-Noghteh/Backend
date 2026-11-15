@@ -51,7 +51,9 @@ var ServiceProviderSet = wire.NewSet(
 	wire.Bind(new(ports.OTPSender), new(*sms.FerzzSender)),
 	wire.Bind(new(usecase.JobSeekerService), new(*service.JobSeekerService)),
 	service.NewUserService,
+	service.NewEmployerJobPostingService,
 	wire.Bind(new(usecase.UserService), new(*service.UserService)),
+	wire.Bind(new(usecase.EmployerJobPostingService), new(*service.EmployerJobPostingService)),
 )
 
 var GeneralControllersProviderSet = wire.NewSet(
@@ -62,6 +64,7 @@ var GeneralControllersProviderSet = wire.NewSet(
 	general.NewJobSeekerAuthController,
 	general.NewJobSeekerController,
 	general.NewGeneralUserController,
+	general.NewEmployerJobPostingController,
 	wire.Struct(new(GeneralControllers), "*"),
 )
 
@@ -84,6 +87,7 @@ type GeneralControllers struct {
 	JobSeekerAuthController      *general.JobSeekerAuthController
 	JobSeekerController          *general.JobSeekerController
 	GeneralUserController        *general.GeneralUserController
+	EmployerJobPostingController *general.EmployerJobPostingController
 }
 
 type Controllers struct {
