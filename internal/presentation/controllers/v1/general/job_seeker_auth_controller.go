@@ -18,7 +18,7 @@ func NewJobSeekerAuthController(service usecase.JobSeekerAuthService) *JobSeeker
 // Login godoc
 // @Summary Login with phone and password
 // @Description Requires a verified account. Returns an expiring JWT. Swagger automatically authorizes subsequent requests after successful login. Other clients must send Authorization: Bearer <access_token>. Five failed attempts per phone within 15 minutes block further login attempts until the window ends.
-// @Tags Job seeker authentication
+// @Tags Job seekers
 // @Accept json
 // @Produce json
 // @Param request body LoginRequest true "Phone and password"
@@ -48,7 +48,7 @@ func (c *JobSeekerAuthController) Login(ctx *gin.Context) {
 // Me godoc
 // @Summary Get the logged-in job seeker
 // @Description Returns the identity of the verified account identified by the JWT.
-// @Tags Job seeker authentication
+// @Tags Job seekers
 // @Produce json
 // @Security BearerAuth
 // @Success 200 {object} SignupResponse
@@ -68,7 +68,7 @@ func (c *JobSeekerAuthController) Me(ctx *gin.Context) {
 // Logout godoc
 // @Summary Logout the current access token
 // @Description Permanently revokes this token until its expiration. Other login sessions stay active. Repeating logout with the same unexpired token returns 204. Swagger clears its authorization after successful logout.
-// @Tags Job seeker authentication
+// @Tags Job seekers
 // @Security BearerAuth
 // @Success 204 "Logged out"
 // @Failure 401 {object} ErrorResponse

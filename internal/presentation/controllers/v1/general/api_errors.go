@@ -12,6 +12,20 @@ import (
 func respondAPIError(ctx *gin.Context, err error) {
 	status, message := http.StatusInternalServerError, "internal server error"
 	switch {
+	case errors.Is(err, domainerrors.ErrInvalidAdminCredentials):
+		status, message = http.StatusUnauthorized, err.Error()
+	case errors.Is(err, domainerrors.ErrInvalidReview):
+		status, message = http.StatusBadRequest, err.Error()
+	case errors.Is(err, domainerrors.ErrReviewNotFound):
+		status, message = http.StatusNotFound, err.Error()
+	case errors.Is(err, domainerrors.ErrSignupIncomplete):
+		status, message = http.StatusConflict, err.Error()
+	case errors.Is(err, domainerrors.ErrParentAlreadyRegistered), errors.Is(err, domainerrors.ErrParentAlreadyConnected):
+		status, message = http.StatusConflict, err.Error()
+	case errors.Is(err, domainerrors.ErrParentNotRegistered):
+		status, message = http.StatusBadRequest, err.Error()
+	case errors.Is(err, domainerrors.ErrInvalidParent), errors.Is(err, domainerrors.ErrInvalidInvitation), errors.Is(err, domainerrors.ErrParentRequired):
+		status, message = http.StatusBadRequest, err.Error()
 	case errors.Is(err, domainerrors.ErrInvalidSignup):
 		status, message = http.StatusBadRequest, err.Error()
 	case errors.Is(err, domainerrors.ErrInvalidUpload):

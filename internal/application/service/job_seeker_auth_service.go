@@ -13,10 +13,10 @@ import (
 type JobSeekerAuthService struct {
 	uow       ports.UnitOfWork
 	passwords ports.PasswordHasher
-	tokens    ports.TokenManager
+	tokens    ports.JobSeekerTokenManager
 }
 
-func NewJobSeekerAuthService(uow ports.UnitOfWork, passwords ports.PasswordHasher, tokens ports.TokenManager) *JobSeekerAuthService {
+func NewJobSeekerAuthService(uow ports.UnitOfWork, passwords ports.PasswordHasher, tokens ports.JobSeekerTokenManager) *JobSeekerAuthService {
 	return &JobSeekerAuthService{uow: uow, passwords: passwords, tokens: tokens}
 }
 
@@ -52,7 +52,7 @@ func (s *JobSeekerAuthService) Login(ctx context.Context, in usecase.LoginJobSee
 			authErr = domainerrors.ErrInvalidCredentials
 			return attemptRepo.SaveLoginAttempt(ctx, attempt)
 		}
-		token, err := s.tokens.IssueAccessToken(seeker.ID, enums.RoleJobSeeker)
+		token, err := s.tokens.IssueJobSeekerAccessToken(seeker.ID, seeker.SessionVersion)
 		if err != nil {
 			return err
 		}
@@ -80,7 +80,7 @@ func (s *JobSeekerAuthService) Authenticate(ctx context.Context, token string) (
 	if err != nil {
 		return nil, err
 	}
-	if seeker == nil || seeker.PhoneVerifiedAt.IsZero() {
+	if seeker == nil || seeker.PhoneVerifiedAt.IsZero() || seeker.SessionVersion != principal.SessionVersion {
 		return nil, domainerrors.ErrUnauthenticated
 	}
 	return seeker, nil

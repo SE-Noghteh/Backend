@@ -22,7 +22,7 @@ func NewIndividualEmployerController(service usecase.IndividualEmployerService) 
 
 // Options godoc
 // @Summary Get individual employer signup choices
-// @Tags Individual employer
+// @Tags Individual employers
 // @Produce json
 // @Success 200 {object} map[string]interface{}
 // @Router /individual-employers/signup-options [get]
@@ -37,7 +37,7 @@ func (c *IndividualEmployerController) Options(ctx *gin.Context) {
 // RequestOTP godoc
 // @Summary Resend individual employer verification OTP
 // @Description Requires a complete pending signup submitted within the last 30 minutes. Signup sends the first code automatically. Resends a real SMS after a 60-second cooldown; the code expires in 5 minutes.
-// @Tags Individual employer
+// @Tags Individual employers
 // @Accept json
 // @Produce json
 // @Param request body ResendOTPRequest true "Phone number"
@@ -61,7 +61,7 @@ func (c *IndividualEmployerController) RequestOTP(ctx *gin.Context) {
 // Signup godoc
 // @Summary Submit employer information and automatically send verification OTP
 // @Description Validates and saves the complete multipart submission and private files, then sends OTP automatically. Returns 202; no employer account exists until verify-otp succeeds. Pending signup lasts 30 minutes. Business fields, email and business license are optional. Password requires 12-72 bytes with uppercase, lowercase, number, symbol. Documents: PDF/PNG/JPEG up to 5 MiB each. Video: MP4/MOV, 1-20 seconds, up to 50 MiB. Requires configured S3 and ffprobe.
-// @Tags Individual employer
+// @Tags Individual employers
 // @Accept multipart/form-data
 // @Produce json
 // @Param first_name formData string true "First name"
@@ -130,7 +130,7 @@ func (c *IndividualEmployerController) Signup(ctx *gin.Context) {
 // VerifyOTP godoc
 // @Summary Verify individual employer and complete signup
 // @Description Checks phone and code against the stored submission. Creates the shared employer and individual profile atomically and consumes the OTP. Does not require re-uploading files. Login is available after successful verification.
-// @Tags Individual employer
+// @Tags Individual employers
 // @Accept json
 // @Produce json
 // @Param request body VerifyOTPRequest true "Phone and received OTP"
@@ -155,7 +155,7 @@ func (c *IndividualEmployerController) VerifyOTP(ctx *gin.Context) {
 // Login godoc
 // @Summary Login individual employer using phone and password
 // @Description Returns an individual_employer JWT; job seeker tokens cannot access employer endpoints. Five failed attempts in 15 minutes trigger lockout. Pending-review employers can login; document review is a separate administrative process.
-// @Tags Individual employer
+// @Tags Individual employers
 // @Accept json
 // @Produce json
 // @Param request body LoginRequest true "Phone and password"
@@ -189,7 +189,7 @@ func employerBearer(ctx *gin.Context) (string, bool) {
 
 // Me godoc
 // @Summary Get authenticated individual employer identity
-// @Tags Individual employer
+// @Tags Individual employers
 // @Security BearerAuth
 // @Produce json
 // @Success 200 {object} IndividualEmployerResponse
@@ -211,7 +211,7 @@ func (c *IndividualEmployerController) Me(ctx *gin.Context) {
 
 // Logout godoc
 // @Summary Logout current individual employer token
-// @Tags Individual employer
+// @Tags Individual employers
 // @Security BearerAuth
 // @Success 204 "Logged out"
 // @Failure 401,500 {object} ErrorResponse
@@ -232,7 +232,7 @@ func (c *IndividualEmployerController) Logout(ctx *gin.Context) {
 // DocumentURL godoc
 // @Summary Get private download link for your own employer document
 // @Description The signed link expires in five minutes. No public S3 URLs or credentials are exposed.
-// @Tags Individual employer
+// @Tags Individual employers
 // @Security BearerAuth
 // @Produce json
 // @Param kind path string true "Document kind" Enums(identity,business-license,video)

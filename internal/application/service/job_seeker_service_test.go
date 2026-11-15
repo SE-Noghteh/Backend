@@ -17,28 +17,37 @@ import (
 )
 
 type signupMemory struct {
-	otp           *entities.SignupOTP
-	seeker        *entities.JobSeeker
-	attempt       *entities.LoginAttempt
-	smsCode       string
-	smsCount      int
-	smsErr        error
-	createErr     error
-	saveErr       error
-	commitErr     error
-	revoked       map[string]time.Time
-	revocationErr error
+	passwordReset  *entities.SignupOTP
+	phoneChange    *entities.SignupOTP
+	occupiedPhone  string
+	otp            *entities.SignupOTP
+	seeker         *entities.JobSeeker
+	attempt        *entities.LoginAttempt
+	smsCode        string
+	smsDestination string
+	smsCount       int
+	smsErr         error
+	createErr      error
+	saveErr        error
+	commitErr      error
+	revoked        map[string]time.Time
+	revocationErr  error
 }
 
-func (m *signupMemory) Factory() ports.RepositoryFactory { return m }
+func (m *signupMemory) Factory() ports.RepositoryFactory         { return m }
+func (m *signupMemory) ParentRepository() ports.ParentRepository { return nil }
 func (m *signupMemory) WithTransaction(fn func(ports.RepositoryFactory) error) error {
 	previousOTP, previousSeeker, previousAttempt := cloneOTP(m.otp), cloneSeeker(m.seeker), cloneAttempt(m.attempt)
+	previousPhoneChange := cloneOTP(m.phoneChange)
+	previousReset := cloneOTP(m.passwordReset)
 	err := fn(m)
 	if err == nil {
 		err = m.commitErr
 	}
 	if err != nil {
 		m.otp, m.seeker, m.attempt = previousOTP, previousSeeker, previousAttempt
+		m.phoneChange = previousPhoneChange
+		m.passwordReset = previousReset
 	}
 	return err
 }
@@ -219,6 +228,9 @@ func (m *signupMemory) Create(_ context.Context, seeker *entities.JobSeeker) err
 	return nil
 }
 func (m *signupMemory) FindByPhone(_ context.Context, phone string) (*entities.JobSeeker, error) {
+	if m.occupiedPhone != "" && m.occupiedPhone == phone {
+		return &entities.JobSeeker{ID: 2, Phone: phone}, nil
+	}
 	if m.seeker != nil && m.seeker.Phone == phone {
 		return cloneSeeker(m.seeker), nil
 	}
@@ -242,7 +254,11 @@ func (m *signupMemory) SaveLoginAttempt(_ context.Context, in *entities.LoginAtt
 }
 func (m *signupMemory) DeleteLoginAttempt(context.Context, string) error { m.attempt = nil; return nil }
 func (m *signupMemory) SendOTP(_ context.Context, destination, code string) error {
-	if destination != "989123456789" {
+	expected := m.smsDestination
+	if expected == "" {
+		expected = "989123456789"
+	}
+	if destination != expected {
 		return errors.New("wrong destination")
 	}
 	if m.smsErr != nil {
@@ -266,7 +282,7 @@ func newJobSeekerService(m *signupMemory) *JobSeekerService {
 }
 
 func validSignup() usecase.SignupJobSeeker {
-	return usecase.SignupJobSeeker{FirstName: "علی", LastName: "رضایی", NationalCode: "0013547895", City: enums.CityTehran, Address: "خیابان آزادی", BirthDate: valueobjects.JalaliDate{Year: 1380, Month: 1, Day: 1}, Gender: enums.GenderMale, Interests: []enums.Interest{enums.InterestProgramming}, Phone: "09123456789", Password: "a-good-password", VerificationVideo: ports.UploadFile{Name: "video.mp4", Body: strings.NewReader("video")}}
+	return usecase.SignupJobSeeker{FirstName: "علی", LastName: "رضایی", NationalCode: "0013547895", City: enums.CityTehran, Address: "خیابان آزادی", BirthDate: valueobjects.JalaliDate{Year: 1388, Month: 1, Day: 1}, Gender: enums.GenderMale, Interests: []enums.Interest{enums.InterestProgramming}, Phone: "09123456789", Password: "a-good-password", VerificationVideo: ports.UploadFile{Name: "video.mp4", Body: strings.NewReader("video")}}
 }
 
 func TestSignupAutomaticallySendsOTPAndRequiresVerification(t *testing.T) {
@@ -434,3 +450,6 @@ func (m *signupMemory) EmployerLoginAttemptRepository() ports.LoginAttemptReposi
 func (m *signupMemory) LegalEmployerSignupRepository() ports.LegalEmployerSignupRepository {
 	return nil
 }
+
+func (m *signupMemory) AdminRepository() ports.AdminRepository             { return nil }
+func (m *signupMemory) AdminReviewRepository() ports.AdminReviewRepository { return nil }
