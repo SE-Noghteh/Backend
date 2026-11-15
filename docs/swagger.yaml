@@ -2,6 +2,67 @@ basePath: /v1
 consumes:
 - application/json
 definitions:
+  entities.InternshipTerms:
+    properties:
+      duration_months:
+        type: integer
+      has_monthly_stipend:
+        type: boolean
+      hours_per_week:
+        type: integer
+      issues_certificate:
+        type: boolean
+      learning_outcomes:
+        type: string
+      monthly_stipend_toman:
+        type: integer
+      prerequisites:
+        type: string
+      responsibilities:
+        type: string
+      start_date:
+        example: "2027-02-01"
+        type: string
+    type: object
+  entities.JobPostingDetails:
+    properties:
+      accept_under_18:
+        type: boolean
+      apply_deadline:
+        example: "2027-01-01"
+        type: string
+      budget_toman:
+        type: integer
+      category:
+        type: string
+      delivery_deadline:
+        type: string
+      internship:
+        $ref: '#/definitions/entities.InternshipTerms'
+      maximum_age:
+        example: 18
+        type: integer
+      minimum_age:
+        example: 14
+        type: integer
+      opportunity_type:
+        enum:
+        - work
+        - internship
+        type: string
+      requires_parent_approval:
+        type: boolean
+      skills:
+        items:
+          type: string
+        type: array
+      work_mode:
+        enum:
+        - online
+        - onsite
+        - hybrid
+        type: string
+    type: object
   enums.City:
     enum:
     - تهران
@@ -178,6 +239,14 @@ definitions:
       data:
         $ref: '#/definitions/general.IndividualEmployerIdentity'
     type: object
+  general.JobPostingCreatedResponse:
+    properties:
+      id:
+        type: integer
+      status:
+        example: draft
+        type: string
+    type: object
   general.LegalEmployerIdentity:
     properties:
       activities:
@@ -344,12 +413,161 @@ definitions:
     - otp
     - phone
     type: object
+  general.saveJobPostingRequest:
+    properties:
+      description:
+        type: string
+      details:
+        $ref: '#/definitions/entities.JobPostingDetails'
+      title:
+        maxLength: 255
+        type: string
+    required:
+    - description
+    - details
+    - title
+    type: object
 info:
   contact: {}
-  description: JIGILI JIGILI
+  description: Submit signup information and password to automatically receive an
+    SMS OTP, verify the code, then login to obtain a JWT. Birth dates use the Jalali
+    calendar. Signup and OTP resend send real SMS messages.
   title: Zedlancer Backend API
   version: "1.0"
 paths:
+  /employer/job-postings:
+    post:
+      consumes:
+      - application/json
+      description: Creates a draft for an approved individual or legal employer. Structured
+        details are required for work and internship ads. Dates use Gregorian YYYY-MM-DD;
+        money is whole toman. Applicants under 18 require parent approval. Creation
+        does not charge a wallet or publish the ad.
+      parameters:
+      - description: Job advertisement
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/general.saveJobPostingRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/general.JobPostingCreatedResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create an employer job advertisement
+      tags:
+      - Employer job postings
+  /employer/job-postings/{id}:
+    delete:
+      description: Requires an employer with approved verification. Returns 404 when
+        the advertisement does not exist or belongs to another employer.
+      parameters:
+      - description: Job posting ID
+        in: path
+        minimum: 1
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: Deleted
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete your job advertisement
+      tags:
+      - Employer job postings
+    put:
+      consumes:
+      - application/json
+      description: Replaces title, description and details. Requires an employer with
+        approved verification. Returns 404 when the advertisement does not exist or
+        belongs to another employer.
+      parameters:
+      - description: Job posting ID
+        in: path
+        minimum: 1
+        name: id
+        required: true
+        type: integer
+      - description: Replacement advertisement fields
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/general.saveJobPostingRequest'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: Updated
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Edit your job advertisement
+      tags:
+      - Employer job postings
   /individual-employers/documents/{kind}:
     get:
       description: The signed link expires in five minutes. No public S3 URLs or credentials

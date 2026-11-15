@@ -40,4 +40,9 @@ func SetUpGeneralRoutes(v1 *gin.RouterGroup, app *wire.Application) {
 	auth := middleware.NewJobSeekerAuth(app.JobSeekerAuthService)
 	jobSeekers.GET("/me", auth.Require, authController.Me)
 	jobSeekers.GET("/documents/video", auth.Require, controller.VideoURL)
+	postings := v1.Group("/employer/job-postings")
+	postingController := app.Controllers.GeneralControllers.EmployerJobPostingController
+	postings.POST("", postingController.Create)
+	postings.PUT("/:id", postingController.Update)
+	postings.DELETE("/:id", postingController.Delete)
 }

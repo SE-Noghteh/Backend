@@ -68,6 +68,7 @@ func cloneAttempt(in *entities.LoginAttempt) *entities.LoginAttempt {
 func (m *signupMemory) UserRepository() domainpostgres.UserRepository              { return nil }
 func (m *signupMemory) JobSeekerRepository() ports.JobSeekerRepository             { return m }
 func (m *signupMemory) TokenRevocationRepository() ports.TokenRevocationRepository { return m }
+func (m *signupMemory) JobPostingRepository() ports.JobPostingRepository           { return nil }
 func (m *signupMemory) IsRevoked(_ context.Context, tokenID string) (bool, error) {
 	_, revoked := m.revoked[tokenID]
 	return revoked, m.revocationErr

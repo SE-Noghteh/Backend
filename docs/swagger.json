@@ -7,13 +7,210 @@
     ],
     "swagger": "2.0",
     "info": {
-        "description": "JIGILI JIGILI",
+        "description": "Submit signup information and password to automatically receive an SMS OTP, verify the code, then login to obtain a JWT. Birth dates use the Jalali calendar. Signup and OTP resend send real SMS messages.",
         "title": "Zedlancer Backend API",
         "contact": {},
         "version": "1.0"
     },
     "basePath": "/v1",
     "paths": {
+        "/employer/job-postings": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Creates a draft for an approved individual or legal employer. Structured details are required for work and internship ads. Dates use Gregorian YYYY-MM-DD; money is whole toman. Applicants under 18 require parent approval. Creation does not charge a wallet or publish the ad.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Employer job postings"
+                ],
+                "summary": "Create an employer job advertisement",
+                "parameters": [
+                    {
+                        "description": "Job advertisement",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/general.saveJobPostingRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/general.JobPostingCreatedResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/employer/job-postings/{id}": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Replaces title, description and details. Requires an employer with approved verification. Returns 404 when the advertisement does not exist or belongs to another employer.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Employer job postings"
+                ],
+                "summary": "Edit your job advertisement",
+                "parameters": [
+                    {
+                        "minimum": 1,
+                        "type": "integer",
+                        "description": "Job posting ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Replacement advertisement fields",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/general.saveJobPostingRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Updated"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Requires an employer with approved verification. Returns 404 when the advertisement does not exist or belongs to another employer.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Employer job postings"
+                ],
+                "summary": "Delete your job advertisement",
+                "parameters": [
+                    {
+                        "minimum": 1,
+                        "type": "integer",
+                        "description": "Job posting ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Deleted"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/individual-employers/documents/{kind}": {
             "get": {
                 "security": [
@@ -1635,6 +1832,95 @@
         }
     },
     "definitions": {
+        "entities.InternshipTerms": {
+            "type": "object",
+            "properties": {
+                "duration_months": {
+                    "type": "integer"
+                },
+                "has_monthly_stipend": {
+                    "type": "boolean"
+                },
+                "hours_per_week": {
+                    "type": "integer"
+                },
+                "issues_certificate": {
+                    "type": "boolean"
+                },
+                "learning_outcomes": {
+                    "type": "string"
+                },
+                "monthly_stipend_toman": {
+                    "type": "integer"
+                },
+                "prerequisites": {
+                    "type": "string"
+                },
+                "responsibilities": {
+                    "type": "string"
+                },
+                "start_date": {
+                    "type": "string",
+                    "example": "2027-02-01"
+                }
+            }
+        },
+        "entities.JobPostingDetails": {
+            "type": "object",
+            "properties": {
+                "accept_under_18": {
+                    "type": "boolean"
+                },
+                "apply_deadline": {
+                    "type": "string",
+                    "example": "2027-01-01"
+                },
+                "budget_toman": {
+                    "type": "integer"
+                },
+                "category": {
+                    "type": "string"
+                },
+                "delivery_deadline": {
+                    "type": "string"
+                },
+                "internship": {
+                    "$ref": "#/definitions/entities.InternshipTerms"
+                },
+                "maximum_age": {
+                    "type": "integer",
+                    "example": 18
+                },
+                "minimum_age": {
+                    "type": "integer",
+                    "example": 14
+                },
+                "opportunity_type": {
+                    "type": "string",
+                    "enum": [
+                        "work",
+                        "internship"
+                    ]
+                },
+                "requires_parent_approval": {
+                    "type": "boolean"
+                },
+                "skills": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "work_mode": {
+                    "type": "string",
+                    "enum": [
+                        "online",
+                        "onsite",
+                        "hybrid"
+                    ]
+                }
+            }
+        },
         "enums.City": {
             "type": "string",
             "enum": [
@@ -1857,6 +2143,18 @@
             "properties": {
                 "data": {
                     "$ref": "#/definitions/general.IndividualEmployerIdentity"
+                }
+            }
+        },
+        "general.JobPostingCreatedResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer"
+                },
+                "status": {
+                    "type": "string",
+                    "example": "draft"
                 }
             }
         },
@@ -2102,6 +2400,26 @@
                 "phone": {
                     "type": "string",
                     "example": "09123456789"
+                }
+            }
+        },
+        "general.saveJobPostingRequest": {
+            "type": "object",
+            "required": [
+                "description",
+                "details",
+                "title"
+            ],
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "details": {
+                    "$ref": "#/definitions/entities.JobPostingDetails"
+                },
+                "title": {
+                    "type": "string",
+                    "maxLength": 255
                 }
             }
         }
