@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -189,30 +190,24 @@ func TestParentInvitationSignupAndSecondChild(t *testing.T) {
 	}
 }
 
-func TestParentMandatoryForMinorsAndOptionalForAdults(t *testing.T) {
-	m, s, _ := parentFixture(t)
-	ctx := context.Background()
-	if _, err := s.InviteParent(ctx, 1, usecase.JobSeekerParentInput{Skip: true}); !errors.Is(err, domainerrors.ErrParentRequired) {
-		t.Fatal("minor skipped parent approval", err)
-	}
-	code := parentInvitation(t, s)
-	m.seeker.BirthDate = valueobjects.JalaliDate{Year: time.Now().Year() - 621 - 18, Month: 1, Day: 1}
-	r, err := s.InviteParent(ctx, 1, usecase.JobSeekerParentInput{Skip: true})
-	if err != nil || r.SignupStatus != valueobjects.JobSeekerPending || r.ParentID != nil {
-		t.Fatalf("adult could not skip: %+v %v", r, err)
-	}
-	if _, err := s.ValidateInvitation(ctx, code); !errors.Is(err, domainerrors.ErrInvalidInvitation) {
-		t.Fatal("skip left active invitation")
-	}
-	// Skipping creates no hidden completion state; an unconnected adult may invite later.
-	code = parentInvitation(t, s)
-	if _, err := s.ValidateInvitation(ctx, code); err != nil {
-		t.Fatal("unconnected adult could not invite after skipping", err)
+func TestParentInvitationRequiresDetailsAtAnyAge(t *testing.T) {
+	for _, age := range []int{16, 20} {
+		t.Run(fmt.Sprint(age), func(t *testing.T) {
+			m, s, _ := parentFixture(t)
+			m.seeker.BirthDate = valueobjects.JalaliDate{Year: time.Now().Year() - 621 - age, Month: 1, Day: 1}
+			code := parentInvitation(t, s)
+			if _, err := s.InviteParent(context.Background(), 1, usecase.JobSeekerParentInput{}); !errors.Is(err, domainerrors.ErrInvalidParent) {
+				t.Fatal("invitation without parent details accepted", err)
+			}
+			if _, err := s.ValidateInvitation(context.Background(), code); err != nil {
+				t.Fatal("invalid request removed existing invitation", err)
+			}
+		})
 	}
 }
 
 func TestConnectedParentBlocksBothParentApprovalAPIs(t *testing.T) {
-	for _, flow := range []string{"registered", "invite", "skip"} {
+	for _, flow := range []string{"registered", "invite"} {
 		t.Run(flow, func(t *testing.T) {
 			m, s, _ := parentFixture(t)
 			id := uint64(9)
@@ -225,8 +220,6 @@ func TestConnectedParentBlocksBothParentApprovalAPIs(t *testing.T) {
 				_, err = s.LinkRegisteredParent(context.Background(), 1, changedPhone)
 			case "invite":
 				_, err = s.InviteParent(context.Background(), 1, usecase.JobSeekerParentInput{FirstName: "New", LastName: "Parent", Phone: "09121111111"})
-			case "skip":
-				_, err = s.InviteParent(context.Background(), 1, usecase.JobSeekerParentInput{Skip: true})
 			}
 			if !errors.Is(err, domainerrors.ErrParentAlreadyConnected) {
 				t.Fatalf("expected already connected, got %v", err)

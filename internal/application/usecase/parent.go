@@ -12,7 +12,6 @@ type JobSeekerParentInput struct {
 	FirstName string
 	LastName  string
 	Phone     string
-	Skip      bool
 }
 
 type ParentApprovalResult struct {

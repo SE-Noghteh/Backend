@@ -21,7 +21,6 @@ type JobSeekerParentRequest struct {
 	FirstName string `json:"first_name" example:"Ali"`
 	LastName  string `json:"last_name" example:"Ahmadi"`
 	Phone     string `json:"phone" example:"09129876543"`
-	Skip      bool   `json:"skip"`
 }
 type ParentCodeRequest struct {
 	Code string `json:"code" binding:"required"`
@@ -60,13 +59,13 @@ func bindParentJSON(ctx *gin.Context, in any) bool {
 }
 
 // InviteParent godoc
-// @Summary Invite a new parent or skip optional parent approval
-// @Description Requires a verified job seeker login. Supply first_name, last_name and phone for an unregistered parent. Returns an eight-character invitation code valid for seven days. Registered parents return 409; use the registered-parent endpoint instead. Repeating this request replaces the previous code. Ages 18 and above may submit skip=true to cancel an invitation; minors cannot skip. Only an existing parent connection blocks this API, returning 409: parent already connected. Skipping stores no completion flag.
+// @Summary Invite a new parent
+// @Description Requires a verified job seeker login. Supply first_name, last_name and phone for an unregistered parent. Returns an eight-character invitation code valid for seven days. Registered parents return 409; use the registered-parent endpoint instead. Repeating this request replaces the previous code. Only an existing parent connection blocks this API, returning 409: parent already connected.
 // @Tags Job seekers
 // @Security BearerAuth
 // @Accept json
 // @Produce json
-// @Param request body JobSeekerParentRequest true "Parent details or skip=true"
+// @Param request body JobSeekerParentRequest true "Parent details"
 // @Success 200 {object} usecase.ParentApprovalResult
 // @Failure 400,401,409,500 {object} ErrorResponse
 // @Router /job-seekers/parent-approval/invite [post]
@@ -80,7 +79,7 @@ func (c *ParentController) InviteParent(ctx *gin.Context) {
 	if !bindParentJSON(ctx, &in) {
 		return
 	}
-	result, err := c.service.InviteParent(ctx.Request.Context(), seeker.ID, usecase.JobSeekerParentInput{FirstName: in.FirstName, LastName: in.LastName, Phone: in.Phone, Skip: in.Skip})
+	result, err := c.service.InviteParent(ctx.Request.Context(), seeker.ID, usecase.JobSeekerParentInput{FirstName: in.FirstName, LastName: in.LastName, Phone: in.Phone})
 	if err != nil {
 		respondAPIError(ctx, err)
 		return

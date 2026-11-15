@@ -85,6 +85,9 @@ func (r *AdminReviewRepository) ListParents(ctx context.Context, status string, 
 	for _, row := range rows {
 		result = append(result, parentFromModel(&row))
 	}
+	if err := r.loadParentChildIDs(ctx, result); err != nil {
+		return nil, 0, err
+	}
 	return result, total, nil
 }
 func (r *AdminReviewRepository) FindJobSeeker(ctx context.Context, id uint64) (*entities.JobSeeker, error) {
@@ -99,8 +102,40 @@ func (r *AdminReviewRepository) FindParent(ctx context.Context, id uint64) (*ent
 	if err != nil {
 		return nil, err
 	}
-	return parentFromModel(&row), nil
+	parent := parentFromModel(&row)
+	if err := r.loadParentChildIDs(ctx, []*entities.Parent{parent}); err != nil {
+		return nil, err
+	}
+	return parent, nil
 }
+
+// Fetch children for the entire parent page in one query.
+func (r *AdminReviewRepository) loadParentChildIDs(ctx context.Context, parents []*entities.Parent) error {
+	if len(parents) == 0 {
+		return nil
+	}
+	ids := make([]uint64, 0, len(parents))
+	byID := make(map[uint64]*entities.Parent, len(parents))
+	for _, parent := range parents {
+		parent.ChildIDs = make([]uint64, 0)
+		ids = append(ids, parent.ID)
+		byID[parent.ID] = parent
+	}
+	var children []struct {
+		ID       uint64
+		ParentID uint64
+	}
+	if err := r.db.WithContext(ctx).Model(&models.JobSeekerModel{}).
+		Select("id, parent_id").Where("parent_id IN ?", ids).Order("id ASC").Scan(&children).Error; err != nil {
+		return err
+	}
+	for _, child := range children {
+		parent := byID[child.ParentID]
+		parent.ChildIDs = append(parent.ChildIDs, child.ID)
+	}
+	return nil
+}
+
 func reviewUpdates(review valueobjects.AdminReview) map[string]any {
 	return map[string]any{"admin_approval_status": review.AdminApprovalStatus, "admin_review_message": review.AdminReviewMessage, "admin_reviewed_at": review.AdminReviewedAt, "admin_reviewed_by": review.AdminReviewedBy}
 }

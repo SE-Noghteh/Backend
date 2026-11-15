@@ -1539,7 +1539,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Requires a verified job seeker login. Supply first_name, last_name and phone for an unregistered parent. Returns an eight-character invitation code valid for seven days. Registered parents return 409; use the registered-parent endpoint instead. Repeating this request replaces the previous code. Ages 18 and above may submit skip=true to cancel an invitation; minors cannot skip. Only an existing parent connection blocks this API, returning 409: parent already connected. Skipping stores no completion flag.",
+                "description": "Requires a verified job seeker login. Supply first_name, last_name and phone for an unregistered parent. Returns an eight-character invitation code valid for seven days. Registered parents return 409; use the registered-parent endpoint instead. Repeating this request replaces the previous code. Only an existing parent connection blocks this API, returning 409: parent already connected.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1549,10 +1549,10 @@ const docTemplate = `{
                 "tags": [
                     "Job seekers"
                 ],
-                "summary": "Invite a new parent or skip optional parent approval",
+                "summary": "Invite a new parent",
                 "parameters": [
                     {
-                        "description": "Parent details or skip=true",
+                        "description": "Parent details",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -3270,6 +3270,12 @@ const docTemplate = `{
                 "admin_reviewed_at": {
                     "type": "string"
                 },
+                "child_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
                 "created_at": {
                     "type": "string"
                 },
@@ -3523,9 +3529,6 @@ const docTemplate = `{
                 "phone": {
                     "type": "string",
                     "example": "09129876543"
-                },
-                "skip": {
-                    "type": "boolean"
                 }
             }
         },

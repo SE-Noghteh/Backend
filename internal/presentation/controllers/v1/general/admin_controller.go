@@ -40,6 +40,7 @@ type AdminJobSeekerResponse struct {
 	HasVerificationVideo bool             `json:"has_verification_video"`
 }
 type AdminParentResponse struct {
+	ChildIDs []uint64 `json:"child_ids"`
 	SignupIdentity
 	valueobjects.AdminReview
 	Relationship        string `json:"relationship"`
@@ -71,7 +72,8 @@ func adminParent(p *entities.Parent) AdminParentResponse {
 	if review.AdminApprovalStatus == "" {
 		review.AdminApprovalStatus = enums.AdminReviewPending
 	}
-	return AdminParentResponse{SignupIdentity: SignupIdentity{ID: p.ID, FirstName: p.FirstName, LastName: p.LastName, Phone: p.Phone, CreatedAt: p.CreatedAt}, AdminReview: review, Relationship: p.Relationship, HasIdentityDocument: p.IdentityDocument != nil, HasConsentVideo: p.ConsentVideo != nil}
+	childIDs := append([]uint64{}, p.ChildIDs...)
+	return AdminParentResponse{ChildIDs: childIDs, SignupIdentity: SignupIdentity{ID: p.ID, FirstName: p.FirstName, LastName: p.LastName, Phone: p.Phone, CreatedAt: p.CreatedAt}, AdminReview: review, Relationship: p.Relationship, HasIdentityDocument: p.IdentityDocument != nil, HasConsentVideo: p.ConsentVideo != nil}
 }
 func adminAccountID(ctx *gin.Context) (uint64, bool) {
 	id, err := strconv.ParseUint(ctx.Param("id"), 10, 64)

@@ -104,7 +104,7 @@ func TestPostgresParentSignupAndSharedParent(t *testing.T) {
 			return err
 		}
 		if r := callAPI(router, "POST", "/v1/job-seekers/parent-approval/invite", `{"skip":true}`, bearer); r.Code != 400 {
-			t.Fatal("minor skipped stage two")
+			t.Fatal("invitation without parent details accepted")
 		}
 		parentPhone, _, err := fixtureIdentity()
 		if err != nil {
