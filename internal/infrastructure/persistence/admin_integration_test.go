@@ -129,6 +129,35 @@ func TestPostgresAdminLoginAndDependentAcceptance(t *testing.T) {
 		if r := callAPI(router, "GET", "/v1/job-seekers/me", "", bearer); r.Code != 401 {
 			t.Fatal("admin token accessed job seeker account")
 		}
+		// Admin responses derive all child IDs from the current parent connections.
+		if err := uow.Factory().ParentRepository().SetParentConnection(ctx, incomplete.ID, &parent.ID, "mother"); err != nil {
+			return err
+		}
+		for _, path := range []string{"/v1/admin/parents", fmt.Sprintf("/v1/admin/parents/%d", parent.ID)} {
+			r := callAPI(router, "GET", path, "", bearer)
+			if r.Code != 200 {
+				t.Fatalf("parent response failed: %d %s", r.Code, r.Body.String())
+			}
+			var result general.AdminParentResponse
+			if path == "/v1/admin/parents" {
+				var list general.AdminParentsResponse
+				if err := json.Unmarshal(r.Body.Bytes(), &list); err != nil {
+					return err
+				}
+				if len(list.Data) != 1 {
+					t.Fatalf("unexpected parents: %s", r.Body.String())
+				}
+				result = list.Data[0]
+			} else if err := json.Unmarshal(r.Body.Bytes(), &result); err != nil {
+				return err
+			}
+			if len(result.ChildIDs) != 2 || result.ChildIDs[0] != child.ID || result.ChildIDs[1] != incomplete.ID {
+				t.Fatalf("admin parent response missing connected children: %s", r.Body.String())
+			}
+		}
+		if err := uow.Factory().ParentRepository().SetParentConnection(ctx, incomplete.ID, nil, ""); err != nil {
+			return err
+		}
 		for _, endpoint := range []string{"/v1/admin/job-seekers", "/v1/admin/parents"} {
 			r := callAPI(router, "GET", endpoint, "", bearer)
 			if r.Code != 200 {
@@ -185,8 +214,16 @@ func TestPostgresAdminLoginAndDependentAcceptance(t *testing.T) {
 			t.Fatal("accepted filter included a minor awaiting parent approval")
 		}
 		parentApprovalPath := fmt.Sprintf("/v1/admin/parents/%d/review", parent.ID)
-		if r := callAPI(router, "POST", parentApprovalPath, `{"approved":true}`, bearer); r.Code != 200 {
+		parentReview := callAPI(router, "POST", parentApprovalPath, `{"approved":true}`, bearer)
+		if parentReview.Code != 200 {
 			t.Fatal("parent approval failed")
+		}
+		var reviewedParent general.AdminParentReviewResponse
+		if err := json.Unmarshal(parentReview.Body.Bytes(), &reviewedParent); err != nil {
+			return err
+		}
+		if len(reviewedParent.Data.ChildIDs) != 1 || reviewedParent.Data.ChildIDs[0] != child.ID {
+			t.Fatal("review response has stale child connections", parentReview.Body.String())
 		}
 		if r := callAPI(router, "GET", "/v1/job-seekers/me", "", userBearer); r.Code != 200 || !strings.Contains(r.Body.String(), `"signup_status":"approved"`) || !strings.Contains(r.Body.String(), `"parent_connected":true`) || !strings.Contains(r.Body.String(), `"admin_approved":true`) || !strings.Contains(r.Body.String(), `"admin_approved_parent":true`) {
 			t.Fatalf("minor not accepted after all three approvals: %s", r.Body.String())

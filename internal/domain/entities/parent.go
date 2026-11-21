@@ -6,6 +6,8 @@ import (
 )
 
 type Parent struct {
+	// ChildIDs is populated for admin responses from job seeker parent connections.
+	ChildIDs []uint64 `json:"-"`
 	valueobjects.AdminReview
 	Relationship      string                     `json:"relationship"`
 	ID                uint64                     `json:"id"`

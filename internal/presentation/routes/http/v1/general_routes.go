@@ -28,6 +28,11 @@ func SetUpGeneralRoutes(v1 *gin.RouterGroup, app *wire.Application) {
 	employers.POST("/logout", employerController.Logout)
 	employers.GET("/me", employerController.Me)
 	employers.GET("/documents/:kind", employerController.DocumentURL)
+	postings := v1.Group("/employer/job-postings")
+	postingController := app.Controllers.GeneralControllers.EmployerJobPostingController
+	postings.POST("", postingController.Create)
+	postings.PUT("/:id", postingController.Update)
+	postings.DELETE("/:id", postingController.Delete)
 	jobSeekers := v1.Group("/job-seekers")
 	controller := app.Controllers.GeneralControllers.JobSeekerController
 	jobSeekers.GET("/signup-options", controller.Options)
@@ -42,11 +47,6 @@ func SetUpGeneralRoutes(v1 *gin.RouterGroup, app *wire.Application) {
 	auth := middleware.NewJobSeekerAuth(app.JobSeekerAuthService)
 	jobSeekers.GET("/me", auth.Require, authController.Me)
 	jobSeekers.GET("/documents/video", auth.Require, controller.VideoURL)
-	postings := v1.Group("/employer/job-postings")
-	postingController := app.Controllers.GeneralControllers.EmployerJobPostingController
-	postings.POST("", postingController.Create)
-	postings.PUT("/:id", postingController.Update)
-	postings.DELETE("/:id", postingController.Delete)
 	jobSeekers.POST("/phone-change", auth.Require, controller.RequestPhoneChange)
 	jobSeekers.POST("/phone-change/verify", auth.Require, controller.VerifyPhoneChange)
 	jobSeekers.DELETE("/me", auth.Require, controller.DeleteAccount)

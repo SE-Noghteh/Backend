@@ -238,7 +238,7 @@ func TestAdminReviewRollbackAndAdultSkip(t *testing.T) {
 	m.seeker.ParentID = nil
 	m.seeker.BirthDate = valueobjects.JalaliDate{Year: time.Now().Year() - 621 - 20, Month: 1, Day: 1}
 	if _, err := s.ReviewJobSeeker(ctx, 1, usecase.AdminReviewDecision{Approved: true, Reviewer: "admin"}); err != nil {
-		t.Fatal("adult skip could not be approved", err)
+		t.Fatal("adult without a parent could not be approved", err)
 	}
 	if _, err := s.ReviewParent(ctx, 7, usecase.AdminReviewDecision{Approved: false, Reviewer: "admin", Message: strings.Repeat("x", 1001)}); !errors.Is(err, domainerrors.ErrInvalidReview) {
 		t.Fatal("oversized review accepted")

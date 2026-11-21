@@ -302,6 +302,10 @@ definitions:
         type: string
       admin_reviewed_at:
         type: string
+      child_ids:
+        items:
+          type: integer
+        type: array
       created_at:
         type: string
       first_name:
@@ -483,8 +487,6 @@ definitions:
       phone:
         example: "09129876543"
         type: string
-      skip:
-        type: boolean
     type: object
   general.LegalEmployerIdentity:
     properties:
@@ -1955,12 +1957,11 @@ paths:
       description: 'Requires a verified job seeker login. Supply first_name, last_name
         and phone for an unregistered parent. Returns an eight-character invitation
         code valid for seven days. Registered parents return 409; use the registered-parent
-        endpoint instead. Repeating this request replaces the previous code. Ages
-        18 and above may submit skip=true to cancel an invitation; minors cannot skip.
-        Only an existing parent connection blocks this API, returning 409: parent
-        already connected. Skipping stores no completion flag.'
+        endpoint instead. Repeating this request replaces the previous code. Only
+        an existing parent connection blocks this API, returning 409: parent already
+        connected.'
       parameters:
-      - description: Parent details or skip=true
+      - description: Parent details
         in: body
         name: request
         required: true
@@ -1991,7 +1992,7 @@ paths:
             $ref: '#/definitions/general.ErrorResponse'
       security:
       - BearerAuth: []
-      summary: Invite a new parent or skip optional parent approval
+      summary: Invite a new parent
       tags:
       - Job seekers
   /job-seekers/parent-approval/registered:

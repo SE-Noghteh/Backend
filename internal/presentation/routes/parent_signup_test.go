@@ -131,7 +131,7 @@ func TestParentJSONRoutes(t *testing.T) {
 	s := &parentAPI{}
 	router := parentRouter(s)
 	r := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/v1/job-seekers/parent-approval/invite", strings.NewReader(`{"skip":true}`))
+	req := httptest.NewRequest(http.MethodPost, "/v1/job-seekers/parent-approval/invite", strings.NewReader(`{"first_name":"Saved","last_name":"Parent","phone":"09129876543"}`))
 	req.Header.Set("Content-Type", "application/json")
 	router.ServeHTTP(r, req)
 	if r.Code != 401 || s.calls != 0 {

@@ -67,26 +67,20 @@ func (s *ParentService) LinkRegisteredParent(ctx context.Context, id uint64, pho
 }
 
 func (s *ParentService) setJobSeekerParent(ctx context.Context, id uint64, in usecase.JobSeekerParentInput, registered bool) (*usecase.ParentApprovalResult, error) {
-	var phone string
-	if !in.Skip {
-		in.FirstName, in.LastName = strings.TrimSpace(in.FirstName), strings.TrimSpace(in.LastName)
-		if !registered && (in.FirstName == "" || in.LastName == "" || utf8.RuneCountInString(in.FirstName) > 100 || utf8.RuneCountInString(in.LastName) > 100) {
-			return nil, invalidParent("parent first_name and last_name are required and must be at most 100 characters")
-		}
-		var err error
-		phone, err = normalizePhone(in.Phone)
-		if err != nil {
-			return nil, err
-		}
+	in.FirstName, in.LastName = strings.TrimSpace(in.FirstName), strings.TrimSpace(in.LastName)
+	if !registered && (in.FirstName == "" || in.LastName == "" || utf8.RuneCountInString(in.FirstName) > 100 || utf8.RuneCountInString(in.LastName) > 100) {
+		return nil, invalidParent("parent first_name and last_name are required and must be at most 100 characters")
+	}
+	phone, err := normalizePhone(in.Phone)
+	if err != nil {
+		return nil, err
 	}
 	var result *usecase.ParentApprovalResult
-	err := s.uow.WithTransaction(func(f ports.RepositoryFactory) error {
+	err = s.uow.WithTransaction(func(f ports.RepositoryFactory) error {
 		parents := f.ParentRepository()
 		// Parent-phone locks always precede account locks, across invitation and OTP operations.
-		if !in.Skip {
-			if err := parents.LockPhone(ctx, phone); err != nil {
-				return err
-			}
+		if err := parents.LockPhone(ctx, phone); err != nil {
+			return err
 		}
 		seekers := f.JobSeekerRepository()
 		if err := seekers.LockAccount(ctx, id); err != nil {
@@ -101,20 +95,6 @@ func (s *ParentService) setJobSeekerParent(ctx context.Context, id uint64, in us
 		}
 		if seeker.ParentID != nil {
 			return domainerrors.ErrParentAlreadyConnected
-		}
-		if in.Skip {
-			age, err := jobSeekerAge(seeker, time.Now())
-			if err != nil {
-				return err
-			}
-			if age < 18 {
-				return domainerrors.ErrParentRequired
-			}
-			if err := parents.DeleteInvitation(ctx, id); err != nil {
-				return err
-			}
-			result = &usecase.ParentApprovalResult{ParentID: seeker.ParentID}
-			return nil
 		}
 		if phone == seeker.Phone {
 			return invalidParent("parent phone must differ from job seeker phone")
@@ -170,7 +150,7 @@ func (s *ParentService) setJobSeekerParent(ctx context.Context, id uint64, in us
 }
 
 // Check and lock the invitation's account after acquiring the parent phone lock.
-// Re-read after locking so replacement, skipping, or deletion invalidates old codes.
+// Re-read after locking so replacement or deletion invalidates old codes.
 func lockedParentInvitation(ctx context.Context, f ports.RepositoryFactory, code string) (*entities.ParentInvitation, error) {
 	code = strings.TrimSpace(code)
 	// Existing long invitations remain valid until their original expiry.
