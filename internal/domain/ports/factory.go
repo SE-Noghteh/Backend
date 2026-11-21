@@ -17,4 +17,5 @@ type RepositoryFactory interface {
 	EmployerSignupRepository() EmployerSignupRepository
 	LegalEmployerSignupRepository() LegalEmployerSignupRepository
 	EmployerLoginAttemptRepository() LoginAttemptRepository
+	JobPostingRepository() JobPostingRepository
 }

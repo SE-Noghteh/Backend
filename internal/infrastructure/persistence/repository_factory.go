@@ -49,6 +49,10 @@ func (f *RepositoryFactory) EmployerLoginAttemptRepository() ports.LoginAttemptR
 	return postgres.NewEmployerLoginAttemptRepository(f.db)
 }
 
+func (f *RepositoryFactory) JobPostingRepository() ports.JobPostingRepository {
+	return postgres.NewJobPostingRepository(f.db)
+}
+
 func NewRepositoryFactory(db *gorm.DB) *RepositoryFactory {
 	return &RepositoryFactory{
 		db: db,

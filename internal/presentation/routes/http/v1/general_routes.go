@@ -28,6 +28,11 @@ func SetUpGeneralRoutes(v1 *gin.RouterGroup, app *wire.Application) {
 	employers.POST("/logout", employerController.Logout)
 	employers.GET("/me", employerController.Me)
 	employers.GET("/documents/:kind", employerController.DocumentURL)
+	postings := v1.Group("/employer/job-postings")
+	postingController := app.Controllers.GeneralControllers.EmployerJobPostingController
+	postings.POST("", postingController.Create)
+	postings.PUT("/:id", postingController.Update)
+	postings.DELETE("/:id", postingController.Delete)
 	jobSeekers := v1.Group("/job-seekers")
 	controller := app.Controllers.GeneralControllers.JobSeekerController
 	jobSeekers.GET("/signup-options", controller.Options)
