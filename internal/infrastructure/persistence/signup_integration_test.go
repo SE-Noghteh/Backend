@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"image"
+	"image/png"
 	"math/big"
 	"mime/multipart"
 	"net/http"
@@ -90,10 +92,10 @@ func TestPostgresSignupVerificationAndLogin(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		in := usecase.SignupJobSeeker{FirstName: "Integration", LastName: "Test", NationalCode: nationalCode, City: enums.CityTehran, Address: "Test address", BirthDate: valueobjects.JalaliDate{Year: 1388, Month: 1, Day: 1}, Gender: enums.GenderMale, Interests: []enums.Interest{enums.InterestProgramming}, Phone: phone, Password: "integration-password"}
+		in := usecase.SignupJobSeeker{FirstName: "Integration", LastName: "Test", NationalCode: nationalCode, Province: enums.ProvinceTehran, City: enums.CityTehran, Address: "Test address", PostalCode: "0123456789", BirthDate: valueobjects.JalaliDate{Year: 1388, Month: 1, Day: 1}, Gender: enums.GenderMale, Interests: []enums.Interest{enums.InterestProgramming}, Phone: phone, Password: "integration-password"}
 		var signupBody bytes.Buffer
 		writer := multipart.NewWriter(&signupBody)
-		fields := map[string]string{"first_name": in.FirstName, "last_name": in.LastName, "national_code": in.NationalCode, "city": string(in.City), "address": in.Address,
+		fields := map[string]string{"first_name": in.FirstName, "last_name": in.LastName, "national_code": in.NationalCode, "city": string(in.City), "address": in.Address, "province": string(in.Province), "postal_code": in.PostalCode,
 			"birth_year": "1388", "birth_month": "1", "birth_day": "1", "gender": string(in.Gender), "interests": string(in.Interests[0]), "phone": in.Phone, "password": in.Password}
 		for name, value := range fields {
 			if err := writer.WriteField(name, value); err != nil {
@@ -105,6 +107,13 @@ func TestPostgresSignupVerificationAndLogin(t *testing.T) {
 			return err
 		}
 		if _, err := movie.Write(video); err != nil {
+			return err
+		}
+		identity, err := writer.CreateFormFile("identity_document", "birth-certificate.png")
+		if err != nil {
+			return err
+		}
+		if err := png.Encode(identity, image.NewRGBA(image.Rect(0, 0, 16, 16))); err != nil {
 			return err
 		}
 		if err := writer.Close(); err != nil {
@@ -158,6 +167,9 @@ func TestPostgresSignupVerificationAndLogin(t *testing.T) {
 		}
 		if seeker.VerificationVideo == nil || seeker.VerificationVideo.Key != pending.Registration.VerificationVideo.Key {
 			t.Fatal("video reference was not preserved when creating the account")
+		}
+		if seeker.Province != in.Province || seeker.PostalCode != in.PostalCode || seeker.IdentityDocument == nil || pending.Registration.IdentityDocument == nil || seeker.IdentityDocument.Key != pending.Registration.IdentityDocument.Key {
+			t.Fatal("new signup fields did not survive pending and verified persistence")
 		}
 		if seeker.PhoneVerifiedAt.IsZero() || seeker.BirthDate != in.BirthDate {
 			t.Fatal("invalid persisted profile")

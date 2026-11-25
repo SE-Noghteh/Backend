@@ -5,6 +5,7 @@ import (
 )
 
 type RepositoryFactory interface {
+	PasswordResetRepository() PasswordResetRepository
 	AdminRepository() AdminRepository
 	AdminReviewRepository() AdminReviewRepository
 	ParentRepository() ParentRepository

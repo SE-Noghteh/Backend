@@ -3,11 +3,16 @@ package httpv1
 import (
 	"github.com/gin-gonic/gin"
 
+	"zedlancer/backend/internal/domain/enums"
+	"zedlancer/backend/internal/presentation/controllers/v1/general"
 	"zedlancer/backend/internal/presentation/middleware"
 	"zedlancer/backend/wire"
 )
 
 func SetUpGeneralRoutes(v1 *gin.RouterGroup, app *wire.Application) {
+	v1.GET("/provinces", general.ListProvinces)
+	v1.GET("/cities", general.ListCities)
+
 	legalEmployers := v1.Group("/legal-employers")
 	legalController := app.Controllers.GeneralControllers.LegalEmployerController
 	legalEmployers.GET("/signup-options", legalController.Options)
@@ -39,8 +44,6 @@ func SetUpGeneralRoutes(v1 *gin.RouterGroup, app *wire.Application) {
 	jobSeekers.POST("/otp", controller.RequestOTP)
 	jobSeekers.POST("/signup", controller.Signup)
 	jobSeekers.POST("/verify-otp", controller.VerifyOTP)
-	jobSeekers.POST("/forgot-password", controller.ForgotPassword)
-	jobSeekers.POST("/reset-password", controller.ResetPassword)
 	authController := app.Controllers.GeneralControllers.JobSeekerAuthController
 	jobSeekers.POST("/login", authController.Login)
 	jobSeekers.POST("/logout", authController.Logout)
@@ -51,6 +54,7 @@ func SetUpGeneralRoutes(v1 *gin.RouterGroup, app *wire.Application) {
 	jobSeekers.POST("/phone-change/verify", auth.Require, controller.VerifyPhoneChange)
 	jobSeekers.DELETE("/me", auth.Require, controller.DeleteAccount)
 	parentController := app.Controllers.GeneralControllers.ParentController
+	jobSeekers.GET("/parent-approval/request", auth.Require, parentController.ConnectionStatus)
 	jobSeekers.POST("/parent-approval/registered", auth.Require, parentController.LinkRegisteredParent)
 	jobSeekers.POST("/parent-approval/invite", auth.Require, parentController.InviteParent)
 	parents := v1.Group("/parents")
@@ -58,4 +62,22 @@ func SetUpGeneralRoutes(v1 *gin.RouterGroup, app *wire.Application) {
 	parents.POST("/signup", parentController.Signup)
 	parents.POST("/otp", parentController.ResendOTP)
 	parents.POST("/verify-otp", parentController.VerifyOTP)
+	account := app.Controllers.GeneralControllers.ParentAccountController
+	parents.POST("/login", account.Login)
+	parents.POST("/logout", account.Logout)
+	parents.GET("/me", account.Me)
+	parents.GET("/children", account.Children)
+	parents.GET("/connection-requests", account.ConnectionRequests)
+	parents.POST("/connection-requests/:job_seeker_id/decision", account.DecideConnection)
+	reset := app.Controllers.GeneralControllers.PasswordResetController
+	setUpPasswordResetRoutes(jobSeekers, reset, enums.RoleJobSeeker)
+	setUpPasswordResetRoutes(parents, reset, enums.RoleParent)
+	setUpPasswordResetRoutes(employers, reset, enums.RoleIndividualEmployer)
+	setUpPasswordResetRoutes(legalEmployers, reset, enums.RoleLegalEmployer)
+}
+
+func setUpPasswordResetRoutes(group *gin.RouterGroup, reset *general.PasswordResetController, role enums.AccountRole) {
+	group.POST("/forgot-password", reset.ForgotPassword(role))
+	group.POST("/verify-reset-otp", reset.VerifyOTP(role))
+	group.POST("/reset-password", reset.ResetPassword(role))
 }

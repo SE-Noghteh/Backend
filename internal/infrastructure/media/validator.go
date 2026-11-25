@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -99,13 +100,24 @@ func (v *Validator) Document(ctx context.Context, file ports.UploadFile) (*ports
 }
 
 func (v *Validator) Video(ctx context.Context, file ports.UploadFile) (*ports.ValidatedFile, error) {
-	size, _, err := inspect(file, MaxVideoBytes)
+	size, header, err := inspect(file, MaxVideoBytes)
 	if err != nil {
 		return nil, err
 	}
 	ext := strings.ToLower(filepath.Ext(file.Name))
-	if ext != ".mp4" && ext != ".mov" {
-		return nil, invalid("video must be MP4 or MOV")
+	var contentType string
+	switch ext {
+	case ".mp4":
+		contentType = "video/mp4"
+	case ".mov":
+		contentType = "video/quicktime"
+	case ".webm":
+		contentType = "video/webm"
+		if !hasWebMDocType(header) {
+			return nil, invalid("video extension does not match WebM content")
+		}
+	default:
+		return nil, invalid("video must be MP4, MOV, or WebM")
 	}
 	temp, err := os.CreateTemp("", "employer-video-*"+ext)
 	if err != nil {
@@ -142,22 +154,31 @@ func (v *Validator) Video(ctx context.Context, file ports.UploadFile) (*ports.Va
 	if err := json.Unmarshal(output.Bytes(), &result); err != nil {
 		return nil, invalid("invalid video metadata")
 	}
-	duration, err := strconv.ParseFloat(result.Format.Duration, 64)
+	formats := strings.Split(result.Format.Name, ",")
+	matchesContainer := slices.Contains(formats, "mov")
+	if ext == ".webm" {
+		matchesContainer = slices.Contains(formats, "webm")
+	}
 	hasVideo := false
 	for _, stream := range result.Streams {
 		if stream.Type == "video" {
 			hasVideo = true
+			break
 		}
 	}
-	if err != nil || math.IsNaN(duration) || math.IsInf(duration, 0) || duration < 1 || duration > 20 || !hasVideo || !strings.Contains(result.Format.Name, "mov") {
-		return nil, invalid("video must be MP4/MOV with a video stream and a duration of 1-20 seconds")
+	if !matchesContainer || !hasVideo {
+		return nil, invalid("video must have a video stream and match its MP4, MOV, or WebM extension")
+	}
+	duration, err := strconv.ParseFloat(result.Format.Duration, 64)
+	if ext == ".webm" && (result.Format.Duration == "" || result.Format.Duration == "N/A") {
+		// MediaRecorder can omit the duration from an otherwise complete WebM.
+		duration, err = v.webmPacketDuration(probeCtx, temp.Name())
+	}
+	if err != nil || math.IsNaN(duration) || math.IsInf(duration, 0) || duration < 1 || duration > 20 {
+		return nil, invalid("video must have a duration of 1-20 seconds")
 	}
 	if _, err := file.Body.Seek(0, io.SeekStart); err != nil {
 		return nil, err
-	}
-	contentType := "video/mp4"
-	if ext == ".mov" {
-		contentType = "video/quicktime"
 	}
 	return &ports.ValidatedFile{UploadFile: file, ContentType: contentType, Size: size, Extension: ext}, nil
 }

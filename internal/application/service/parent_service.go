@@ -75,6 +75,7 @@ func (s *ParentService) setJobSeekerParent(ctx context.Context, id uint64, in us
 	if err != nil {
 		return nil, err
 	}
+	invitationSender, canSendInvitation := s.sender.(ports.ParentInvitationSender)
 	var result *usecase.ParentApprovalResult
 	err = s.uow.WithTransaction(func(f ports.RepositoryFactory) error {
 		parents := f.ParentRepository()
@@ -107,17 +108,37 @@ func (s *ParentService) setJobSeekerParent(ctx context.Context, id uint64, in us
 			if parent == nil || parent.PhoneVerifiedAt.IsZero() {
 				return domainerrors.ErrParentNotRegistered
 			}
-			if err := parents.SetParentConnection(ctx, id, &parent.ID, parent.Relationship); err != nil {
+			now := time.Now().UTC()
+			request, err := parents.FindConnectionRequest(ctx, id)
+			if err != nil {
 				return err
+			}
+			if request == nil || request.ParentID != parent.ID || request.DecidedAt != nil || !now.Before(request.ExpiresAt) {
+				request = &entities.ParentConnectionRequest{JobSeekerID: id, ParentID: parent.ID, ExpiresAt: now.Add(parentInvitationLifetime)}
+				if err := parents.SaveConnectionRequest(ctx, request); err != nil {
+					return err
+				}
 			}
 			if err := parents.DeleteInvitation(ctx, id); err != nil {
 				return err
 			}
-			result = &usecase.ParentApprovalResult{ParentID: &parent.ID}
+			result = &usecase.ParentApprovalResult{ConnectionStatus: "pending", ExpiresAt: &request.ExpiresAt}
 			return nil
 		}
 		if parent != nil {
 			return domainerrors.ErrParentAlreadyRegistered
+		}
+		if canSendInvitation {
+			recent, err := parents.RecentInvitation(ctx, phone, time.Now().UTC().Add(parentInvitationLifetime-otpResendDelay))
+			if err != nil {
+				return err
+			}
+			if recent {
+				return domainerrors.ErrOTPTooSoon
+			}
+		}
+		if err := parents.DeleteConnectionRequest(ctx, id); err != nil {
+			return err
 		}
 		nonce := make([]byte, 8)
 		if _, err := rand.Read(nonce); err != nil {
@@ -139,12 +160,51 @@ func (s *ParentService) setJobSeekerParent(ctx context.Context, id uint64, in us
 	if err != nil {
 		return nil, err
 	}
+	if result.InvitationCode != "" {
+		sent := canSendInvitation && invitationSender.SendParentInvitation(ctx, "98"+phone[1:], result.InvitationCode) == nil
+		result.InvitationSMSSent = &sent
+	}
 	seeker, err := s.uow.Factory().JobSeekerRepository().FindByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 	if seeker != nil {
 		result.JobSeekerApproval, _ = seeker.ApprovalAt(time.Now())
+	}
+	return result, nil
+}
+
+func (s *ParentService) ConnectionStatus(ctx context.Context, id uint64) (*usecase.ParentApprovalResult, error) {
+	f := s.uow.Factory()
+	seeker, err := f.JobSeekerRepository().FindByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if seeker == nil {
+		return nil, domainerrors.ErrUnauthenticated
+	}
+	now := time.Now()
+	approval, err := seeker.ApprovalAt(now)
+	if err != nil {
+		return nil, err
+	}
+	result := &usecase.ParentApprovalResult{JobSeekerApproval: approval, ParentID: seeker.ParentID, ConnectionStatus: "none"}
+	if seeker.ParentID != nil {
+		result.ConnectionStatus = "approved"
+		return result, nil
+	}
+	request, err := f.ParentRepository().FindConnectionRequest(ctx, id)
+	if err != nil || request == nil {
+		return result, err
+	}
+	result.ExpiresAt = &request.ExpiresAt
+	switch {
+	case request.DecidedAt != nil && !request.Approved:
+		result.ConnectionStatus = "rejected"
+	case !now.Before(request.ExpiresAt):
+		result.ConnectionStatus = "expired"
+	case request.DecidedAt == nil:
+		result.ConnectionStatus = "pending"
 	}
 	return result, nil
 }
@@ -220,8 +280,8 @@ func (s *ParentService) ValidateInvitation(ctx context.Context, code string) (*u
 }
 
 func (s *ParentService) Signup(ctx context.Context, in usecase.SignupParent) error {
-	if in.Relationship != "father" && in.Relationship != "mother" {
-		return invalidParent("relationship must be father or mother")
+	if in.Relationship != "father" && in.Relationship != "mother" && in.Relationship != "guardian" {
+		return invalidParent("relationship must be father, mother, or guardian")
 	}
 	if len(in.Password) < 8 || len(in.Password) > 72 {
 		return invalidParent("password must contain 8 to 72 bytes")

@@ -17,8 +17,10 @@ type JobSeeker struct {
 	FirstName                 string                     `json:"first_name"`
 	LastName                  string                     `json:"last_name"`
 	NationalCode              string                     `json:"national_code"`
+	Province                  enums.Province             `json:"province,omitempty"`
 	City                      enums.City                 `json:"city"`
 	Address                   string                     `json:"address"`
+	PostalCode                string                     `json:"postal_code,omitempty"`
 	BirthDate                 valueobjects.JalaliDate    `json:"birth_date"`
 	Gender                    enums.Gender               `json:"gender"`
 	Interests                 []enums.Interest           `json:"interests"`
@@ -26,6 +28,7 @@ type JobSeeker struct {
 	PasswordHash              string                     `json:"-"`
 	PhoneVerifiedAt           time.Time                  `json:"phone_verified_at"`
 	CreatedAt                 time.Time                  `json:"created_at"`
+	IdentityDocument          *valueobjects.StoredObject `json:"-"`
 	VerificationVideo         *valueobjects.StoredObject `json:"verification_video,omitempty"`
 }
 

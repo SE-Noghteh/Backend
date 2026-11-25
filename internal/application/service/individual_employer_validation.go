@@ -33,7 +33,7 @@ func validateIndividualEmployer(in *usecase.SignupIndividualEmployer) error {
 	if !in.Gender.Valid() {
 		return invalid("gender")
 	}
-	if !in.Province.Valid() || !in.City.Valid() || in.City.Province() != in.Province {
+	if !in.City.InProvince(in.Province) {
 		return invalid("province and city must match")
 	}
 	if !postalCodePattern.MatchString(in.PostalCode) {

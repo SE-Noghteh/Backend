@@ -18,9 +18,15 @@ const (
 )
 
 func Cities() []City {
-	return []City{CityTehran, CityIsfahan, CityMashhad, CityShiraz, CityTabriz, CityKaraj, CityQom, CityAhvaz, CityRasht, CityYazd}
+	return slices.Clone(cityNames)
 }
 
 func (city City) Valid() bool {
-	return slices.Contains(Cities(), city)
+	_, ok := slices.BinarySearch(cityNames, city)
+	return ok
+}
+
+func (city City) InProvince(province Province) bool {
+	_, ok := slices.BinarySearch(citiesByProvince[province], city)
+	return ok
 }

@@ -14,6 +14,296 @@
     },
     "basePath": "/v1",
     "paths": {
+        "/admin/employers": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Lists phone-verified employers oldest first. Defaults to pending_review across both employer types.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "List employers for admin review",
+                "parameters": [
+                    {
+                        "enum": [
+                            "individual",
+                            "legal",
+                            "all"
+                        ],
+                        "type": "string",
+                        "default": "all",
+                        "description": "Employer type",
+                        "name": "type",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "pending_review",
+                            "approved",
+                            "rejected",
+                            "all"
+                        ],
+                        "type": "string",
+                        "default": "pending_review",
+                        "description": "Review status",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 20,
+                        "description": "Page size (1-100)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 0,
+                        "description": "Nonnegative offset",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/general.AdminEmployersResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/employers/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Get an employer profile and available documents",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Employer ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/general.AdminEmployerResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/employers/{id}/documents/{kind}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "The link is valid for five minutes. Use an available_documents value from the employer profile.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Get a private employer document download URL",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Employer ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "enum": [
+                            "identity",
+                            "video",
+                            "business-license",
+                            "establishment",
+                            "activity-license",
+                            "authorization"
+                        ],
+                        "type": "string",
+                        "description": "Document kind",
+                        "name": "kind",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/general.DocumentURLResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/employers/{id}/review": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Records the decision, optional message, and review time. Approved employers can manage job postings. Employers can see their current review status and message in /me.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Approve or reject an individual or legal employer",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Employer ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Approval decision and optional message",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/general.AdminReviewRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/general.AdminEmployerReviewResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/admin/job-seekers": {
             "get": {
                 "security": [
@@ -136,6 +426,70 @@
                     },
                     "500": {
                         "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/job-seekers/{id}/documents/identity": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns a private signed download URL valid for five minutes.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Download a job seeker's birth certificate image",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Job seeker ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/general.DocumentURLResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
                         "schema": {
                             "$ref": "#/definitions/general.ErrorResponse"
                         }
@@ -615,6 +969,40 @@
                 }
             }
         },
+        "/cities": {
+            "get": {
+                "description": "Pass province to list its cities. Without province, returns unique city names across Iran.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Locations"
+                ],
+                "summary": "List cities in Iran",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Persian province name returned by GET /v1/provinces",
+                        "name": "province",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/general.CitiesResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/employer/job-postings": {
             "post": {
                 "security": [
@@ -875,6 +1263,58 @@
                 }
             }
         },
+        "/individual-employers/forgot-password": {
+            "post": {
+                "description": "Returns the same 202 response for unknown numbers and requests during the 60-second cooldown. The six-digit OTP expires after five minutes.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Password reset"
+                ],
+                "summary": "Request a password reset code for the selected account type",
+                "parameters": [
+                    {
+                        "description": "Registered mobile number",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/general.ForgotPasswordRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Accepted",
+                        "schema": {
+                            "$ref": "#/definitions/general.OTPResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/individual-employers/login": {
             "post": {
                 "description": "Returns an individual_employer JWT; job seeker tokens cannot access employer endpoints. Five failed attempts in 15 minutes trigger lockout. Pending-review employers can login; document review is a separate administrative process.",
@@ -1063,9 +1503,61 @@
                 }
             }
         },
+        "/individual-employers/reset-password": {
+            "post": {
+                "description": "Consumes the token and invalidates existing sessions. Use 8-72 bytes for job seekers and parents. Employers require 12-72 bytes with uppercase, lowercase, a digit and a symbol.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Password reset"
+                ],
+                "summary": "Set a new password using the verified reset token",
+                "parameters": [
+                    {
+                        "description": "Reset token and new password",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/general.SetNewPasswordRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/general.PasswordResetResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/individual-employers/signup": {
             "post": {
-                "description": "Validates and saves the complete multipart submission and private files, then sends OTP automatically. Returns 202; no employer account exists until verify-otp succeeds. Pending signup lasts 30 minutes. Business fields, email and business license are optional. Password requires 12-72 bytes with uppercase, lowercase, number, symbol. Documents: PDF/PNG/JPEG up to 5 MiB each. Video: MP4/MOV, 1-20 seconds, up to 50 MiB. Requires configured S3 and ffprobe.",
+                "description": "Validates and saves the complete multipart submission and private files, then sends OTP automatically. Returns 202; no employer account exists until verify-otp succeeds. Pending signup lasts 30 minutes. Business fields, email and business license are optional. Password requires 12-72 bytes with uppercase, lowercase, number, symbol. Documents: PDF/PNG/JPEG up to 5 MiB each. Video: MP4/MOV/WebM, 1-20 seconds, up to 50 MiB. Requires configured S3 and ffprobe.",
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -1228,7 +1720,7 @@
                     },
                     {
                         "type": "file",
-                        "description": "Identity video (MP4/MOV, 1-20 seconds, \u003c=50 MiB)",
+                        "description": "Identity video (MP4/MOV/WebM, 1-20 seconds, \u003c=50 MiB)",
                         "name": "verification_video",
                         "in": "formData",
                         "required": true
@@ -1358,6 +1850,58 @@
                 }
             }
         },
+        "/individual-employers/verify-reset-otp": {
+            "post": {
+                "description": "Consumes the OTP and returns a one-time reset token valid for five minutes. The token applies only to this account type.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Password reset"
+                ],
+                "summary": "Verify a password reset code before entering the new password",
+                "parameters": [
+                    {
+                        "description": "Phone and password reset OTP",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/general.VerifyPasswordResetOTPRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/general.PasswordResetTokenResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/job-seekers/documents/video": {
             "get": {
                 "security": [
@@ -1408,7 +1952,7 @@
         },
         "/job-seekers/forgot-password": {
             "post": {
-                "description": "Public endpoint. Sends an OTP to the registered, verified phone. Repeat to resend after 60 seconds. Codes expire after five minutes and permit five failed attempts. Unknown or unverified phones receive the same 202 response without sending SMS. Reset OTPs are separate from signup and phone-change OTPs.",
+                "description": "Returns the same 202 response for unknown numbers and requests during the 60-second cooldown. The six-digit OTP expires after five minutes.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1416,17 +1960,17 @@
                     "application/json"
                 ],
                 "tags": [
-                    "Job seekers"
+                    "Password reset"
                 ],
-                "summary": "Send a job seeker password reset OTP",
+                "summary": "Request a password reset code for the selected account type",
                 "parameters": [
                     {
-                        "description": "Registered job seeker phone",
+                        "description": "Registered mobile number",
                         "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/general.ForgotJobSeekerPasswordRequest"
+                            "$ref": "#/definitions/general.ForgotPasswordRequest"
                         }
                     }
                 ],
@@ -1439,12 +1983,6 @@
                     },
                     "400": {
                         "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/general.ErrorResponse"
-                        }
-                    },
-                    "429": {
-                        "description": "Too Many Requests",
                         "schema": {
                             "$ref": "#/definitions/general.ErrorResponse"
                         }
@@ -1728,7 +2266,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Requires a verified job seeker login. Supply first_name, last_name and phone for an unregistered parent. Returns an eight-character invitation code valid for seven days. Registered parents return 409; use the registered-parent endpoint instead. Repeating this request replaces the previous code. Only an existing parent connection blocks this API, returning 409: parent already connected.",
+                "description": "Requires a verified job seeker login. Supply first_name, last_name and phone for an unregistered parent. Attempts to text the eight-character invitation code, valid for seven days. The response includes invitation_sms_sent and the code for manual sharing. Registered parents return 409; use the registered-parent endpoint instead. Repeating this request replaces the previous code. Only an existing parent connection blocks this API, returning 409: parent already connected.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1791,7 +2329,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Requires job seeker login. Accepts only the parent's phone number. Links the verified parent immediately. Does not request names or generate an invitation code. If the parent is not registered, returns 400; use the invitation endpoint instead. If a parent is already connected, returns 409: parent already connected.",
+                "description": "Requires job seeker login. Accepts only the parent's phone number. Creates a pending request that the parent must approve while signed in. If the parent is not registered, returns 400; use the invitation endpoint instead. If a parent is already connected, returns 409: parent already connected.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1801,7 +2339,7 @@
                 "tags": [
                     "Job seekers"
                 ],
-                "summary": "Connect an already registered parent by phone",
+                "summary": "Request consent from an already registered parent",
                 "parameters": [
                     {
                         "description": "Registered parent phone",
@@ -1834,6 +2372,42 @@
                     },
                     "409": {
                         "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/job-seekers/parent-approval/request": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Job seekers"
+                ],
+                "summary": "View the job seeker's parent connection status",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/usecase.ParentApprovalResult"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
                         "schema": {
                             "$ref": "#/definitions/general.ErrorResponse"
                         }
@@ -1987,7 +2561,7 @@
         },
         "/job-seekers/reset-password": {
             "post": {
-                "description": "Public endpoint. Submit the registered phone, its password-reset OTP and a new password (8-72 bytes). Atomically consumes the OTP, replaces the bcrypt password, clears login failures, invalidates all existing job seeker login tokens and cancels pending phone-change challenges. Login again with the new password. Approval and parent connection are preserved.",
+                "description": "Consumes the token and invalidates existing sessions. Use 8-72 bytes for job seekers and parents. Employers require 12-72 bytes with uppercase, lowercase, a digit and a symbol.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1995,17 +2569,17 @@
                     "application/json"
                 ],
                 "tags": [
-                    "Job seekers"
+                    "Password reset"
                 ],
-                "summary": "Reset a job seeker password using phone and OTP",
+                "summary": "Set a new password using the verified reset token",
                 "parameters": [
                     {
-                        "description": "Phone, reset OTP and new password",
+                        "description": "Reset token and new password",
                         "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/general.ResetJobSeekerPasswordRequest"
+                            "$ref": "#/definitions/general.SetNewPasswordRequest"
                         }
                     }
                 ],
@@ -2039,7 +2613,7 @@
         },
         "/job-seekers/signup": {
             "post": {
-                "description": "Submit the complete profile, password and required private verification video before OTP is sent. Video must be MP4/MOV, 1-20 seconds, up to 50 MiB. Pending signup lasts 30 minutes; then verify the received OTP. Birth date is Jalali. Job seeker age must be between 15 and 22 years inclusive; otherwise returns HTTP 400 with an error message. Password must be 8-72 bytes.",
+                "description": "Submit the complete profile, password, and private identity image and video before OTP is sent. The total request limit is 56 MiB. Pending signup lasts 30 minutes; then verify the received OTP. Birth date is Jalali. Job seeker age must be between 15 and 22 years inclusive. Password must be 8-72 bytes.",
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -2074,7 +2648,14 @@
                     },
                     {
                         "type": "string",
-                        "description": "City from signup-options",
+                        "description": "Province from GET /v1/provinces",
+                        "name": "province",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "City matching the selected province",
                         "name": "city",
                         "in": "formData",
                         "required": true
@@ -2083,6 +2664,13 @@
                         "type": "string",
                         "description": "Address",
                         "name": "address",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Ten-digit postal code",
+                        "name": "postal_code",
                         "in": "formData",
                         "required": true
                     },
@@ -2145,7 +2733,14 @@
                     },
                     {
                         "type": "file",
-                        "description": "Verification video (MP4/MOV, 1-20 seconds, \u003c=50 MiB)",
+                        "description": "First page of birth certificate (PNG/JPEG, \u003c=5 MiB)",
+                        "name": "identity_document",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "Verification video (MP4/MOV/WebM, 1-20 seconds, \u003c=50 MiB)",
                         "name": "verification_video",
                         "in": "formData",
                         "required": true
@@ -2275,6 +2870,58 @@
                 }
             }
         },
+        "/job-seekers/verify-reset-otp": {
+            "post": {
+                "description": "Consumes the OTP and returns a one-time reset token valid for five minutes. The token applies only to this account type.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Password reset"
+                ],
+                "summary": "Verify a password reset code before entering the new password",
+                "parameters": [
+                    {
+                        "description": "Phone and password reset OTP",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/general.VerifyPasswordResetOTPRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/general.PasswordResetTokenResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/legal-employers/documents/{kind}": {
             "get": {
                 "security": [
@@ -2321,6 +2968,58 @@
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/legal-employers/forgot-password": {
+            "post": {
+                "description": "Returns the same 202 response for unknown numbers and requests during the 60-second cooldown. The six-digit OTP expires after five minutes.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Password reset"
+                ],
+                "summary": "Request a password reset code for the selected account type",
+                "parameters": [
+                    {
+                        "description": "Registered mobile number",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/general.ForgotPasswordRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Accepted",
+                        "schema": {
+                            "$ref": "#/definitions/general.OTPResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/general.ErrorResponse"
                         }
@@ -2528,9 +3227,61 @@
                 }
             }
         },
+        "/legal-employers/reset-password": {
+            "post": {
+                "description": "Consumes the token and invalidates existing sessions. Use 8-72 bytes for job seekers and parents. Employers require 12-72 bytes with uppercase, lowercase, a digit and a symbol.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Password reset"
+                ],
+                "summary": "Set a new password using the verified reset token",
+                "parameters": [
+                    {
+                        "description": "Reset token and new password",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/general.SetNewPasswordRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/general.PasswordResetResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/legal-employers/signup": {
             "post": {
-                "description": "Validates and saves the complete multipart submission and private files, then sends OTP automatically. Returns 202; no employer account exists until verify-otp succeeds. Pending signup lasts 30 minutes. Email and website are optional. Select activities from signup-options. Activity license is required when requires_activity_license is true. An attorney must upload authorization_document. Company identifier format is checked; official company and representative authority verification remains pending review. Password requires 12-72 bytes with uppercase, lowercase, number, symbol. Documents: PDF/PNG/JPEG up to 5 MiB each. Video: MP4/MOV, 1-20 seconds, up to 50 MiB. Requires configured S3 and ffprobe.",
+                "description": "Validates and saves the complete multipart submission and private files, then sends OTP automatically. Returns 202; no employer account exists until verify-otp succeeds. Pending signup lasts 30 minutes. Email and website are optional. Select activities from signup-options. Activity license is required when requires_activity_license is true. An attorney must upload authorization_document. Company identifier format is checked; official company and representative authority verification remains pending review. Password requires 12-72 bytes with uppercase, lowercase, number, symbol. Documents: PDF/PNG/JPEG up to 5 MiB each. Video: MP4/MOV/WebM, 1-20 seconds, up to 50 MiB. Requires configured S3 and ffprobe.",
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -2736,7 +3487,7 @@
                     },
                     {
                         "type": "file",
-                        "description": "Representative identity video (MP4/MOV, 1-20 seconds, \u003c=50 MiB)",
+                        "description": "Representative identity video (MP4/MOV/WebM, 1-20 seconds, \u003c=50 MiB)",
                         "name": "verification_video",
                         "in": "formData",
                         "required": true
@@ -2866,6 +3617,251 @@
                 }
             }
         },
+        "/legal-employers/verify-reset-otp": {
+            "post": {
+                "description": "Consumes the OTP and returns a one-time reset token valid for five minutes. The token applies only to this account type.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Password reset"
+                ],
+                "summary": "Verify a password reset code before entering the new password",
+                "parameters": [
+                    {
+                        "description": "Phone and password reset OTP",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/general.VerifyPasswordResetOTPRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/general.PasswordResetTokenResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/parents/children": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Parents"
+                ],
+                "summary": "List the signed-in parent's connected children and signup status",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/general.ParentChildResponse"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/parents/connection-requests": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Parents"
+                ],
+                "summary": "List the parent's pending connection requests",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/general.ParentConnectionResponse"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/parents/connection-requests/{job_seeker_id}/decision": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Parents"
+                ],
+                "summary": "Approve or reject a request to connect a job seeker",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Job seeker ID",
+                        "name": "job_seeker_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Connection decision",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/general.ParentConnectionDecision"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/parents/forgot-password": {
+            "post": {
+                "description": "Returns the same 202 response for unknown numbers and requests during the 60-second cooldown. The six-digit OTP expires after five minutes.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Password reset"
+                ],
+                "summary": "Request a password reset code for the selected account type",
+                "parameters": [
+                    {
+                        "description": "Registered mobile number",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/general.ForgotPasswordRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Accepted",
+                        "schema": {
+                            "$ref": "#/definitions/general.OTPResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/parents/invitations/validate": {
             "post": {
                 "description": "A parent cannot sign up without an unexpired code generated by a verified job seeker. Returns the saved parent identity and phone; these cannot be overridden in signup. Checking a code does not consume it.",
@@ -2905,6 +3901,129 @@
                     },
                     "409": {
                         "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/parents/login": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Parents"
+                ],
+                "summary": "Log in as a phone-verified parent",
+                "parameters": [
+                    {
+                        "description": "Parent phone and password",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/general.LoginRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/general.ParentLoginResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/parents/logout": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "Parents"
+                ],
+                "summary": "Revoke the current parent session",
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/parents/me": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Parents"
+                ],
+                "summary": "View the signed-in parent's profile and admin review status",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/general.ParentAccountResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
                         "schema": {
                             "$ref": "#/definitions/general.ErrorResponse"
                         }
@@ -2976,9 +4095,61 @@
                 }
             }
         },
+        "/parents/reset-password": {
+            "post": {
+                "description": "Consumes the token and invalidates existing sessions. Use 8-72 bytes for job seekers and parents. Employers require 12-72 bytes with uppercase, lowercase, a digit and a symbol.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Password reset"
+                ],
+                "summary": "Set a new password using the verified reset token",
+                "parameters": [
+                    {
+                        "description": "Reset token and new password",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/general.SetNewPasswordRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/general.PasswordResetResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/parents/signup": {
             "post": {
-                "description": "Invitation required. Name and phone come from the job seeker's invitation. Relationship is father or mother. Requires consent, password (8-72 bytes), identity image (PNG/JPEG up to 5 MiB) and consent video (MP4/MOV, 1-20 seconds, up to 50 MiB). No parent account or link exists until OTP verification. Pending submission lasts 30 minutes; invitation remains subject to its seven-day expiry.",
+                "description": "Invitation required. Name and phone come from the job seeker's invitation. Relationship is father, mother, or guardian. Requires consent, password (8-72 bytes), identity image (PNG/JPEG up to 5 MiB) and consent video (MP4/MOV/WebM, 1-20 seconds, up to 50 MiB). No parent account or link exists until OTP verification. Pending submission lasts 30 minutes; invitation remains subject to its seven-day expiry.",
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -3000,7 +4171,8 @@
                     {
                         "enum": [
                             "father",
-                            "mother"
+                            "mother",
+                            "guardian"
                         ],
                         "type": "string",
                         "description": "Relationship",
@@ -3031,7 +4203,7 @@
                     },
                     {
                         "type": "file",
-                        "description": "Parent consent video (MP4/MOV, 1-20 seconds, \u003c=50 MiB)",
+                        "description": "Parent consent video (MP4/MOV/WebM, 1-20 seconds, \u003c=50 MiB)",
                         "name": "consent_video",
                         "in": "formData",
                         "required": true
@@ -3136,6 +4308,77 @@
                         "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/parents/verify-reset-otp": {
+            "post": {
+                "description": "Consumes the OTP and returns a one-time reset token valid for five minutes. The token applies only to this account type.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Password reset"
+                ],
+                "summary": "Verify a password reset code before entering the new password",
+                "parameters": [
+                    {
+                        "description": "Phone and password reset OTP",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/general.VerifyPasswordResetOTPRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/general.PasswordResetTokenResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/provinces": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Locations"
+                ],
+                "summary": "List all provinces in Iran",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/general.ProvincesResponse"
                         }
                     }
                 }
@@ -3245,33 +4488,6 @@
                 "AdminReviewRejected"
             ]
         },
-        "enums.City": {
-            "type": "string",
-            "enum": [
-                "تهران",
-                "اصفهان",
-                "مشهد",
-                "شیراز",
-                "تبریز",
-                "کرج",
-                "قم",
-                "اهواز",
-                "رشت",
-                "یزد"
-            ],
-            "x-enum-varnames": [
-                "CityTehran",
-                "CityIsfahan",
-                "CityMashhad",
-                "CityShiraz",
-                "CityTabriz",
-                "CityKaraj",
-                "CityQom",
-                "CityAhvaz",
-                "CityRasht",
-                "CityYazd"
-            ]
-        },
         "enums.EmployerReviewStatus": {
             "type": "string",
             "enum": [
@@ -3353,33 +4569,6 @@
                 "LegalOrganization"
             ]
         },
-        "enums.Province": {
-            "type": "string",
-            "enum": [
-                "تهران",
-                "اصفهان",
-                "خراسان رضوی",
-                "فارس",
-                "آذربایجان شرقی",
-                "البرز",
-                "قم",
-                "خوزستان",
-                "گیلان",
-                "یزد"
-            ],
-            "x-enum-varnames": [
-                "ProvinceTehran",
-                "ProvinceIsfahan",
-                "ProvinceKhorasanRazavi",
-                "ProvinceFars",
-                "ProvinceEastAzerbaijan",
-                "ProvinceAlborz",
-                "ProvinceQom",
-                "ProvinceKhuzestan",
-                "ProvinceGilan",
-                "ProvinceYazd"
-            ]
-        },
         "enums.RepresentativePosition": {
             "type": "string",
             "enum": [
@@ -3392,6 +4581,161 @@
                 "RepresentativeAuthorizedSignatory",
                 "RepresentativeAttorney"
             ]
+        },
+        "general.AdminEmployerResponse": {
+            "type": "object",
+            "properties": {
+                "available_documents": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "employer_type": {
+                    "$ref": "#/definitions/enums.EmployerType"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "individual": {
+                    "$ref": "#/definitions/general.AdminIndividualEmployerProfile"
+                },
+                "legal": {
+                    "$ref": "#/definitions/general.LegalEmployerIdentity"
+                },
+                "review_status": {
+                    "$ref": "#/definitions/enums.EmployerReviewStatus"
+                }
+            }
+        },
+        "general.AdminEmployerReviewResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/general.AdminEmployerResponse"
+                },
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "general.AdminEmployerSummary": {
+            "type": "object",
+            "properties": {
+                "city": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "employer_type": {
+                    "$ref": "#/definitions/enums.EmployerType"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "phone": {
+                    "type": "string"
+                },
+                "province": {
+                    "type": "string"
+                },
+                "review_status": {
+                    "$ref": "#/definitions/enums.EmployerReviewStatus"
+                }
+            }
+        },
+        "general.AdminEmployersResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/general.AdminEmployerSummary"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "general.AdminIndividualEmployerProfile": {
+            "type": "object",
+            "properties": {
+                "address": {
+                    "type": "string"
+                },
+                "admin_review_message": {
+                    "type": "string"
+                },
+                "admin_reviewed_at": {
+                    "type": "string"
+                },
+                "birth_date": {
+                    "type": "string"
+                },
+                "business_activity": {
+                    "type": "string"
+                },
+                "business_name": {
+                    "type": "string"
+                },
+                "city": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "employer_type": {
+                    "$ref": "#/definitions/enums.EmployerType"
+                },
+                "father_name": {
+                    "type": "string"
+                },
+                "first_name": {
+                    "type": "string",
+                    "example": "علی"
+                },
+                "gender": {
+                    "$ref": "#/definitions/enums.Gender"
+                },
+                "has_legal_guardian": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "last_name": {
+                    "type": "string",
+                    "example": "رضایی"
+                },
+                "national_code": {
+                    "type": "string"
+                },
+                "phone": {
+                    "type": "string",
+                    "example": "09123456789"
+                },
+                "postal_code": {
+                    "type": "string"
+                },
+                "province": {
+                    "type": "string"
+                },
+                "review_status": {
+                    "$ref": "#/definitions/enums.EmployerReviewStatus"
+                },
+                "website": {
+                    "type": "string"
+                }
+            }
         },
         "general.AdminJobSeekerResponse": {
             "type": "object",
@@ -3418,7 +4762,7 @@
                     "type": "string"
                 },
                 "city": {
-                    "$ref": "#/definitions/enums.City"
+                    "type": "string"
                 },
                 "created_at": {
                     "type": "string"
@@ -3429,6 +4773,9 @@
                 },
                 "gender": {
                     "$ref": "#/definitions/enums.Gender"
+                },
+                "has_identity_document": {
+                    "type": "boolean"
                 },
                 "has_verification_video": {
                     "type": "boolean"
@@ -3465,6 +4812,12 @@
                 "phone": {
                     "type": "string",
                     "example": "09123456789"
+                },
+                "postal_code": {
+                    "type": "string"
+                },
+                "province": {
+                    "type": "string"
                 },
                 "signup_status": {
                     "type": "string",
@@ -3624,6 +4977,17 @@
                 }
             }
         },
+        "general.CitiesResponse": {
+            "type": "object",
+            "properties": {
+                "cities": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
         "general.DeleteJobSeekerRequest": {
             "type": "object",
             "required": [
@@ -3666,7 +5030,7 @@
                 }
             }
         },
-        "general.ForgotJobSeekerPasswordRequest": {
+        "general.ForgotPasswordRequest": {
             "type": "object",
             "required": [
                 "phone"
@@ -3681,6 +5045,12 @@
         "general.IndividualEmployerIdentity": {
             "type": "object",
             "properties": {
+                "admin_review_message": {
+                    "type": "string"
+                },
+                "admin_reviewed_at": {
+                    "type": "string"
+                },
                 "created_at": {
                     "type": "string"
                 },
@@ -3834,8 +5204,14 @@
                 "address": {
                     "type": "string"
                 },
+                "admin_review_message": {
+                    "type": "string"
+                },
+                "admin_reviewed_at": {
+                    "type": "string"
+                },
                 "city": {
-                    "$ref": "#/definitions/enums.City"
+                    "type": "string"
                 },
                 "company_name": {
                     "type": "string"
@@ -3871,7 +5247,7 @@
                     "type": "string"
                 },
                 "province": {
-                    "$ref": "#/definitions/enums.Province"
+                    "type": "string"
                 },
                 "registration_number": {
                     "type": "string"
@@ -3981,6 +5357,59 @@
                 }
             }
         },
+        "general.ParentAccountResponse": {
+            "type": "object",
+            "properties": {
+                "admin_approval_status": {
+                    "$ref": "#/definitions/enums.AdminReviewStatus"
+                },
+                "admin_review_message": {
+                    "type": "string"
+                },
+                "admin_reviewed_at": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "first_name": {
+                    "type": "string",
+                    "example": "علی"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "last_name": {
+                    "type": "string",
+                    "example": "رضایی"
+                },
+                "phone": {
+                    "type": "string",
+                    "example": "09123456789"
+                },
+                "relationship": {
+                    "type": "string"
+                }
+            }
+        },
+        "general.ParentChildResponse": {
+            "type": "object",
+            "properties": {
+                "first_name": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "last_name": {
+                    "type": "string"
+                },
+                "signup_status": {
+                    "type": "string"
+                }
+            }
+        },
         "general.ParentCodeRequest": {
             "type": "object",
             "required": [
@@ -3989,6 +5418,52 @@
             "properties": {
                 "code": {
                     "type": "string"
+                }
+            }
+        },
+        "general.ParentConnectionDecision": {
+            "type": "object",
+            "required": [
+                "approved"
+            ],
+            "properties": {
+                "approved": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "general.ParentConnectionResponse": {
+            "type": "object",
+            "properties": {
+                "expires_at": {
+                    "type": "string"
+                },
+                "first_name": {
+                    "type": "string"
+                },
+                "job_seeker_id": {
+                    "type": "integer"
+                },
+                "last_name": {
+                    "type": "string"
+                }
+            }
+        },
+        "general.ParentLoginResponse": {
+            "type": "object",
+            "properties": {
+                "access_token": {
+                    "type": "string"
+                },
+                "data": {
+                    "$ref": "#/definitions/general.ParentAccountResponse"
+                },
+                "expires_at": {
+                    "type": "string"
+                },
+                "token_type": {
+                    "type": "string",
+                    "example": "Bearer"
                 }
             }
         },
@@ -4050,6 +5525,18 @@
                 }
             }
         },
+        "general.PasswordResetTokenResponse": {
+            "type": "object",
+            "properties": {
+                "expires_in": {
+                    "type": "integer",
+                    "example": 300
+                },
+                "reset_token": {
+                    "type": "string"
+                }
+            }
+        },
         "general.PhoneChangeRequest": {
             "type": "object",
             "required": [
@@ -4059,6 +5546,17 @@
                 "new_phone": {
                     "type": "string",
                     "example": "09129876543"
+                }
+            }
+        },
+        "general.ProvincesResponse": {
+            "type": "object",
+            "properties": {
+                "provinces": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },
@@ -4086,25 +5584,18 @@
                 }
             }
         },
-        "general.ResetJobSeekerPasswordRequest": {
+        "general.SetNewPasswordRequest": {
             "type": "object",
             "required": [
                 "new_password",
-                "otp",
-                "phone"
+                "reset_token"
             ],
             "properties": {
                 "new_password": {
-                    "type": "string",
-                    "example": "your-new-password"
+                    "type": "string"
                 },
-                "otp": {
-                    "type": "string",
-                    "example": "123456"
-                },
-                "phone": {
-                    "type": "string",
-                    "example": "09123456789"
+                "reset_token": {
+                    "type": "string"
                 }
             }
         },
@@ -4114,7 +5605,7 @@
                 "cities": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/enums.City"
+                        "type": "string"
                     }
                 },
                 "genders": {
@@ -4150,6 +5641,23 @@
                     "type": "string",
                     "maxLength": 6,
                     "minLength": 6,
+                    "example": "123456"
+                },
+                "phone": {
+                    "type": "string",
+                    "example": "09123456789"
+                }
+            }
+        },
+        "general.VerifyPasswordResetOTPRequest": {
+            "type": "object",
+            "required": [
+                "otp",
+                "phone"
+            ],
+            "properties": {
+                "otp": {
+                    "type": "string",
                     "example": "123456"
                 },
                 "phone": {
@@ -4204,11 +5712,17 @@
                 "admin_approved_parent": {
                     "type": "boolean"
                 },
+                "connection_status": {
+                    "type": "string"
+                },
                 "expires_at": {
                     "type": "string"
                 },
                 "invitation_code": {
                     "type": "string"
+                },
+                "invitation_sms_sent": {
+                    "type": "boolean"
                 },
                 "parent_approval_required": {
                     "type": "boolean"

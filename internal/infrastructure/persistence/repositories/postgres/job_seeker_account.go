@@ -38,6 +38,9 @@ func (r *JobSeekerRepository) UpdatePhone(ctx context.Context, id uint64, phone 
 }
 
 func (r *JobSeekerRepository) Delete(ctx context.Context, id uint64) error {
+	if err := NewParentRepository(r.db).DeleteConnectionRequest(ctx, id); err != nil {
+		return err
+	}
 	if err := r.db.WithContext(ctx).Where("job_seeker_id = ?", id).Delete(&models.ParentInvitationModel{}).Error; err != nil {
 		return err
 	}

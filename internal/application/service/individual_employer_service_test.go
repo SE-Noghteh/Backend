@@ -28,6 +28,7 @@ type employerMemory struct {
 	mediaErr   error
 }
 
+func (m *employerMemory) PasswordResetRepository() ports.PasswordResetRepository   { return nil }
 func (m *employerMemory) Factory() ports.RepositoryFactory                         { return m }
 func (m *employerMemory) EmployerRepository() ports.EmployerRepository             { return m }
 func (m *employerMemory) EmployerSignupRepository() ports.EmployerSignupRepository { return m }
@@ -132,6 +133,9 @@ type employerTokens struct{}
 
 func (employerTokens) IssueAccessToken(_ uint64, role enums.AccountRole) (*valueobjects.AccessToken, error) {
 	return &valueobjects.AccessToken{Value: string(role), ExpiresAt: time.Now().Add(time.Hour)}, nil
+}
+func (tokens employerTokens) IssueEmployerAccessToken(id uint64, role enums.AccountRole, _ uint64) (*valueobjects.AccessToken, error) {
+	return tokens.IssueAccessToken(id, role)
 }
 func (employerTokens) VerifyAccessToken(token string, role enums.AccountRole) (*valueobjects.Principal, error) {
 	if token != string(role) {

@@ -143,6 +143,13 @@ func (s *AdminService) JobSeekerVideoURL(ctx context.Context, id uint64) (string
 	}
 	return employerDocumentURL(ctx, s.storage, p.VerificationVideo)
 }
+func (s *AdminService) JobSeekerIdentityDocumentURL(ctx context.Context, id uint64) (string, error) {
+	p, err := s.JobSeeker(ctx, id)
+	if err != nil {
+		return "", err
+	}
+	return employerDocumentURL(ctx, s.storage, p.IdentityDocument)
+}
 func (s *AdminService) ParentDocumentURL(ctx context.Context, id uint64, kind string) (string, error) {
 	p, err := s.Parent(ctx, id)
 	if err != nil {

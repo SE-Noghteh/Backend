@@ -8,6 +8,8 @@ import (
 )
 
 type LegalEmployerModel struct {
+	EmployerReviewMetadataModel
+	SessionVersion             uint64                       `gorm:"not null;default:0"`
 	EmployerID                 uint64                       `gorm:"primaryKey;autoIncrement:false"`
 	Employer                   EmployerModel                `gorm:"foreignKey:EmployerID;constraint:OnDelete:CASCADE"`
 	CompanyName                string                       `gorm:"size:200;not null"`

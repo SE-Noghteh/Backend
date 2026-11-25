@@ -53,6 +53,17 @@ test("admin login authorizes protected review requests", () => {
   assert.equal(request.headers.Authorization, "Bearer admin.jwt.token");
 });
 
+test("parent login authorizes consent requests and logout clears authorization", () => {
+  const { config, authorizations, logouts } = setup();
+  config.responseInterceptor({ url: "/v1/parents/login", status: 200, obj: { access_token: "parent.jwt.token" } });
+  assert.deepEqual(authorizations, [{ name: "BearerAuth", value: "Bearer parent.jwt.token" }]);
+  const request = { url: "/v1/parents/connection-requests/3/decision", headers: { authorization: "parent.jwt.token" } };
+  config.requestInterceptor(request);
+  assert.equal(request.headers.authorization, "Bearer parent.jwt.token");
+  config.responseInterceptor({ url: "/v1/parents/logout", status: 204 });
+  assert.deepEqual(logouts, [["BearerAuth"]]);
+});
+
 test("operations follow signup and account workflow rather than alphabetical order", () => {
   const { config } = setup();
   function operation(method, path) { return { get: key => key === "method" ? method : path }; }

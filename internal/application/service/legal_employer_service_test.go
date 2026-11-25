@@ -28,8 +28,9 @@ func cloneLegalPending(in *entities.PendingLegalEmployerSignup) *entities.Pendin
 	e.Activities = append([]enums.Interest(nil), in.Registration.Activities...)
 	return &entities.PendingLegalEmployerSignup{Challenge: cloneOTP(in.Challenge), Registration: &e}
 }
-func (m *legalEmployerMemory) Factory() ports.RepositoryFactory             { return m }
-func (m *legalEmployerMemory) EmployerRepository() ports.EmployerRepository { return m }
+func (m *legalEmployerMemory) PasswordResetRepository() ports.PasswordResetRepository { return nil }
+func (m *legalEmployerMemory) Factory() ports.RepositoryFactory                       { return m }
+func (m *legalEmployerMemory) EmployerRepository() ports.EmployerRepository           { return m }
 func (m *legalEmployerMemory) LegalEmployerSignupRepository() ports.LegalEmployerSignupRepository {
 	return m
 }

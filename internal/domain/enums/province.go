@@ -1,6 +1,11 @@
 package enums
 
-import "slices"
+import (
+	_ "embed"
+	"encoding/json"
+	"maps"
+	"slices"
+)
 
 type Province string
 
@@ -17,35 +22,41 @@ const (
 	ProvinceYazd           Province = "یزد"
 )
 
-func Provinces() []Province {
-	return []Province{ProvinceTehran, ProvinceIsfahan, ProvinceKhorasanRazavi, ProvinceFars, ProvinceEastAzerbaijan, ProvinceAlborz, ProvinceQom, ProvinceKhuzestan, ProvinceGilan, ProvinceYazd}
+//go:embed iran_locations.json
+var iranLocationsJSON []byte
+
+var citiesByProvince, provinceNames, cityNames = loadIranLocations()
+
+func loadIranLocations() (map[Province][]City, []Province, []City) {
+	var byProvince map[Province][]City
+	if err := json.Unmarshal(iranLocationsJSON, &byProvince); err != nil {
+		panic(err)
+	}
+	uniqueCities := make(map[City]struct{})
+	for _, cities := range byProvince {
+		slices.Sort(cities)
+		for _, city := range cities {
+			uniqueCities[city] = struct{}{}
+		}
+	}
+	return byProvince, slices.Sorted(maps.Keys(byProvince)), slices.Sorted(maps.Keys(uniqueCities))
 }
 
-func (province Province) Valid() bool { return slices.Contains(Provinces(), province) }
+func Provinces() []Province { return slices.Clone(provinceNames) }
 
-func (city City) Province() Province {
-	switch city {
-	case CityTehran:
-		return ProvinceTehran
-	case CityIsfahan:
-		return ProvinceIsfahan
-	case CityMashhad:
-		return ProvinceKhorasanRazavi
-	case CityShiraz:
-		return ProvinceFars
-	case CityTabriz:
-		return ProvinceEastAzerbaijan
-	case CityKaraj:
-		return ProvinceAlborz
-	case CityQom:
-		return ProvinceQom
-	case CityAhvaz:
-		return ProvinceKhuzestan
-	case CityRasht:
-		return ProvinceGilan
-	case CityYazd:
-		return ProvinceYazd
-	default:
-		return ""
+func (province Province) Valid() bool {
+	_, ok := citiesByProvince[province]
+	return ok
+}
+
+func CitiesInProvince(province Province) []City {
+	return slices.Clone(citiesByProvince[province])
+}
+
+func CitiesByProvince() map[Province][]City {
+	locations := make(map[Province][]City, len(citiesByProvince))
+	for province := range citiesByProvince {
+		locations[province] = CitiesInProvince(province)
 	}
+	return locations
 }

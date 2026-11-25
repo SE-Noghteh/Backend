@@ -19,8 +19,10 @@ func jobSeekerToModel(seeker *entities.JobSeeker) *models.JobSeekerModel {
 		FirstName:          seeker.FirstName,
 		LastName:           seeker.LastName,
 		NationalCode:       seeker.NationalCode,
+		Province:           string(seeker.Province),
 		City:               string(seeker.City),
 		Address:            seeker.Address,
+		PostalCode:         seeker.PostalCode,
 		BirthDate:          seeker.BirthDate.String(),
 		Gender:             string(seeker.Gender),
 		Interests:          seeker.Interests,
@@ -28,6 +30,7 @@ func jobSeekerToModel(seeker *entities.JobSeeker) *models.JobSeekerModel {
 		PasswordHash:       seeker.PasswordHash,
 		PhoneVerifiedAt:    seeker.PhoneVerifiedAt,
 		CreatedAt:          seeker.CreatedAt,
+		IdentityDocument:   seeker.IdentityDocument,
 		VerificationVideo:  seeker.VerificationVideo,
 	}
 }
@@ -47,8 +50,10 @@ func jobSeekerFromModel(model *models.JobSeekerModel) (*entities.JobSeeker, erro
 		FirstName:                 model.FirstName,
 		LastName:                  model.LastName,
 		NationalCode:              model.NationalCode,
+		Province:                  enums.Province(model.Province),
 		City:                      enums.City(model.City),
 		Address:                   model.Address,
+		PostalCode:                model.PostalCode,
 		BirthDate:                 birth,
 		Gender:                    enums.Gender(model.Gender),
 		Interests:                 model.Interests,
@@ -56,6 +61,7 @@ func jobSeekerFromModel(model *models.JobSeekerModel) (*entities.JobSeeker, erro
 		PasswordHash:              model.PasswordHash,
 		PhoneVerifiedAt:           model.PhoneVerifiedAt,
 		CreatedAt:                 model.CreatedAt,
+		IdentityDocument:          model.IdentityDocument,
 		VerificationVideo:         model.VerificationVideo,
 	}, nil
 }

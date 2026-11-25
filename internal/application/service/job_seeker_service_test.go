@@ -17,7 +17,7 @@ import (
 )
 
 type signupMemory struct {
-	passwordReset  *entities.SignupOTP
+	passwordReset  *ports.PasswordResetChallenge
 	phoneChange    *entities.SignupOTP
 	occupiedPhone  string
 	otp            *entities.SignupOTP
@@ -39,7 +39,7 @@ func (m *signupMemory) ParentRepository() ports.ParentRepository { return nil }
 func (m *signupMemory) WithTransaction(fn func(ports.RepositoryFactory) error) error {
 	previousOTP, previousSeeker, previousAttempt := cloneOTP(m.otp), cloneSeeker(m.seeker), cloneAttempt(m.attempt)
 	previousPhoneChange := cloneOTP(m.phoneChange)
-	previousReset := cloneOTP(m.passwordReset)
+	previousReset := clonePasswordReset(m.passwordReset)
 	err := fn(m)
 	if err == nil {
 		err = m.commitErr
@@ -111,7 +111,7 @@ func (m *signupMemory) SaveOTP(_ context.Context, otp *entities.SignupOTP) error
 }
 
 func TestJobSeekerVideoRequiredAndUploadFailures(t *testing.T) {
-	for _, scenario := range []string{"missing", "invalid", "storage", "sms", "save", "commit"} {
+	for _, scenario := range []string{"missing", "missing identity", "PDF identity", "invalid", "storage", "sms", "save", "commit"} {
 		t.Run(scenario, func(t *testing.T) {
 			m := &signupMemory{}
 			uploads := &employerMemory{}
@@ -120,10 +120,14 @@ func TestJobSeekerVideoRequiredAndUploadFailures(t *testing.T) {
 			switch scenario {
 			case "missing":
 				in.VerificationVideo = ports.UploadFile{}
+			case "missing identity":
+				in.IdentityDocument = ports.UploadFile{}
+			case "PDF identity":
+				in.IdentityDocument.Name = "id.pdf"
 			case "invalid":
 				uploads.mediaErr = domainerrors.ErrInvalidUpload
 			case "storage":
-				uploads.failPut = 1
+				uploads.failPut = 2
 			case "sms":
 				m.smsErr = errors.New("SMS unavailable")
 			case "save":
@@ -137,7 +141,7 @@ func TestJobSeekerVideoRequiredAndUploadFailures(t *testing.T) {
 			if m.otp != nil || m.seeker != nil || len(uploads.objects) != 0 {
 				t.Fatal("failed signup left pending data or uploaded objects")
 			}
-			if scenario == "missing" || scenario == "invalid" {
+			if scenario == "missing" || scenario == "missing identity" || scenario == "PDF identity" || scenario == "invalid" {
 				if uploads.putCount != 0 || m.smsCount != 0 {
 					t.Fatal("invalid video uploaded or sent OTP")
 				}
@@ -155,6 +159,7 @@ func TestJobSeekerVideoLifecycle(t *testing.T) {
 		t.Fatal(err)
 	}
 	oldKey := m.otp.Registration.VerificationVideo.Key
+	oldIdentity := m.otp.Registration.IdentityDocument.Key
 	if !strings.HasPrefix(oldKey, "job-seekers/") || strings.Contains(oldKey, validSignup().Phone) {
 		t.Fatal("video key must be private and random")
 	}
@@ -162,7 +167,7 @@ func TestJobSeekerVideoLifecycle(t *testing.T) {
 	if err := s.RequestOTP(ctx, validSignup().Phone); err != nil {
 		t.Fatal(err)
 	}
-	if uploads.putCount != 1 || m.otp.Registration.VerificationVideo.Key != oldKey {
+	if uploads.putCount != 2 || m.otp.Registration.VerificationVideo.Key != oldKey || m.otp.Registration.IdentityDocument.Key != oldIdentity {
 		t.Fatal("resending OTP changed the video")
 	}
 	m.otp.SentAt = time.Now().Add(-2 * time.Minute)
@@ -170,7 +175,7 @@ func TestJobSeekerVideoLifecycle(t *testing.T) {
 	if err := s.Signup(ctx, validSignup()); err == nil {
 		t.Fatal("failed replacement accepted")
 	}
-	if m.otp.Registration.VerificationVideo.Key != oldKey || len(uploads.objects) != 1 {
+	if m.otp.Registration.VerificationVideo.Key != oldKey || m.otp.Registration.IdentityDocument.Key != oldIdentity || len(uploads.objects) != 2 {
 		t.Fatal("failed replacement removed the previous video")
 	}
 	if _, ok := uploads.objects[oldKey]; !ok {
@@ -181,18 +186,25 @@ func TestJobSeekerVideoLifecycle(t *testing.T) {
 		t.Fatal(err)
 	}
 	newKey := m.otp.Registration.VerificationVideo.Key
-	if oldKey == newKey || len(uploads.objects) != 1 {
+	if oldKey == newKey || len(uploads.objects) != 2 {
 		t.Fatal("replacement must keep only the new video")
 	}
 	if _, ok := uploads.objects[oldKey]; ok {
 		t.Fatal("replacement left the old video")
 	}
+	if _, ok := uploads.objects[oldIdentity]; ok {
+		t.Fatal("replacement left the old identity image")
+	}
+	newIdentity := m.otp.Registration.IdentityDocument.Key
 	seeker, err := s.VerifyOTP(ctx, usecase.VerifySignupOTP{Phone: validSignup().Phone, OTP: m.smsCode})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if seeker.VerificationVideo == nil || seeker.VerificationVideo.Key != newKey {
 		t.Fatal("verification lost the video reference")
+	}
+	if seeker.IdentityDocument == nil || seeker.IdentityDocument.Key != newIdentity || seeker.Province != validSignup().Province || seeker.PostalCode != validSignup().PostalCode {
+		t.Fatal("verification lost identity or location fields")
 	}
 	if _, err := s.VideoURL(ctx, seeker.ID); err != nil {
 		t.Fatal(err)
@@ -282,7 +294,7 @@ func newJobSeekerService(m *signupMemory) *JobSeekerService {
 }
 
 func validSignup() usecase.SignupJobSeeker {
-	return usecase.SignupJobSeeker{FirstName: "علی", LastName: "رضایی", NationalCode: "0013547895", City: enums.CityTehran, Address: "خیابان آزادی", BirthDate: valueobjects.JalaliDate{Year: 1388, Month: 1, Day: 1}, Gender: enums.GenderMale, Interests: []enums.Interest{enums.InterestProgramming}, Phone: "09123456789", Password: "a-good-password", VerificationVideo: ports.UploadFile{Name: "video.mp4", Body: strings.NewReader("video")}}
+	return usecase.SignupJobSeeker{FirstName: "علی", LastName: "رضایی", NationalCode: "0013547895", Province: enums.ProvinceTehran, City: enums.CityTehran, Address: "خیابان آزادی", PostalCode: "0123456789", BirthDate: valueobjects.JalaliDate{Year: 1388, Month: 1, Day: 1}, Gender: enums.GenderMale, Interests: []enums.Interest{enums.InterestProgramming}, Phone: "09123456789", Password: "a-good-password", IdentityDocument: ports.UploadFile{Name: "birth-certificate.png", Body: strings.NewReader("image")}, VerificationVideo: ports.UploadFile{Name: "video.mp4", Body: strings.NewReader("video")}}
 }
 
 func TestSignupAutomaticallySendsOTPAndRequiresVerification(t *testing.T) {
@@ -413,6 +425,10 @@ func TestVerificationRetainsCodeOnDatabaseFailure(t *testing.T) {
 func TestSignupRejectsInvalidProfileBeforeSendingSMS(t *testing.T) {
 	for _, mutate := range []func(*usecase.SignupJobSeeker){
 		func(in *usecase.SignupJobSeeker) { in.City = "invalid" },
+		func(in *usecase.SignupJobSeeker) { in.Province = "" },
+		func(in *usecase.SignupJobSeeker) { in.Province = enums.ProvinceAlborz },
+		func(in *usecase.SignupJobSeeker) { in.PostalCode = "" },
+		func(in *usecase.SignupJobSeeker) { in.PostalCode = "12345-6789" },
 		func(in *usecase.SignupJobSeeker) { in.Interests = []enums.Interest{"invalid"} },
 		func(in *usecase.SignupJobSeeker) {
 			in.Interests = []enums.Interest{enums.InterestDesign, enums.InterestDesign}

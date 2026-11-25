@@ -23,12 +23,15 @@ type adminMemory struct {
 	filterLimit, filterOffset int
 }
 type adminLoginMemory struct{ m *adminMemory }
-type adminReviewMemory struct{ m *adminMemory }
+type adminReviewMemory struct {
+	ports.AdminReviewRepository
+	m *adminMemory
+}
 
 func (m *adminMemory) Factory() ports.RepositoryFactory       { return m }
 func (m *adminMemory) AdminRepository() ports.AdminRepository { return &adminLoginMemory{m} }
 func (m *adminMemory) AdminReviewRepository() ports.AdminReviewRepository {
-	return &adminReviewMemory{m}
+	return &adminReviewMemory{m: m}
 }
 func (m *adminMemory) WithTransaction(fn func(ports.RepositoryFactory) error) error {
 	seeker, parent, attempt := cloneSeeker(m.seeker), cloneParent(m.parent), cloneAttempt(m.attempt)
@@ -113,6 +116,7 @@ func adminFixture(t *testing.T) (*adminMemory, *AdminService, *employerMemory) {
 	storage.objects[m.parent.IdentityDocument.Key] = *m.parent.IdentityDocument
 	storage.objects[m.parent.ConsentVideo.Key] = *m.parent.ConsentVideo
 	storage.objects[m.seeker.VerificationVideo.Key] = *m.seeker.VerificationVideo
+	storage.objects[m.seeker.IdentityDocument.Key] = *m.seeker.IdentityDocument
 	return m, NewAdminService(m, testPasswords{}, adminTokens{}, storage), storage
 }
 func TestAdminLoginAndThrottle(t *testing.T) {
@@ -281,6 +285,9 @@ func TestAdminListFiltersAndPrivateDocuments(t *testing.T) {
 	}
 	if _, err := s.JobSeekerVideoURL(ctx, 999); !errors.Is(err, domainerrors.ErrReviewNotFound) {
 		t.Fatal("missing seeker received URL")
+	}
+	if _, err := s.JobSeekerIdentityDocumentURL(ctx, 1); err != nil {
+		t.Fatal(err)
 	}
 	if _, err := s.ParentDocumentURL(ctx, 7, "unknown"); !errors.Is(err, domainerrors.ErrInvalidReview) {
 		t.Fatal("unknown document accepted")

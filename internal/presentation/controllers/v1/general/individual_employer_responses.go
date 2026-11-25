@@ -3,9 +3,11 @@ package general
 import (
 	"zedlancer/backend/internal/domain/entities"
 	"zedlancer/backend/internal/domain/enums"
+	"zedlancer/backend/internal/domain/valueobjects"
 )
 
 type IndividualEmployerIdentity struct {
+	valueobjects.EmployerReviewMetadata
 	SignupIdentity
 	EmployerType enums.EmployerType         `json:"employer_type"`
 	ReviewStatus enums.EmployerReviewStatus `json:"review_status"`
@@ -26,5 +28,5 @@ type DocumentURLResponse struct {
 }
 
 func identityFromIndividualEmployer(e *entities.IndividualEmployer) IndividualEmployerIdentity {
-	return IndividualEmployerIdentity{SignupIdentity: SignupIdentity{ID: e.Employer.ID, FirstName: e.FirstName, LastName: e.LastName, Phone: e.Phone, CreatedAt: e.CreatedAt}, EmployerType: e.Employer.Type, ReviewStatus: e.ReviewStatus}
+	return IndividualEmployerIdentity{EmployerReviewMetadata: e.EmployerReviewMetadata, SignupIdentity: SignupIdentity{ID: e.Employer.ID, FirstName: e.FirstName, LastName: e.LastName, Phone: e.Phone, CreatedAt: e.CreatedAt}, EmployerType: e.Employer.Type, ReviewStatus: e.ReviewStatus}
 }

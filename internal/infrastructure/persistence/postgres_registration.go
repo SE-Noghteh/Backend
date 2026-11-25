@@ -42,10 +42,12 @@ func NewPostgresDatabase() *gorm.DB {
 			&models.JobSeekerModel{},
 			&models.SignupOTPModel{},
 			&models.JobSeekerPhoneChangeOTPModel{},
-			&models.JobSeekerPasswordResetOTPModel{},
+			&models.PasswordResetModel{},
 			&models.ParentModel{},
 			&models.ParentInvitationModel{},
 			&models.ParentSignupOTPModel{},
+			&models.ParentConnectionRequestModel{},
+			&models.ParentLoginAttemptModel{},
 			&models.LoginAttemptModel{},
 			&models.RevokedAccessTokenModel{},
 			&models.EmployerModel{},
@@ -60,6 +62,10 @@ func NewPostgresDatabase() *gorm.DB {
 		}
 		// Parent connection is the flow state; remove the obsolete stage column.
 		if err := db.Exec("ALTER TABLE job_seekers DROP COLUMN IF EXISTS signup_status").Error; err != nil {
+			panic(err)
+		}
+		// Existing databases still have the ten-city allowlist. Signup validates against the shared catalog.
+		if err := db.Exec("ALTER TABLE job_seekers DROP CONSTRAINT IF EXISTS job_seekers_city").Error; err != nil {
 			panic(err)
 		}
 		if err := migrateLegacyEmployerTerms(db); err != nil {

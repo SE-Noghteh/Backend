@@ -12,11 +12,11 @@ import (
 type employerAuthentication[T any] struct {
 	uow         ports.UnitOfWork
 	passwords   ports.PasswordHasher
-	tokens      ports.TokenManager
+	tokens      ports.EmployerTokenManager
 	role        enums.AccountRole
 	findPhone   func(context.Context, ports.EmployerRepository, string) (*T, error)
 	findID      func(context.Context, ports.EmployerRepository, uint64) (*T, error)
-	credentials func(*T) (id uint64, hash string, verified bool)
+	credentials func(*T) (id uint64, hash string, verified bool, version uint64)
 }
 
 func (a employerAuthentication[T]) login(ctx context.Context, rawPhone, password string) (*T, *valueobjects.AccessToken, error) {
@@ -41,11 +41,11 @@ func (a employerAuthentication[T]) login(ctx context.Context, rawPhone, password
 		if err != nil {
 			return err
 		}
-		var id uint64
+		var id, version uint64
 		var hash string
 		var verified bool
 		if employer != nil {
-			id, hash, verified = a.credentials(employer)
+			id, hash, verified, version = a.credentials(employer)
 		}
 		matches := a.passwords.Matches(hash, password)
 		if !matches || employer == nil || !verified {
@@ -53,7 +53,7 @@ func (a employerAuthentication[T]) login(ctx context.Context, rawPhone, password
 			authErr = domainerrors.ErrInvalidCredentials
 			return attemptRepo.SaveLoginAttempt(ctx, attempt)
 		}
-		token, err = a.tokens.IssueAccessToken(id, a.role)
+		token, err = a.tokens.IssueEmployerAccessToken(id, a.role, version)
 		if err != nil {
 			return err
 		}
@@ -81,8 +81,8 @@ func (a employerAuthentication[T]) authenticate(ctx context.Context, token strin
 	if e == nil {
 		return nil, domainerrors.ErrUnauthenticated
 	}
-	_, _, verified := a.credentials(e)
-	if !verified {
+	_, _, verified, version := a.credentials(e)
+	if !verified || version != principal.SessionVersion {
 		return nil, domainerrors.ErrUnauthenticated
 	}
 	return e, nil

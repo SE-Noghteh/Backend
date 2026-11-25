@@ -54,6 +54,17 @@ func (m *JWTManager) IssueJobSeekerAccessToken(id, version uint64) (*valueobject
 	return m.issueAccessToken(id, enums.RoleJobSeeker, version)
 }
 
+func (m *JWTManager) IssueParentAccessToken(id, version uint64) (*valueobjects.AccessToken, error) {
+	return m.issueAccessToken(id, enums.RoleParent, version)
+}
+
+func (m *JWTManager) IssueEmployerAccessToken(id uint64, role enums.AccountRole, version uint64) (*valueobjects.AccessToken, error) {
+	if role != enums.RoleIndividualEmployer && role != enums.RoleLegalEmployer {
+		return nil, fmt.Errorf("invalid employer role")
+	}
+	return m.issueAccessToken(id, role, version)
+}
+
 func (m *JWTManager) issueAccessToken(id uint64, role enums.AccountRole, version uint64) (*valueobjects.AccessToken, error) {
 	if id == 0 || !role.Valid() {
 		return nil, fmt.Errorf("cannot issue token without a valid identity and role")

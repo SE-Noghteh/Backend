@@ -20,8 +20,8 @@ func (s *LegalEmployerService) authentication() employerAuthentication[entities.
 		findID: func(ctx context.Context, r ports.EmployerRepository, id uint64) (*entities.LegalEmployer, error) {
 			return r.FindLegalByID(ctx, id)
 		},
-		credentials: func(e *entities.LegalEmployer) (uint64, string, bool) {
-			return e.Employer.ID, e.PasswordHash, !e.PhoneVerifiedAt.IsZero()
+		credentials: func(e *entities.LegalEmployer) (uint64, string, bool, uint64) {
+			return e.Employer.ID, e.PasswordHash, !e.PhoneVerifiedAt.IsZero(), e.SessionVersion
 		},
 	}
 }
@@ -46,6 +46,17 @@ func (s *LegalEmployerService) DocumentURL(ctx context.Context, token, kind stri
 	if err != nil {
 		return "", err
 	}
+	object, err := legalEmployerDocument(e, kind)
+	if err != nil {
+		return "", err
+	}
+	if object == nil {
+		return "", fmt.Errorf("%w: no document was uploaded for this kind", domainerrors.ErrInvalidSignup)
+	}
+	return employerDocumentURL(ctx, s.storage, object)
+}
+
+func legalEmployerDocument(e *entities.LegalEmployer, kind string) (*valueobjects.StoredObject, error) {
 	var object *valueobjects.StoredObject
 	switch kind {
 	case "establishment":
@@ -59,10 +70,7 @@ func (s *LegalEmployerService) DocumentURL(ctx context.Context, token, kind stri
 	case "authorization":
 		object = e.AuthorizationDocument
 	default:
-		return "", fmt.Errorf("%w: document kind", domainerrors.ErrInvalidSignup)
+		return nil, fmt.Errorf("%w: document kind", domainerrors.ErrInvalidSignup)
 	}
-	if object == nil {
-		return "", fmt.Errorf("%w: no document was uploaded for this kind", domainerrors.ErrInvalidSignup)
-	}
-	return employerDocumentURL(ctx, s.storage, object)
+	return object, nil
 }

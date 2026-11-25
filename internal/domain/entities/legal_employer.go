@@ -8,6 +8,8 @@ import (
 )
 
 type LegalEmployer struct {
+	valueobjects.EmployerReviewMetadata
+	SessionVersion             uint64
 	Employer                   Employer
 	CompanyName                string
 	LegalEntityType            enums.LegalEntityType

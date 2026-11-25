@@ -6,6 +6,7 @@ import (
 )
 
 type Parent struct {
+	SessionVersion uint64 `json:"-"`
 	// ChildIDs is populated for admin responses from job seeker parent connections.
 	ChildIDs []uint64 `json:"-"`
 	valueobjects.AdminReview
@@ -36,4 +37,15 @@ type PendingParentSignup struct {
 	Relationship   string
 	Registration   *Parent
 	Challenge      *SignupOTP
+}
+
+// ParentConnectionRequest records a registered parent's decision for one job seeker.
+type ParentConnectionRequest struct {
+	FirstName   string
+	LastName    string
+	JobSeekerID uint64
+	ParentID    uint64
+	ExpiresAt   time.Time
+	DecidedAt   *time.Time
+	Approved    bool
 }

@@ -36,6 +36,12 @@ func validateSignupAt(in *usecase.SignupJobSeeker, now time.Time) error {
 	if !in.City.Valid() {
 		return invalid("city")
 	}
+	if !in.City.InProvince(in.Province) {
+		return invalid("province must match city")
+	}
+	if !postalCodePattern.MatchString(in.PostalCode) {
+		return invalid("postal_code must contain 10 digits")
+	}
 	if !in.Gender.Valid() {
 		return invalid("gender")
 	}

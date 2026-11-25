@@ -7,6 +7,7 @@ import (
 	"time"
 	"zedlancer/backend/internal/application/usecase"
 	"zedlancer/backend/internal/domain/enums"
+	domainerrors "zedlancer/backend/internal/domain/errors"
 	"zedlancer/backend/internal/domain/valueobjects"
 	"zedlancer/backend/internal/presentation/middleware"
 )
@@ -60,7 +61,7 @@ func bindParentJSON(ctx *gin.Context, in any) bool {
 
 // InviteParent godoc
 // @Summary Invite a new parent
-// @Description Requires a verified job seeker login. Supply first_name, last_name and phone for an unregistered parent. Returns an eight-character invitation code valid for seven days. Registered parents return 409; use the registered-parent endpoint instead. Repeating this request replaces the previous code. Only an existing parent connection blocks this API, returning 409: parent already connected.
+// @Description Requires a verified job seeker login. Supply first_name, last_name and phone for an unregistered parent. Attempts to text the eight-character invitation code, valid for seven days. The response includes invitation_sms_sent and the code for manual sharing. Registered parents return 409; use the registered-parent endpoint instead. Repeating this request replaces the previous code. Only an existing parent connection blocks this API, returning 409: parent already connected.
 // @Tags Job seekers
 // @Security BearerAuth
 // @Accept json
@@ -88,8 +89,8 @@ func (c *ParentController) InviteParent(ctx *gin.Context) {
 }
 
 // LinkRegisteredParent godoc
-// @Summary Connect an already registered parent by phone
-// @Description Requires job seeker login. Accepts only the parent's phone number. Links the verified parent immediately. Does not request names or generate an invitation code. If the parent is not registered, returns 400; use the invitation endpoint instead. If a parent is already connected, returns 409: parent already connected.
+// @Summary Request consent from an already registered parent
+// @Description Requires job seeker login. Accepts only the parent's phone number. Creates a pending request that the parent must approve while signed in. If the parent is not registered, returns 400; use the invitation endpoint instead. If a parent is already connected, returns 409: parent already connected.
 // @Tags Job seekers
 // @Security BearerAuth
 // @Accept json
@@ -141,16 +142,16 @@ func (c *ParentController) ValidateInvitation(ctx *gin.Context) {
 
 // Signup godoc
 // @Summary Submit parent documents and send OTP to the saved phone
-// @Description Invitation required. Name and phone come from the job seeker's invitation. Relationship is father or mother. Requires consent, password (8-72 bytes), identity image (PNG/JPEG up to 5 MiB) and consent video (MP4/MOV, 1-20 seconds, up to 50 MiB). No parent account or link exists until OTP verification. Pending submission lasts 30 minutes; invitation remains subject to its seven-day expiry.
+// @Description Invitation required. Name and phone come from the job seeker's invitation. Relationship is father, mother, or guardian. Requires consent, password (8-72 bytes), identity image (PNG/JPEG up to 5 MiB) and consent video (MP4/MOV/WebM, 1-20 seconds, up to 50 MiB). No parent account or link exists until OTP verification. Pending submission lasts 30 minutes; invitation remains subject to its seven-day expiry.
 // @Tags Parents
 // @Accept multipart/form-data
 // @Produce json
 // @Param code formData string true "Invitation code"
-// @Param relationship formData string true "Relationship" Enums(father,mother)
+// @Param relationship formData string true "Relationship" Enums(father,mother,guardian)
 // @Param password formData string true "Password (8-72 bytes)"
 // @Param consent_accepted formData bool true "Parent accepts the rules and approves the child"
 // @Param identity_document formData file true "First page of parent identity document (PNG/JPEG, <=5 MiB)"
-// @Param consent_video formData file true "Parent consent video (MP4/MOV, 1-20 seconds, <=50 MiB)"
+// @Param consent_video formData file true "Parent consent video (MP4/MOV/WebM, 1-20 seconds, <=50 MiB)"
 // @Success 202 {object} OTPResponse
 // @Failure 400,409,413,429,500,503 {object} ErrorResponse
 // @Router /parents/signup [post]
@@ -234,4 +235,27 @@ func (c *ParentController) VerifyOTP(ctx *gin.Context) {
 		review.AdminApprovalStatus = enums.AdminReviewPending
 	}
 	ctx.JSON(http.StatusCreated, ParentSignupResponse{AdminReview: review, ID: parent.ID, FirstName: parent.FirstName, LastName: parent.LastName, Phone: parent.Phone, Relationship: parent.Relationship, Message: "Parent signup completed and job seeker linked successfully"})
+}
+
+// ConnectionStatus godoc
+// @Summary View the job seeker's parent connection status
+// @Tags Job seekers
+// @Security BearerAuth
+// @Produce json
+// @Success 200 {object} usecase.ParentApprovalResult
+// @Failure 401,500 {object} ErrorResponse
+// @Router /job-seekers/parent-approval/request [get]
+func (c *ParentController) ConnectionStatus(ctx *gin.Context) {
+	ctx.Header("Cache-Control", "no-store")
+	seeker, ok := middleware.CurrentJobSeeker(ctx)
+	if !ok {
+		respondAPIError(ctx, domainerrors.ErrUnauthenticated)
+		return
+	}
+	result, err := c.service.ConnectionStatus(ctx.Request.Context(), seeker.ID)
+	if err != nil {
+		respondAPIError(ctx, err)
+		return
+	}
+	ctx.JSON(http.StatusOK, result)
 }

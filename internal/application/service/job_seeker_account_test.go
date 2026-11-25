@@ -262,10 +262,11 @@ func TestPhoneChangeConflictAndCommitRollback(t *testing.T) {
 	}
 }
 
-func TestDeleteAccountVideoCleanupAfterCommit(t *testing.T) {
+func TestDeleteAccountDocumentCleanupAfterCommit(t *testing.T) {
 	m := verifiedMemory(t)
 	video := *m.seeker.VerificationVideo
-	storage := &employerMemory{objects: map[string]valueobjects.StoredObject{video.Key: video}}
+	identity := *m.seeker.IdentityDocument
+	storage := &employerMemory{objects: map[string]valueobjects.StoredObject{video.Key: video, identity.Key: identity}}
 	s := NewJobSeekerService(m, m, testPasswords{}, storage, storage)
 	ctx := context.Background()
 	m.commitErr = errors.New("commit failed")
@@ -273,13 +274,13 @@ func TestDeleteAccountVideoCleanupAfterCommit(t *testing.T) {
 		t.Fatal("failed commit accepted")
 	}
 	if len(storage.deleted) != 0 || m.seeker == nil {
-		t.Fatal("failed deletion removed video or account")
+		t.Fatal("failed deletion removed documents or account")
 	}
 	m.commitErr = nil
 	if err := s.DeleteAccount(ctx, 1, validSignup().Password); err != nil {
 		t.Fatal(err)
 	}
-	if len(storage.objects) != 0 || len(storage.deleted) != 1 || storage.deleted[0] != video.Key {
-		t.Fatal("account video was not deleted")
+	if len(storage.objects) != 0 || len(storage.deleted) != 2 {
+		t.Fatal("account documents were not deleted")
 	}
 }

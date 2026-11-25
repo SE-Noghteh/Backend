@@ -19,8 +19,4 @@ type JobSeekerRepository interface {
 	GetPhoneChangeOTP(context.Context, uint64) (*entities.SignupOTP, error)
 	SavePhoneChangeOTP(context.Context, uint64, *entities.SignupOTP) error
 	DeletePhoneChangeOTP(context.Context, uint64) error
-	GetPasswordResetOTP(context.Context, uint64) (*entities.SignupOTP, error)
-	SavePasswordResetOTP(context.Context, uint64, *entities.SignupOTP) error
-	DeletePasswordResetOTP(context.Context, uint64) error
-	UpdatePassword(context.Context, uint64, string) error
 }

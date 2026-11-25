@@ -8,32 +8,74 @@ import (
 	"time"
 	"zedlancer/backend/internal/application/usecase"
 	"zedlancer/backend/internal/domain/entities"
+	"zedlancer/backend/internal/domain/enums"
 	domainerrors "zedlancer/backend/internal/domain/errors"
+	"zedlancer/backend/internal/domain/ports"
 )
 
-func (m *signupMemory) GetPasswordResetOTP(ctx context.Context, id uint64) (*entities.SignupOTP, error) {
-	if err := m.LockAccount(ctx, id); err != nil {
-		return nil, err
-	}
-	return cloneOTP(m.passwordReset), nil
+type memoryPasswordResetRepository struct{ memory *signupMemory }
+
+func (m *signupMemory) PasswordResetRepository() ports.PasswordResetRepository {
+	return &memoryPasswordResetRepository{memory: m}
 }
-func (m *signupMemory) SavePasswordResetOTP(_ context.Context, _ uint64, otp *entities.SignupOTP) error {
-	if m.saveErr != nil {
-		return m.saveErr
+
+func (m *signupMemory) SendPasswordResetOTP(ctx context.Context, destination, code string) error {
+	return m.SendOTP(ctx, destination, code)
+}
+
+func clonePasswordReset(in *ports.PasswordResetChallenge) *ports.PasswordResetChallenge {
+	if in == nil {
+		return nil
 	}
-	m.passwordReset = cloneOTP(otp)
+	copy := *in
+	return &copy
+}
+
+func (r *memoryPasswordResetRepository) LockAccount(_ context.Context, role enums.AccountRole, phone string) (*ports.PasswordResetAccount, error) {
+	seeker := r.memory.seeker
+	if role != enums.RoleJobSeeker || seeker == nil || seeker.Phone != phone {
+		return nil, nil
+	}
+	return &ports.PasswordResetAccount{ID: seeker.ID, Phone: seeker.Phone, SessionVersion: seeker.SessionVersion, PhoneVerifiedAt: seeker.PhoneVerifiedAt}, nil
+}
+
+func (r *memoryPasswordResetRepository) Get(_ context.Context, role enums.AccountRole, phone string) (*ports.PasswordResetChallenge, error) {
+	c := r.memory.passwordReset
+	if c == nil || c.Role != role || c.OTP.Phone != phone {
+		return nil, nil
+	}
+	return clonePasswordReset(c), nil
+}
+
+func (r *memoryPasswordResetRepository) FindByTokenHash(_ context.Context, role enums.AccountRole, hash string) (*ports.PasswordResetChallenge, error) {
+	c := r.memory.passwordReset
+	if c == nil || c.Role != role || c.TokenHash == nil || *c.TokenHash != hash {
+		return nil, nil
+	}
+	return clonePasswordReset(c), nil
+}
+
+func (r *memoryPasswordResetRepository) Save(_ context.Context, c *ports.PasswordResetChallenge) error {
+	if r.memory.saveErr != nil {
+		return r.memory.saveErr
+	}
+	r.memory.passwordReset = clonePasswordReset(c)
 	return nil
 }
-func (m *signupMemory) DeletePasswordResetOTP(context.Context, uint64) error {
-	m.passwordReset = nil
+
+func (r *memoryPasswordResetRepository) Delete(ctx context.Context, role enums.AccountRole, phone string) error {
+	if c, _ := r.Get(ctx, role, phone); c != nil {
+		r.memory.passwordReset = nil
+	}
 	return nil
 }
-func (m *signupMemory) UpdatePassword(ctx context.Context, id uint64, hash string) error {
-	if err := m.LockAccount(ctx, id); err != nil {
+
+func (r *memoryPasswordResetRepository) UpdatePassword(ctx context.Context, _ enums.AccountRole, id uint64, hash string) error {
+	if err := r.memory.LockAccount(ctx, id); err != nil {
 		return err
 	}
-	m.seeker.PasswordHash = hash
-	m.seeker.SessionVersion++
+	r.memory.seeker.PasswordHash = hash
+	r.memory.seeker.SessionVersion++
 	return nil
 }
 
@@ -41,23 +83,36 @@ const newResetPassword = "my-new-password"
 
 func TestPasswordResetLifecycleAndSessionInvalidation(t *testing.T) {
 	m := verifiedMemory(t)
-	s := newJobSeekerService(m)
+	s := NewPasswordResetService(m, testPasswords{}, m)
 	ctx := context.Background()
 	auth := NewJobSeekerAuthService(m, testPasswords{}, testTokens{})
 	oldLogin, err := auth.Login(ctx, usecase.LoginJobSeeker{Phone: m.seeker.Phone, Password: validSignup().Password})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := s.ForgotPassword(ctx, "+989123456789"); err != nil {
+	if err := s.Request(ctx, enums.RoleJobSeeker, "+989123456789"); err != nil {
 		t.Fatal(err)
 	}
 	code := m.smsCode
-	if m.passwordReset == nil || m.passwordReset.CodeHash == code || m.otp != nil || m.phoneChange != nil {
+	if m.passwordReset == nil || m.passwordReset.OTP.CodeHash == code || m.otp != nil || m.phoneChange != nil {
 		t.Fatal("reset challenge not isolated or code stored in plaintext")
 	}
-	m.phoneChange = cloneOTP(m.passwordReset)
+	m.phoneChange = cloneOTP(&m.passwordReset.OTP)
 	m.attempt = &entities.LoginAttempt{Phone: m.seeker.Phone, Failures: maxLoginFailures, WindowStartedAt: time.Now()}
-	if err := s.ResetPassword(ctx, m.seeker.Phone, code, newResetPassword); err != nil {
+	token, err := s.VerifyOTP(ctx, enums.RoleJobSeeker, m.seeker.Phone, code)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.passwordReset.TokenHash == nil || *m.passwordReset.TokenHash == token || m.passwordReset.OTP.CodeHash != "" || m.seeker.SessionVersion != 0 {
+		t.Fatal("OTP verification changed password or stored the raw token")
+	}
+	if _, err := s.VerifyOTP(ctx, enums.RoleJobSeeker, m.seeker.Phone, code); !errors.Is(err, domainerrors.ErrInvalidOTP) {
+		t.Fatal("verified OTP was reusable")
+	}
+	if err := s.Reset(ctx, enums.RoleParent, token, newResetPassword); !errors.Is(err, domainerrors.ErrInvalidResetToken) {
+		t.Fatal("reset token worked across account roles")
+	}
+	if err := s.Reset(ctx, enums.RoleJobSeeker, token, newResetPassword); err != nil {
 		t.Fatal(err)
 	}
 	if m.passwordReset != nil || m.phoneChange != nil || m.attempt != nil || m.seeker.PasswordHash != "hash:"+newResetPassword || m.seeker.SessionVersion != 1 {
@@ -76,7 +131,7 @@ func TestPasswordResetLifecycleAndSessionInvalidation(t *testing.T) {
 	if _, err := auth.Authenticate(ctx, fresh.AccessToken.Value); err != nil {
 		t.Fatal("new session was invalidated", err)
 	}
-	if err := s.ResetPassword(ctx, m.seeker.Phone, code, "another-password"); !errors.Is(err, domainerrors.ErrInvalidOTP) {
+	if err := s.Reset(ctx, enums.RoleJobSeeker, token, "another-password"); !errors.Is(err, domainerrors.ErrInvalidResetToken) {
 		t.Fatal("OTP replay accepted", err)
 	}
 }
@@ -84,20 +139,20 @@ func TestForgotPasswordUnknownAndUnverifiedAccounts(t *testing.T) {
 	for _, scenario := range []string{"unknown", "pending"} {
 		t.Run(scenario, func(t *testing.T) {
 			m := verifiedMemory(t)
-			s := newJobSeekerService(m)
+			s := NewPasswordResetService(m, testPasswords{}, m)
 			count := m.smsCount
 			if scenario == "unknown" {
 				m.seeker = nil
 			} else {
 				m.seeker.PhoneVerifiedAt = time.Time{}
 			}
-			if err := s.ForgotPassword(context.Background(), validSignup().Phone); err != nil {
+			if err := s.Request(context.Background(), enums.RoleJobSeeker, validSignup().Phone); err != nil {
 				t.Fatal("unknown/unverified account response leaked existence", err)
 			}
 			if m.passwordReset != nil || m.smsCount != count {
 				t.Fatal("unknown/unverified account received OTP")
 			}
-			if err := s.ResetPassword(context.Background(), validSignup().Phone, "123456", newResetPassword); !errors.Is(err, domainerrors.ErrInvalidOTP) {
+			if _, err := s.VerifyOTP(context.Background(), enums.RoleJobSeeker, validSignup().Phone, "123456"); !errors.Is(err, domainerrors.ErrInvalidOTP) {
 				t.Fatal("unverified account password changed", err)
 			}
 		})
@@ -105,35 +160,35 @@ func TestForgotPasswordUnknownAndUnverifiedAccounts(t *testing.T) {
 }
 func TestPasswordResetCooldownAttemptsAndResend(t *testing.T) {
 	m := verifiedMemory(t)
-	s := newJobSeekerService(m)
+	s := NewPasswordResetService(m, testPasswords{}, m)
 	ctx := context.Background()
 	phone := m.seeker.Phone
-	if err := s.ForgotPassword(ctx, phone); err != nil {
+	if err := s.Request(ctx, enums.RoleJobSeeker, phone); err != nil {
 		t.Fatal(err)
 	}
-	code := m.smsCode
-	if err := s.ForgotPassword(ctx, phone); !errors.Is(err, domainerrors.ErrOTPTooSoon) {
+	code, sends := m.smsCode, m.smsCount
+	if err := s.Request(ctx, enums.RoleJobSeeker, phone); err != nil || m.smsCount != sends {
 		t.Fatal("cooldown bypassed", err)
 	}
 	for i := 0; i < maxOTPAttempts; i++ {
-		if err := s.ResetPassword(ctx, phone, "invalid", newResetPassword); !errors.Is(err, domainerrors.ErrInvalidOTP) {
+		if _, err := s.VerifyOTP(ctx, enums.RoleJobSeeker, phone, "invalid"); !errors.Is(err, domainerrors.ErrInvalidOTP) {
 			t.Fatal(err)
 		}
 	}
-	if m.passwordReset.Attempts != maxOTPAttempts {
+	if m.passwordReset.OTP.Attempts != maxOTPAttempts {
 		t.Fatal("failed attempts rolled back")
 	}
-	if err := s.ResetPassword(ctx, phone, code, newResetPassword); !errors.Is(err, domainerrors.ErrInvalidOTP) {
+	if _, err := s.VerifyOTP(ctx, enums.RoleJobSeeker, phone, code); !errors.Is(err, domainerrors.ErrInvalidOTP) {
 		t.Fatal("locked OTP accepted", err)
 	}
-	m.passwordReset.SentAt = time.Now().Add(-2 * time.Minute)
-	if err := s.ForgotPassword(ctx, phone); err != nil {
+	m.passwordReset.OTP.SentAt = time.Now().Add(-2 * time.Minute)
+	if err := s.Request(ctx, enums.RoleJobSeeker, phone); err != nil {
 		t.Fatal(err)
 	}
-	if m.passwordReset.Attempts != 0 {
+	if m.passwordReset.OTP.Attempts != 0 {
 		t.Fatal("new challenge kept previous attempts")
 	}
-	if err := s.ResetPassword(ctx, phone, m.smsCode, newResetPassword); err != nil {
+	if _, err := s.VerifyOTP(ctx, enums.RoleJobSeeker, phone, m.smsCode); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -141,34 +196,38 @@ func TestPasswordResetRejectsInvalidOrMismatchedChallenge(t *testing.T) {
 	for _, scenario := range []string{"expired", "wrong phone", "changed phone", "signup OTP", "phone-change OTP", "short password", "long password"} {
 		t.Run(scenario, func(t *testing.T) {
 			m := verifiedMemory(t)
-			s := newJobSeekerService(m)
+			s := NewPasswordResetService(m, testPasswords{}, m)
 			ctx := context.Background()
 			phone := m.seeker.Phone
-			if err := s.ForgotPassword(ctx, phone); err != nil {
+			if err := s.Request(ctx, enums.RoleJobSeeker, phone); err != nil {
 				t.Fatal(err)
 			}
 			code := m.smsCode
 			password := newResetPassword
 			switch scenario {
 			case "expired":
-				m.passwordReset.ExpiresAt = time.Now().Add(-time.Second)
+				m.passwordReset.OTP.ExpiresAt = time.Now().Add(-time.Second)
 			case "wrong phone":
 				phone = changedPhone
 			case "changed phone":
 				m.seeker.Phone = changedPhone
 				phone = changedPhone
 			case "signup OTP":
-				m.otp = m.passwordReset
+				m.otp = &m.passwordReset.OTP
 				m.passwordReset = nil
 			case "phone-change OTP":
-				m.phoneChange = m.passwordReset
+				m.phoneChange = &m.passwordReset.OTP
 				m.passwordReset = nil
 			case "short password":
 				password = "short"
 			case "long password":
 				password = strings.Repeat("x", 73)
 			}
-			if err := s.ResetPassword(ctx, phone, code, password); err == nil {
+			token, err := s.VerifyOTP(ctx, enums.RoleJobSeeker, phone, code)
+			if err == nil {
+				err = s.Reset(ctx, enums.RoleJobSeeker, token, password)
+			}
+			if err == nil {
 				t.Fatal("invalid reset accepted")
 			}
 			if m.seeker.PasswordHash != "hash:"+validSignup().Password || m.seeker.SessionVersion != 0 {
@@ -181,7 +240,7 @@ func TestPasswordResetFailuresRollback(t *testing.T) {
 	for _, scenario := range []string{"sms", "save", "request commit", "reset commit"} {
 		t.Run(scenario, func(t *testing.T) {
 			m := verifiedMemory(t)
-			s := newJobSeekerService(m)
+			s := NewPasswordResetService(m, testPasswords{}, m)
 			ctx := context.Background()
 			phone := m.seeker.Phone
 			switch scenario {
@@ -193,20 +252,56 @@ func TestPasswordResetFailuresRollback(t *testing.T) {
 				m.commitErr = errors.New("commit failed")
 			}
 			if scenario != "reset commit" {
-				if err := s.ForgotPassword(ctx, phone); err == nil || m.passwordReset != nil {
+				if err := s.Request(ctx, enums.RoleJobSeeker, phone); err == nil || m.passwordReset != nil {
 					t.Fatal("failed request retained challenge")
 				}
 				return
 			}
-			if err := s.ForgotPassword(ctx, phone); err != nil {
+			if err := s.Request(ctx, enums.RoleJobSeeker, phone); err != nil {
+				t.Fatal(err)
+			}
+			token, err := s.VerifyOTP(ctx, enums.RoleJobSeeker, phone, m.smsCode)
+			if err != nil {
 				t.Fatal(err)
 			}
 			m.commitErr = errors.New("reset commit failed")
-			if err := s.ResetPassword(ctx, phone, m.smsCode, newResetPassword); err == nil {
+			if err := s.Reset(ctx, enums.RoleJobSeeker, token, newResetPassword); err == nil {
 				t.Fatal("failed commit accepted")
 			}
 			if m.passwordReset == nil || m.seeker.PasswordHash != "hash:"+validSignup().Password || m.seeker.SessionVersion != 0 {
 				t.Fatal("failed commit changed credentials or consumed OTP")
+			}
+		})
+	}
+}
+
+func TestVerifiedPasswordResetTokenExpiresOrIsReplaced(t *testing.T) {
+	for _, scenario := range []string{"expiry", "new OTP request"} {
+		t.Run(scenario, func(t *testing.T) {
+			m := verifiedMemory(t)
+			s := NewPasswordResetService(m, testPasswords{}, m)
+			ctx := context.Background()
+			role, phone := enums.RoleJobSeeker, m.seeker.Phone
+			if err := s.Request(ctx, role, phone); err != nil {
+				t.Fatal(err)
+			}
+			token, err := s.VerifyOTP(ctx, role, phone, m.smsCode)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if scenario == "expiry" {
+				m.passwordReset.OTP.ExpiresAt = time.Now().Add(-time.Second)
+			} else {
+				m.passwordReset.OTP.SentAt = time.Now().Add(-2 * time.Minute)
+				if err := s.Request(ctx, role, phone); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := s.Reset(ctx, role, token, newResetPassword); !errors.Is(err, domainerrors.ErrInvalidResetToken) {
+				t.Fatalf("old token accepted: %v", err)
+			}
+			if m.seeker.SessionVersion != 0 {
+				t.Fatal("invalid reset changed account state")
 			}
 		})
 	}

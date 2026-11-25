@@ -21,6 +21,18 @@ func NewFerzzSender() *FerzzSender {
 	return &FerzzSender{token: bootstrap.Run().Env.SMS.Token, client: &http.Client{Timeout: 10 * time.Second}}
 }
 func (s *FerzzSender) SendOTP(ctx context.Context, destination, code string) error {
+	if err := s.sendCode(ctx, destination, code); err != nil {
+		return err
+	}
+	slog.InfoContext(ctx, "OTP sent", "destination", destination, "code", code)
+	return nil
+}
+
+func (s *FerzzSender) SendParentInvitation(ctx context.Context, destination, code string) error {
+	return s.sendCode(ctx, destination, code)
+}
+
+func (s *FerzzSender) sendCode(ctx context.Context, destination, code string) error {
 	if s.token == "" {
 		return fmt.Errorf("SMS token is not configured")
 	}
@@ -48,6 +60,10 @@ func (s *FerzzSender) SendOTP(ctx context.Context, destination, code string) err
 	if response.StatusCode != http.StatusOK {
 		return fmt.Errorf("SMS delivery returned status %d", response.StatusCode)
 	}
-	slog.InfoContext(ctx, "OTP sent", "destination", destination, "code", code)
 	return nil
+}
+
+// Password reset codes must stay out of application logs.
+func (s *FerzzSender) SendPasswordResetOTP(ctx context.Context, destination, code string) error {
+	return s.sendCode(ctx, destination, code)
 }

@@ -20,6 +20,7 @@ import (
 )
 
 type parentAPI struct {
+	usecase.ParentService
 	id           uint64
 	code, otp    string
 	phone        string

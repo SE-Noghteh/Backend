@@ -27,3 +27,9 @@ type AdminReviewModel struct {
 	AdminReviewedAt     *time.Time
 	AdminReviewedBy     string `gorm:"size:100"`
 }
+
+type EmployerReviewMetadataModel struct {
+	Message    string     `gorm:"column:admin_review_message;size:1000;not null;default:''"`
+	ReviewedAt *time.Time `gorm:"column:admin_reviewed_at"`
+	ReviewedBy string     `gorm:"column:admin_reviewed_by;size:100"`
+}

@@ -30,6 +30,13 @@ var ServiceProviderSet = wire.NewSet(
 	wire.Bind(new(usecase.AdminService), new(*service.AdminService)),
 	wire.Bind(new(ports.AdminTokenManager), new(*security.JWTManager)),
 	service.NewParentService,
+	service.NewParentAccountService,
+	service.NewPasswordResetService,
+	wire.Bind(new(usecase.PasswordResetService), new(*service.PasswordResetService)),
+	wire.Bind(new(ports.PasswordResetSender), new(*sms.FerzzSender)),
+	wire.Bind(new(ports.EmployerTokenManager), new(*security.JWTManager)),
+	wire.Bind(new(usecase.ParentAccountService), new(*service.ParentAccountService)),
+	wire.Bind(new(ports.ParentTokenManager), new(*security.JWTManager)),
 	wire.Bind(new(usecase.ParentService), new(*service.ParentService)),
 	storage.NewS3Storage,
 	media.NewValidator,
@@ -59,6 +66,8 @@ var ServiceProviderSet = wire.NewSet(
 var GeneralControllersProviderSet = wire.NewSet(
 	general.NewAdminController,
 	general.NewParentController,
+	general.NewParentAccountController,
+	general.NewPasswordResetController,
 	general.NewIndividualEmployerController,
 	general.NewLegalEmployerController,
 	general.NewJobSeekerAuthController,
@@ -82,6 +91,8 @@ var ProviderSet = wire.NewSet(
 type GeneralControllers struct {
 	AdminController              *general.AdminController
 	ParentController             *general.ParentController
+	ParentAccountController      *general.ParentAccountController
+	PasswordResetController      *general.PasswordResetController
 	LegalEmployerController      *general.LegalEmployerController
 	IndividualEmployerController *general.IndividualEmployerController
 	JobSeekerAuthController      *general.JobSeekerAuthController

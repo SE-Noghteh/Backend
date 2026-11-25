@@ -32,11 +32,14 @@ type AdminReviewRequest struct {
 type AdminJobSeekerResponse struct {
 	JobSeekerIdentity
 	NationalCode         string           `json:"national_code"`
-	City                 enums.City       `json:"city"`
+	Province             enums.Province   `json:"province,omitempty" swaggertype:"string"`
+	City                 enums.City       `json:"city" swaggertype:"string"`
 	Address              string           `json:"address"`
+	PostalCode           string           `json:"postal_code,omitempty"`
 	BirthDate            string           `json:"birth_date"`
 	Gender               enums.Gender     `json:"gender"`
 	Interests            []enums.Interest `json:"interests"`
+	HasIdentityDocument  bool             `json:"has_identity_document"`
 	HasVerificationVideo bool             `json:"has_verification_video"`
 }
 type AdminParentResponse struct {
@@ -65,7 +68,12 @@ type AdminParentReviewResponse struct {
 }
 
 func adminJobSeeker(p *entities.JobSeeker) AdminJobSeekerResponse {
-	return AdminJobSeekerResponse{JobSeekerIdentity: identityFromJobSeeker(p), NationalCode: p.NationalCode, City: p.City, Address: p.Address, BirthDate: p.BirthDate.String(), Gender: p.Gender, Interests: p.Interests, HasVerificationVideo: p.VerificationVideo != nil}
+	return AdminJobSeekerResponse{
+		JobSeekerIdentity: identityFromJobSeeker(p), NationalCode: p.NationalCode,
+		Province: p.Province, City: p.City, Address: p.Address, PostalCode: p.PostalCode,
+		BirthDate: p.BirthDate.String(), Gender: p.Gender, Interests: p.Interests,
+		HasIdentityDocument: p.IdentityDocument != nil, HasVerificationVideo: p.VerificationVideo != nil,
+	}
 }
 func adminParent(p *entities.Parent) AdminParentResponse {
 	review := p.AdminReview
@@ -186,6 +194,30 @@ func (c *AdminController) JobSeekerVideo(ctx *gin.Context) {
 		return
 	}
 	url, err := c.service.JobSeekerVideoURL(ctx.Request.Context(), id)
+	if err != nil {
+		respondAPIError(ctx, err)
+		return
+	}
+	ctx.JSON(http.StatusOK, DocumentURLResponse{URL: url, ExpiresIn: 300})
+}
+
+// JobSeekerIdentityDocument godoc
+// @Summary Download a job seeker's birth certificate image
+// @Description Returns a private signed download URL valid for five minutes.
+// @Tags Admin
+// @Security BearerAuth
+// @Produce json
+// @Param id path int true "Job seeker ID"
+// @Success 200 {object} DocumentURLResponse
+// @Failure 400,401,404,500,503 {object} ErrorResponse
+// @Router /admin/job-seekers/{id}/documents/identity [get]
+func (c *AdminController) JobSeekerIdentityDocument(ctx *gin.Context) {
+	ctx.Header("Cache-Control", "no-store")
+	id, ok := adminAccountID(ctx)
+	if !ok {
+		return
+	}
+	url, err := c.service.JobSeekerIdentityDocumentURL(ctx.Request.Context(), id)
 	if err != nil {
 		respondAPIError(ctx, err)
 		return

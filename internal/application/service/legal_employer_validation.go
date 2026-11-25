@@ -46,7 +46,7 @@ func validateLegalEmployer(in *usecase.SignupLegalEmployer) error {
 	if !economicCodePattern.MatchString(in.EconomicCode) {
 		return invalid("economic_code must contain twelve digits")
 	}
-	if !in.Province.Valid() || !in.City.Valid() || in.City.Province() != in.Province {
+	if !in.City.InProvince(in.Province) {
 		return invalid("province and city must match")
 	}
 	if !postalCodePattern.MatchString(in.PostalCode) {

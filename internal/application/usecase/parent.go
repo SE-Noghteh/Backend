@@ -16,9 +16,11 @@ type JobSeekerParentInput struct {
 
 type ParentApprovalResult struct {
 	valueobjects.JobSeekerApproval
-	ParentID       *uint64    `json:"parent_id,omitempty"`
-	InvitationCode string     `json:"invitation_code,omitempty"`
-	ExpiresAt      *time.Time `json:"expires_at,omitempty"`
+	ConnectionStatus  string     `json:"connection_status,omitempty"`
+	InvitationSMSSent *bool      `json:"invitation_sms_sent,omitempty"`
+	ParentID          *uint64    `json:"parent_id,omitempty"`
+	InvitationCode    string     `json:"invitation_code,omitempty"`
+	ExpiresAt         *time.Time `json:"expires_at,omitempty"`
 }
 
 type ParentInvitationInfo struct {
@@ -41,8 +43,18 @@ type SignupParent struct {
 type ParentService interface {
 	InviteParent(context.Context, uint64, JobSeekerParentInput) (*ParentApprovalResult, error)
 	LinkRegisteredParent(context.Context, uint64, string) (*ParentApprovalResult, error)
+	ConnectionStatus(context.Context, uint64) (*ParentApprovalResult, error)
 	ValidateInvitation(context.Context, string) (*ParentInvitationInfo, error)
 	Signup(context.Context, SignupParent) error
 	ResendOTP(context.Context, string) error
 	VerifyOTP(context.Context, string, string) (*entities.Parent, error)
+}
+
+type ParentAccountService interface {
+	Login(context.Context, string, string) (*entities.Parent, *valueobjects.AccessToken, error)
+	Authenticate(context.Context, string) (*entities.Parent, error)
+	Logout(context.Context, string) error
+	Children(context.Context, uint64) ([]entities.JobSeeker, error)
+	ConnectionRequests(context.Context, uint64) ([]entities.ParentConnectionRequest, error)
+	DecideConnection(context.Context, *entities.Parent, uint64, bool) error
 }

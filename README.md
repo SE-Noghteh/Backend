@@ -23,18 +23,19 @@ Migration creates `job_seekers`, `job_seeker_signup_otps`, `job_seeker_login_att
 
 API flow:
 
-1. `GET /v1/job-seekers/signup-options` returns the ten Persian cities, ten interests, and allowed genders (`female`, `male`). Send these exact values back.
-2. `POST /v1/job-seekers/signup` accepts one `multipart/form-data` submission with the whole profile, password, and required `verification_video`. Use `birth_year`, `birth_month`, and `birth_day` for the Jalali birth date, and repeat `interests` for each selected interest. JSON signup bodies are no longer accepted. The video must be MP4/MOV, 1-20 seconds, up to 50 MiB; the complete request is limited to 51 MiB. Configure S3 and ffprobe before signup. After validation and private upload, the API stores a pending registration and sends a six-digit OTP using `https://gateway.ferzz.ir/send`, returning HTTP 202. No account exists until verification succeeds. `+989...` and `989...` mobile numbers are normalized.
+1. `GET /v1/job-seekers/signup-options` returns the Persian city names, ten interests, and allowed genders (`female`, `male`). Use `GET /v1/provinces` for all 31 provinces and `GET /v1/cities?province=...` to list cities for the selected province. Send the exact names returned by the location endpoints.
+2. `POST /v1/job-seekers/signup` accepts one `multipart/form-data` submission with the whole profile, password, and required `identity_document` and `verification_video`. Use `GET /v1/provinces` and `GET /v1/cities?province=...` for matching `province` and `city`, and send `postal_code` as a 10-digit string. Use `birth_year`, `birth_month`, and `birth_day` for the Jalali birth date, and repeat `interests` for each selected interest. JSON signup bodies are no longer accepted. The first page of the birth certificate must be a PNG or JPEG up to 5 MiB. The video must be MP4/MOV/WebM, 1-20 seconds, up to 50 MiB. The complete request is limited to 56 MiB. Configure S3 and ffprobe before signup. After validation and private upload, the API stores a pending registration and sends a six-digit OTP using `https://gateway.ferzz.ir/send`, returning HTTP 202. No account exists until verification succeeds. `+989...` and `989...` mobile numbers are normalized.
 
 ```sh
 curl -X POST http://localhost:8081/v1/job-seekers/signup \
   -F 'first_name=Test' -F 'last_name=User' \
   -F 'national_code=0013547895' \
-  -F 'city=CITY_FROM_SIGNUP_OPTIONS' -F 'address=Your address' \
+  -F 'province=تهران' -F 'city=تهران' -F 'address=Your address' \
+  -F 'postal_code=0123456789' \
   -F 'birth_year=1388' -F 'birth_month=1' -F 'birth_day=1' \
   -F 'gender=male' -F 'interests=INTEREST_FROM_SIGNUP_OPTIONS' \
   -F 'phone=09123456789' -F 'password=choose-a-private-password' \
-  -F 'verification_video=@verification.mp4'
+  -F 'identity_document=@birth-certificate.png' -F 'verification_video=@verification.mp4'
 ```
 
 3. `POST /v1/job-seekers/verify-otp` with `{"phone":"09123456789","otp":"123456"}` checks the received code. Successful verification atomically creates the account and consumes the challenge, returning HTTP 201 and public identity fields. Replace `123456` with the code actually received. Verification cannot change the stored profile or password.
@@ -43,7 +44,9 @@ curl -X POST http://localhost:8081/v1/job-seekers/signup \
 6. `POST /v1/job-seekers/logout` with the same header returns HTTP 204 and revokes that token. Repeating logout with the same unexpired token also returns 204. Other sessions remain active. Reusing a revoked token on a protected endpoint returns 401.
 7. `GET /v1/job-seekers/documents/video` with the same authorization returns a private download link for the authenticated job seeker's video, valid for five minutes and returned with `Cache-Control: no-store`.
 
-Job seeker videos use random private keys under `job-seekers/` in the existing S3 bucket. Include that prefix in your bucket credentials' PutObject/GetObject/DeleteObject permissions. PostgreSQL stores the key, content type, and size in the `job_seekers.verification_video` JSONB column; pending signup JSONB also retains that reference. Startup/migration adds this nullable column without deleting existing accounts. Existing accounts without a video can still login; pending signups created without a video must be submitted again. New signups always require a video. Verification and OTP resend reuse the stored video. Failed submissions clean up new uploads; successful replacements remove the previous pending video's object after commit.
+Job seeker documents use random private keys under `job-seekers/` in the existing S3 bucket. Include that prefix in your bucket credentials' PutObject/GetObject/DeleteObject permissions. PostgreSQL stores the document metadata in the `identity_document` and `verification_video` JSONB columns. Pending signup also stores both references, and OTP resend reuses both files. The new columns are nullable for older accounts. Previously submitted, unexpired pending registrations can still verify under the existing OTP rules. Failed submissions clean up new uploads. Replacing a pending signup or deleting an account cleans up its files after commit. Admins can obtain a five-minute download link for the birth certificate from `GET /v1/admin/job-seekers/{id}/documents/identity`.
+
+The shared location catalog uses the [end-of-1404 Iranian administrative divisions workbook](https://github.com/sajaddp/list-of-cities-in-Iran/blob/ace21bb251f96ced350bbc01541acffd71121feb/offical/list.xlsx). It contains 31 provinces and 1,458 province–city choices. Names come from province (`Coderec=1`) and city (`Coderec=5`) rows, with Persian ی and ک normalized. Numbered subdivisions are omitted when a single corresponding city exists in the same county. The API retains names shared by multiple provinces in each province's list.
 
 Use the applicant's own national code, which must pass the Iranian checksum. Passwords must be 8â€“72 bytes and are stored with bcrypt. All displayed profile fields are required, with at least one distinct interest. Birth dates must be real Jalali dates. Job seekers must be between 15 and 22 years old inclusive, based on their full birth date. Signup returns HTTP 400 before uploading files or sending an OTP when the applicant is outside this range: `{"message":"invalid signup: job seeker is under age: minimum age is 15 years"}` for applicants under 15, or `{"message":"invalid signup: job seeker is over age: maximum age is 22 years"}` for applicants over 22.
 
@@ -55,7 +58,7 @@ Error responses use `{"message":"..."}`: 400 for invalid input or missing pendin
 
 Run checks with `go test ./...` and `go vet ./...`. Unit tests use an in-memory repository and fake SMS sender; they send no real messages.
 
-All account types share the SMS sender. When the provider accepts an OTP send, the application logs `OTP sent` with the destination and plaintext `code`, including resends. View these entries with `docker compose logs -f api`. Failed sends do not log the code; PostgreSQL still stores only salted OTP hashes.
+All account types share the SMS sender. For OTPs other than password-reset codes, when the provider accepts a send, the application logs `OTP sent` with the destination and plaintext `code`, including resends. View these entries with `docker compose logs -f api`. Failed sends do not log the code; PostgreSQL still stores only salted OTP hashes.
 
 An opt-in PostgreSQL integration test verifies the full signup â†’ verification â†’ login â†’ JWT authentication flow using a fake SMS sender and rolls back all test fixtures. Run from PowerShell: `$env:RUN_POSTGRES_INTEGRATION='1'; go test ./internal/infrastructure/persistence -run TestPostgresSignupVerificationAndLogin -count=1 -v`. It uses the database in `.env` and runs schema migrations.
 
@@ -79,25 +82,38 @@ Swagger authentication interceptor tests use Node built-in testing: `node --test
 ## Job seeker parent approval
 
 After signup OTP verification, `signup_status` remains `pending` until the required approvals are complete. Parent connection alone controls the parent-approval flow: `parent_connected` is derived from the stored `parent_id`, with no internal stage or completion marker. Once a parent is connected, both parent approval APIs reject further requests with HTTP 409 and `{"message":"parent already connected"}`. Ages 15-17 must connect a parent; ages 18-22 can leave it disconnected. Verified job seekers can log in while pending.
-1. The frontend chooses one of two authenticated APIs. For an already registered parent, call `POST /v1/job-seekers/parent-approval/registered` with only `{"phone":"09129876543"}`. This immediately connects the verified parent; names and invitation codes are not needed. An unregistered phone returns HTTP 400. For a new parent, call `POST /v1/job-seekers/parent-approval/invite` with `{"first_name":"Parent","last_name":"Family","phone":"09129876543"}`. This returns an eight-character `invitation_code` (letters and numbers) and `expires_at` seven days in the future. An already registered phone returns HTTP 409. The parent remains disconnected until the parent verifies. Repeating the invitation request replaces the previous code. Codes accept lowercase input too; previously issued long codes remain valid until expiry. Share the code with the parent; no SMS is sent at this step. One registered parent can be connected to multiple children.
+1. For an already registered parent, call `POST /v1/job-seekers/parent-approval/registered` with `{"phone":"09129876543"}`. This creates a seven-day request with `connection_status: "pending"`. The signed-in parent must approve it before the connection takes effect. Check the result through `GET /v1/job-seekers/parent-approval/request`. For a new parent, call `POST /v1/job-seekers/parent-approval/invite` with `first_name`, `last_name`, and `phone`. This attempts to text a seven-day invitation code. The response includes `invitation_sms_sent` and the code for manual sharing if delivery fails. Wait 60 seconds before issuing another invitation to the same phone. An existing verified parent can approve requests from multiple children.
 2. The parent first calls `POST /v1/parents/invitations/validate` with `{"code":"RETURNED_INVITATION_CODE"}`. It returns the saved first/last name, phone, child's first name and expiry. Invalid, replaced, expired or consumed codes return HTTP 400. Code validation does not consume it; the same code is required for signup. OTP verification uses the saved phone number and OTP instead.
-3. Submit `POST /v1/parents/signup` as multipart form data: `code`, `relationship` (`father` or `mother`), `password` (8-72 bytes), `consent_accepted=true`, `identity_document` (PNG/JPEG, up to 5 MiB) and `consent_video` (MP4/MOV, 1-20 seconds, up to 50 MiB). The complete request is limited to 56 MiB. Name and phone come only from the invitation and cannot be changed through this form. The documents are private. The API returns HTTP 202 after sending an OTP to the saved parent's phone. No parent account exists yet.
+3. Submit `POST /v1/parents/signup` as multipart form data: `code`, `relationship` (`father`, `mother`, or `guardian`), `password` (8-72 bytes), `consent_accepted=true`, `identity_document` (PNG/JPEG, up to 5 MiB) and `consent_video` (MP4/MOV/WebM, 1-20 seconds, up to 50 MiB). The complete request is limited to 56 MiB. Name and phone come only from the invitation and cannot be changed through this form. The documents are private. The API returns HTTP 202 after sending an OTP to the saved parent's phone. No parent account exists yet.
 4. Call `POST /v1/parents/verify-otp` with `{"phone":"09129876543","otp":"123456"}`, using the OTP actually received by SMS. The invitation saved with the pending signup is checked internally for validity. It atomically creates the parent, links the job seeker, consumes the invitation and pending signup, and completes the child's parent-connection step. Returns HTTP 201 with public parent identity. Passwords and document keys are not returned.
 
 Parent OTPs expire after five minutes and allow five failed attempts, including malformed codes. Resend using `POST /v1/parents/otp` with `{"code":"RETURNED_INVITATION_CODE"}` after 60 seconds. Pending parent signup lasts 30 minutes, without extending the seven-day invitation expiry. A valid saved invitation is required for every parent signup/OTP operation; parents cannot self-register by phone. Only invitation hashes and salted OTP hashes are stored. Parent passwords are bcrypt hashes. Failed submissions clean up newly uploaded documents, replacements clean up old pending documents after commit, and verification reuses the saved documents. Include the `parents/*` prefix in S3 PutObject/GetObject/DeleteObject permissions. Existing parents do not resubmit documents or repeat signup when another child links them.
 
-Startup/migration adds `parents`, `job_seeker_parent_invitations`, and `parent_signup_otps`, and adds parent-reference columns to the current job seeker table. The obsolete stage-tracking database column is removed; existing profiles and parent connections are preserved. Deleting a job seeker invalidates their invitation and removes their link without deleting the shared parent account or other children.
+### Parent account APIs
 
-## Job seeker forgot password
+| Endpoint | Purpose |
+| --- | --- |
+| `POST /v1/parents/login` | Sign in with phone and password and obtain a parent JWT. A phone-verified parent can sign in while admin review is pending. |
+| `GET /v1/parents/me` | Read the signed-in parent's own profile and current admin review status. |
+| `GET /v1/parents/children` | List connected children with their signup status. |
+| `GET /v1/parents/connection-requests` | List the signed-in parent's pending requests. |
+| `POST /v1/parents/connection-requests/{job_seeker_id}/decision` | Submit `{"approved":true}` or `{"approved":false}`. Only an approval connects the child. |
+| `POST /v1/parents/logout` | Revoke the current parent JWT. |
+| `POST /v1/parents/forgot-password` | Request a password reset code. |
+| `POST /v1/parents/verify-reset-otp` | Verify the code and receive a one-time reset token. |
+| `POST /v1/parents/reset-password` | Submit the reset token and new password. A successful reset invalidates all previous parent JWTs. |
 
-Both password reset endpoints are public JSON APIs and require no login token:
+Parent JWTs use a distinct role. Login permits five failed attempts per normalized phone in a 15-minute window. Password reset OTPs are isolated from signup OTPs, expire after five minutes, and allow five failed attempts. Startup migrations preserve existing parent connections and add storage for new connection requests, login attempts and reset challenges. Deleting a job seeker clears that user's invitation and connection request while preserving the shared parent account and other children.
 
-1. `POST /v1/job-seekers/forgot-password` with `{"phone":"09123456789"}` sends a six-digit OTP to the registered, verified phone. Returns HTTP 202 with `expires_in: 300` and `resend_after: 60`. Repeat the same request to resend after 60 seconds. Unknown and unverified phone numbers receive the same successful response without an SMS.
-2. `POST /v1/job-seekers/reset-password` with `{"phone":"09123456789","otp":"123456","new_password":"your-new-password"}` verifies the password-reset OTP and updates the password. The new password must be 8-72 bytes. Returns HTTP 200 with `{"message":"Password reset successfully. Please log in with your new password."}`.
+## Password reset
 
-Reset OTPs expire after five minutes, permit five failed attempts (including malformed codes), and are consumed on success. Signup and phone-change OTPs cannot reset a password. Only a salted OTP hash is stored in the separate `job_seeker_password_reset_otps` table; the new password is bcrypt-hashed after verification. Reset atomically updates the password, increments the account's session version, clears login failures, consumes the reset OTP and cancels pending phone-change OTPs. All previously issued job seeker login tokens then return 401, and new login tokens work immediately. Approval decisions and parent connections are preserved. Phone changes and account deletion invalidate outstanding reset challenges. OTP delivery uses the existing shared SMS sender and logging behavior.
+Use the same three public JSON endpoints under one of these prefixes: `/v1/job-seekers`, `/v1/parents`, `/v1/individual-employers`, or `/v1/legal-employers`.
 
-Startup/migration adds the password-reset table and `session_version` column. Existing accounts and tokens start at version zero and continue to work until a successful reset invalidates those sessions.
+1. `POST /forgot-password` with `{"phone":"09123456789"}` requests a six-digit OTP. The response is HTTP 202 for unknown numbers and for repeats inside the 60-second cooldown. No new SMS is sent in either case.
+2. `POST /verify-reset-otp` with `{"phone":"09123456789","otp":"123456"}` consumes the OTP and returns HTTP 200 with `reset_token` and `expires_in: 300`. The code expires after five minutes and permits five failed attempts.
+3. `POST /reset-password` with `{"reset_token":"RETURNED_TOKEN","new_password":"NewPassword123!"}` sets the password, consumes the token and invalidates existing sessions. The token expires after five minutes and works only for the account type that issued it. Job seeker and parent passwords must be 8–72 bytes. Employer passwords must be 12–72 bytes and include uppercase, lowercase, a digit and a symbol.
+
+Reset OTPs are independent of signup and phone-change codes. Only hashes of reset codes and tokens are stored, and reset codes are kept out of SMS logs. A new OTP request after the cooldown replaces any prior reset challenge or token for that phone and account type. Codes issued before the two-step flow was deployed must be requested again. A job seeker phone change or account deletion invalidates that account's outstanding reset challenge.
 
 ## Job seeker phone changes and account deletion
 
@@ -178,6 +194,19 @@ Job seeker lists accept `status=pending|approved|rejected|all`; `pending` exclud
 
 Swagger keeps the existing four sections in order and adds **Admin** at the end, with login followed by each account's list, profile, documents and review operation. Migrations add review fields to job seekers and parents; existing accounts default to `pending` without losing their profiles.
 
+### Employer admin APIs
+
+Use an admin JWT with these endpoints. Use the ID from the employer list for either profile type.
+
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /v1/admin/employers` | List verified employers with `type=individual\|legal\|all` and `status=pending_review\|approved\|rejected\|all`. Defaults to pending review across both types. Supports `limit` (1–100, default 20) and `offset` (default 0). |
+| `GET /v1/admin/employers/{id}` | Get the applicable `individual` or `legal` profile and its `available_documents`. |
+| `GET /v1/admin/employers/{id}/documents/{kind}` | Get a private five-minute link for a document listed on the profile. |
+| `POST /v1/admin/employers/{id}/review` | Submit `{"approved":true}` to approve or `{"approved":false,"message":"Please submit a clearer document"}` to reject. The message is optional. |
+
+A review records the decision, message, reviewer, and time. Employer `/me` returns the current `review_status`, decision message, and review time. Approved employers can manage job postings. Phone-verified employers can still sign in and check their status while pending or rejected.
+
 ## Individual employers
 
 The employer account is split into `employers` (shared `id` and `type`), `individual_employers` (one profile per employer ID), and `legal_employers` (the legal entity and its authorized representative). Both employer types have their own signup and authentication endpoints. Each employer type has its own pending signup table. Employer logins share phone-based throttling and transaction locks; job seeker challenges and lockouts remain separate.
@@ -199,9 +228,9 @@ In Swagger, expand signup, click **Try it out**, complete its form fields, choos
 
 Required profile fields: first/last/father name, valid national code, gender, Jalali `birth_year`/`birth_month`/`birth_day`, matching province/city, residence address, ten-digit postal code, phone, and password. Business name, business activity, website/social-page URL, email, and `has_legal_guardian` are optional. Passwords require 12â€“72 bytes including uppercase, lowercase, a number, and a symbol. The business license (`Ø¬ÙˆØ§Ø² Ú©Ø³Ø¨`) is optional and is saved as SQL NULL when absent.
 
-`identity_document` is required: PDF, PNG, or JPEG, up to 5 MiB. Optional `business_license` uses the same limits. `verification_video` is required: MP4 or MOV, 1â€“20 seconds, up to 50 MiB. Uploaded content is inspected on the server; filenames and client Content-Type headers are not sufficient. Install `ffprobe` on PATH or set `FFPROBE_PATH` to its executable. ffmpeg is only needed to generate integration-test video fixtures.
+`identity_document` is required: PDF, PNG, or JPEG, up to 5 MiB. Optional `business_license` uses the same limits. `verification_video` is required: MP4, MOV, or WebM, 1â€“20 seconds, up to 50 MiB. Uploaded content is inspected on the server; filenames and client Content-Type headers are not sufficient. Install `ffprobe` on PATH or set `FFPROBE_PATH` to its executable. ffmpeg is only needed to generate integration-test video fixtures.
 
-All document bytes and the video are stored behind the `ports.Storage` interface using the S3 adapter. PostgreSQL stores the profile and object references/content types/sizes, not the binary files. Keys use random identifiers and do not contain names, phone numbers, or national codes. S3 uploads use no public-read ACL. Download URLs require authentication, are scoped to the requesting employer, expire after five minutes, and are returned with `Cache-Control: no-store`. Successful registration starts with `review_status=pending_review`; document review/approval APIs are not part of this implementation. Phone-verified employers may login while review is pending.
+All document bytes and the video are stored behind the `ports.Storage` interface using the S3 adapter. PostgreSQL stores the profile and object references/content types/sizes, not the binary files. Keys use random identifiers and do not contain names, phone numbers, or national codes. S3 uploads use no public-read ACL. Download URLs require authentication, are scoped to the requesting employer, expire after five minutes, and are returned with `Cache-Control: no-store`. Successful registration starts with `review_status=pending_review`; admins can review the employer with the API below. Phone-verified employers may login while review is pending.
 
 ### Local S3 storage
 
@@ -273,7 +302,7 @@ The legal employer flow uses the same clean architecture boundaries and shared O
 
 Required form fields match the organization and representative screenshots: company name, legal entity type, eleven-digit company national ID, numeric registration number, twelve-digit economic code, matching province/city, office address/postal code, representative first/last name, position, gender, valid personal national code, activities, phone, and password. `has_tax_file` is a boolean; email and website are optional. Select one to ten distinct values from the existing activities list. Send each activity under the repeated multipart key `activities` (Swagger supports this array). Company identifier format is validated locally; official organization and representative authority checks remain a document review process.
 
-Required files are `establishment_document` (establishment notice or official gazette), `identity_document` (representative identity), and `verification_video`. Documents accept PDF/PNG/JPEG up to 5 MiB each; video accepts MP4/MOV, 1-20 seconds, up to 50 MiB. Set `requires_activity_license=true` and upload `activity_license` when the activity requires licensing. Representative position `attorney` requires `authorization_document` (power of attorney). Optional documents persist as SQL NULL when absent. The signup request is limited to 76 MiB. Terms acceptance, password confirmation, and frontend step navigation remain frontend responsibilities.
+Required files are `establishment_document` (establishment notice or official gazette), `identity_document` (representative identity), and `verification_video`. Documents accept PDF/PNG/JPEG up to 5 MiB each; video accepts MP4/MOV/WebM, 1-20 seconds, up to 50 MiB. Set `requires_activity_license=true` and upload `activity_license` when the activity requires licensing. Representative position `attorney` requires `authorization_document` (power of attorney). Optional documents persist as SQL NULL when absent. The signup request is limited to 76 MiB. Terms acceptance, password confirmation, and frontend step navigation remain frontend responsibilities.
 
 In Swagger, fetch signup-options, submit the legal signup form and files once, verify the received code using verify-otp, then login. Codes last five minutes, permit five failed attempts, and pending submissions last 30 minutes. Login issues the configured one-hour token by default. Swagger automatically authorizes and preserves it across refresh; logout revokes it. Legal, individual employer, and job seeker roles cannot access one another's protected routes. Phone verification permits login while `review_status` is `pending_review`; document approval is separate.
 

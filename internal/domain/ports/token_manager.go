@@ -14,3 +14,13 @@ type JobSeekerTokenManager interface {
 	TokenManager
 	IssueJobSeekerAccessToken(uint64, uint64) (*valueobjects.AccessToken, error)
 }
+
+type ParentTokenManager interface {
+	TokenManager
+	IssueParentAccessToken(uint64, uint64) (*valueobjects.AccessToken, error)
+}
+
+type EmployerTokenManager interface {
+	TokenManager
+	IssueEmployerAccessToken(uint64, enums.AccountRole, uint64) (*valueobjects.AccessToken, error)
+}

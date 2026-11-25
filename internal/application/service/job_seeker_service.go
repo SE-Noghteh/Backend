@@ -3,6 +3,9 @@ package service
 import (
 	"context"
 	"crypto/subtle"
+	"fmt"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"zedlancer/backend/internal/application/usecase"
@@ -38,6 +41,14 @@ func (s *JobSeekerService) Signup(ctx context.Context, in usecase.SignupJobSeeke
 	if in.VerificationVideo.Body == nil {
 		return domainerrors.ErrInvalidUpload
 	}
+	if in.IdentityDocument.Body == nil {
+		return fmt.Errorf("%w: identity_document is required", domainerrors.ErrInvalidUpload)
+	}
+	switch strings.ToLower(filepath.Ext(in.IdentityDocument.Name)) {
+	case ".png", ".jpg", ".jpeg":
+	default:
+		return fmt.Errorf("%w: identity_document must be PNG or JPEG", domainerrors.ErrInvalidUpload)
+	}
 	hash, err := s.passwords.Hash(in.Password)
 	if err != nil {
 		return err
@@ -47,8 +58,10 @@ func (s *JobSeekerService) Signup(ctx context.Context, in usecase.SignupJobSeeke
 		FirstName:    in.FirstName,
 		LastName:     in.LastName,
 		NationalCode: in.NationalCode,
+		Province:     in.Province,
 		City:         in.City,
 		Address:      in.Address,
+		PostalCode:   in.PostalCode,
 		BirthDate:    in.BirthDate,
 		Gender:       in.Gender,
 		Interests:    in.Interests,
@@ -77,16 +90,20 @@ func (s *JobSeekerService) Signup(ctx context.Context, in usecase.SignupJobSeeke
 		if previous != nil && time.Since(previous.SentAt) < otpResendDelay {
 			return domainerrors.ErrOTPTooSoon
 		}
-		objects, err := uploadEmployerFiles(ctx, s.storage, s.media, "job-seekers", []employerUpload{{kind: "video", file: &in.VerificationVideo, video: true}}, &uploaded)
+		objects, err := uploadEmployerFiles(ctx, s.storage, s.media, "job-seekers", []employerUpload{
+			{kind: "identity", file: &in.IdentityDocument},
+			{kind: "video", file: &in.VerificationVideo, video: true},
+		}, &uploaded)
 		if err != nil {
 			return err
 		}
 		registration.VerificationVideo = objects["video"]
+		registration.IdentityDocument = objects["identity"]
 		if err := s.sendChallenge(ctx, otpRepo, registration, previous); err != nil {
 			return err
 		}
-		if previous != nil && previous.Registration != nil && previous.Registration.VerificationVideo != nil {
-			replaced = append(replaced, previous.Registration.VerificationVideo.Key)
+		if previous != nil && previous.Registration != nil {
+			replaced = jobSeekerDocumentKeys(previous.Registration)
 		}
 		return nil
 	})
@@ -96,6 +113,16 @@ func (s *JobSeekerService) Signup(ctx context.Context, in usecase.SignupJobSeeke
 	}
 	cleanupEmployerUploads(ctx, s.storage, replaced)
 	return nil
+}
+
+func jobSeekerDocumentKeys(seeker *entities.JobSeeker) []string {
+	var keys []string
+	for _, object := range []*valueobjects.StoredObject{seeker.IdentityDocument, seeker.VerificationVideo} {
+		if object != nil && object.Key != "" {
+			keys = append(keys, object.Key)
+		}
+	}
+	return keys
 }
 
 // RequestOTP resends only for a previously validated, unexpired pending profile.
