@@ -5,10 +5,12 @@ import (
 
 	"zedlancer/backend/internal/domain/entities"
 	"zedlancer/backend/internal/domain/enums"
+	"zedlancer/backend/internal/domain/valueobjects"
 )
 
 // LegalEmployerIdentity deliberately excludes password hashes and storage keys.
 type LegalEmployerIdentity struct {
+	valueobjects.EmployerReviewMetadata
 	ID                         uint64                       `json:"id"`
 	EmployerType               enums.EmployerType           `json:"employer_type"`
 	CompanyName                string                       `json:"company_name"`
@@ -16,8 +18,8 @@ type LegalEmployerIdentity struct {
 	CompanyNationalID          string                       `json:"company_national_id"`
 	RegistrationNumber         string                       `json:"registration_number"`
 	EconomicCode               string                       `json:"economic_code"`
-	Province                   enums.Province               `json:"province"`
-	City                       enums.City                   `json:"city"`
+	Province                   enums.Province               `json:"province" swaggertype:"string"`
+	City                       enums.City                   `json:"city" swaggertype:"string"`
 	Address                    string                       `json:"address"`
 	PostalCode                 string                       `json:"postal_code"`
 	RepresentativeFirstName    string                       `json:"representative_first_name"`
@@ -44,7 +46,7 @@ type LegalEmployerLoginResponse struct {
 }
 
 func identityFromLegalEmployer(e *entities.LegalEmployer) LegalEmployerIdentity {
-	return LegalEmployerIdentity{
+	return LegalEmployerIdentity{EmployerReviewMetadata: e.EmployerReviewMetadata,
 		ID: e.Employer.ID, EmployerType: e.Employer.Type, CompanyName: e.CompanyName, LegalEntityType: e.LegalEntityType,
 		CompanyNationalID: e.CompanyNationalID, RegistrationNumber: e.RegistrationNumber, EconomicCode: e.EconomicCode,
 		Province: e.Province, City: e.City, Address: e.Address, PostalCode: e.PostalCode,

@@ -15,12 +15,12 @@ type LegalEmployerService struct {
 	uow       ports.UnitOfWork
 	sender    ports.OTPSender
 	passwords ports.PasswordHasher
-	tokens    ports.TokenManager
+	tokens    ports.EmployerTokenManager
 	storage   ports.Storage
 	media     ports.MediaValidator
 }
 
-func NewLegalEmployerService(uow ports.UnitOfWork, sender ports.OTPSender, passwords ports.PasswordHasher, tokens ports.TokenManager, storage ports.Storage, media ports.MediaValidator) *LegalEmployerService {
+func NewLegalEmployerService(uow ports.UnitOfWork, sender ports.OTPSender, passwords ports.PasswordHasher, tokens ports.EmployerTokenManager, storage ports.Storage, media ports.MediaValidator) *LegalEmployerService {
 	return &LegalEmployerService{uow: uow, sender: sender, passwords: passwords, tokens: tokens, storage: storage, media: media}
 }
 

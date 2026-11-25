@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"zedlancer/backend/internal/domain/entities"
+	"zedlancer/backend/internal/domain/enums"
 	"zedlancer/backend/internal/domain/valueobjects"
 )
 
@@ -15,12 +16,21 @@ type AdminListFilter struct {
 	Limit  int
 	Offset int
 }
+type AdminEmployerListFilter struct {
+	AdminListFilter
+	Type enums.EmployerType
+}
+
 type AdminReviewDecision struct {
 	Approved bool
 	Message  string
 	Reviewer string
 }
 type AdminService interface {
+	Employers(context.Context, AdminEmployerListFilter) ([]entities.EmployerReviewSummary, int64, error)
+	Employer(context.Context, uint64) (*entities.EmployerReviewProfile, error)
+	EmployerDocumentURL(context.Context, uint64, string) (string, error)
+	ReviewEmployer(context.Context, uint64, AdminReviewDecision) (*entities.EmployerReviewProfile, error)
 	Login(context.Context, string, string) (*AdminLoginResult, error)
 	Authenticate(context.Context, string) (string, error)
 	JobSeekers(context.Context, AdminListFilter) ([]*entities.JobSeeker, int64, error)
@@ -28,6 +38,7 @@ type AdminService interface {
 	JobSeeker(context.Context, uint64) (*entities.JobSeeker, error)
 	Parent(context.Context, uint64) (*entities.Parent, error)
 	JobSeekerVideoURL(context.Context, uint64) (string, error)
+	JobSeekerIdentityDocumentURL(context.Context, uint64) (string, error)
 	ParentDocumentURL(context.Context, uint64, string) (string, error)
 	ReviewJobSeeker(context.Context, uint64, AdminReviewDecision) (*entities.JobSeeker, error)
 	ReviewParent(context.Context, uint64, AdminReviewDecision) (*entities.Parent, error)

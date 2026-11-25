@@ -66,3 +66,7 @@ func (f *RepositoryFactory) UserRepository() domainpostgres.UserRepository {
 func (f *RepositoryFactory) LegalEmployerSignupRepository() ports.LegalEmployerSignupRepository {
 	return postgres.NewLegalEmployerSignupRepository(f.db)
 }
+
+func (f *RepositoryFactory) PasswordResetRepository() ports.PasswordResetRepository {
+	return postgres.NewPasswordResetRepository(f.db)
+}

@@ -69,3 +69,69 @@ func TestVideoDurationAndActualContainer(t *testing.T) {
 		t.Fatal("fake video accepted")
 	}
 }
+
+func TestWebMVideo(t *testing.T) {
+	if _, err := exec.LookPath("ffmpeg"); err != nil {
+		t.Skip("ffmpeg not installed")
+	}
+	if _, err := exec.LookPath("ffprobe"); err != nil {
+		t.Skip("ffprobe not installed")
+	}
+	v := NewValidator()
+	for _, scenario := range []struct {
+		name, ext, duration    string
+		live, audioOnly, valid bool
+	}{
+		{name: "standard WebM", ext: "webm", duration: "2", valid: true},
+		{name: "browser style WebM without duration metadata", ext: "webm", duration: "2", live: true, valid: true},
+		{name: "minimum duration without metadata", ext: "webm", duration: "1", live: true, valid: true},
+		{name: "maximum duration without metadata", ext: "webm", duration: "20", live: true, valid: true},
+		{name: "too short without metadata", ext: "webm", duration: "0.5", live: true},
+		{name: "too long without metadata", ext: "webm", duration: "20.1", live: true},
+		{name: "audio only", ext: "webm", duration: "2", audioOnly: true},
+		{name: "renamed Matroska", ext: "mkv", duration: "2"},
+		{name: "renamed MP4", ext: "mp4", duration: "2"},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "clip."+scenario.ext)
+			args := []string{"-v", "error", "-f", "lavfi", "-i", "color=c=black:s=16x16:r=10", "-t", scenario.duration, "-c:v", "libvpx"}
+			if scenario.audioOnly {
+				args = []string{"-v", "error", "-f", "lavfi", "-i", "anullsrc", "-t", scenario.duration, "-c:a", "libopus"}
+			}
+			if scenario.ext == "mp4" {
+				args[len(args)-1] = "mpeg4"
+			}
+			if scenario.live {
+				args = append(args, "-live", "1")
+			}
+			if output, err := exec.Command("ffmpeg", append(args, path)...).CombinedOutput(); err != nil {
+				t.Fatalf("create test video: %v %s", err, output)
+			}
+			if scenario.live {
+				output, err := exec.Command(v.ffprobe, "-v", "error", "-show_entries", "format=duration", "-of", "default=nw=1:nk=1", path).CombinedOutput()
+				if err != nil || strings.TrimSpace(string(output)) != "N/A" {
+					t.Fatalf("expected missing duration metadata: %v %s", err, output)
+				}
+			}
+			file, err := os.Open(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer file.Close()
+			result, err := v.Video(context.Background(), ports.UploadFile{Name: "clip.WEBM", Body: file})
+			if !scenario.valid {
+				if err == nil {
+					t.Fatal("invalid WebM accepted")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			position, err := file.Seek(0, 1)
+			if err != nil || position != 0 || result.Extension != ".webm" || result.ContentType != "video/webm" {
+				t.Fatalf("unexpected WebM upload metadata: %+v, position %d, err %v", result, position, err)
+			}
+		})
+	}
+}

@@ -15,12 +15,12 @@ type IndividualEmployerService struct {
 	uow       ports.UnitOfWork
 	sender    ports.OTPSender
 	passwords ports.PasswordHasher
-	tokens    ports.TokenManager
+	tokens    ports.EmployerTokenManager
 	storage   ports.Storage
 	media     ports.MediaValidator
 }
 
-func NewIndividualEmployerService(uow ports.UnitOfWork, sender ports.OTPSender, passwords ports.PasswordHasher, tokens ports.TokenManager, storage ports.Storage, media ports.MediaValidator) *IndividualEmployerService {
+func NewIndividualEmployerService(uow ports.UnitOfWork, sender ports.OTPSender, passwords ports.PasswordHasher, tokens ports.EmployerTokenManager, storage ports.Storage, media ports.MediaValidator) *IndividualEmployerService {
 	return &IndividualEmployerService{uow: uow, sender: sender, passwords: passwords, tokens: tokens, storage: storage, media: media}
 }
 

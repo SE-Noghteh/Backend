@@ -66,7 +66,7 @@ func TestPostgresAdminLoginAndDependentAcceptance(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		storage := &employerTestStorage{objects: map[string][]byte{"job-seekers/test/video.mp4": []byte("video"), "parents/test/identity.png": []byte("image"), "parents/test/consent.mp4": []byte("consent")}}
+		storage := &employerTestStorage{objects: map[string][]byte{"job-seekers/test/video.mp4": []byte("video"), "job-seekers/test/identity.png": []byte("image"), "parents/test/identity.png": []byte("image"), "parents/test/consent.mp4": []byte("consent")}}
 		sms := &capturedSMS{}
 		adminService := service.NewAdminService(uow, hasher, tokens, storage)
 		seekerAuth := service.NewJobSeekerAuthService(uow, hasher, tokens)
@@ -86,7 +86,7 @@ func TestPostgresAdminLoginAndDependentAcceptance(t *testing.T) {
 		if err := uow.Factory().ParentRepository().Create(ctx, parent); err != nil {
 			return err
 		}
-		child := &entities.JobSeeker{FirstName: "Child", LastName: "Test", Phone: phone, NationalCode: national, PasswordHash: hash, City: enums.CityTehran, Address: "Test address", BirthDate: valueobjects.JalaliDate{Year: time.Now().Year() - 621 - 16, Month: 1, Day: 1}, Gender: enums.GenderMale, Interests: []enums.Interest{enums.InterestProgramming}, PhoneVerifiedAt: time.Now().UTC(), CreatedAt: time.Now().UTC(), ParentID: &parent.ID, ParentRelationship: "mother", VerificationVideo: &valueobjects.StoredObject{Key: "job-seekers/test/video.mp4"}}
+		child := &entities.JobSeeker{FirstName: "Child", LastName: "Test", Phone: phone, NationalCode: national, PasswordHash: hash, Province: "اردبیل", City: "اردبیل", Address: "Test address", PostalCode: "0123456789", BirthDate: valueobjects.JalaliDate{Year: time.Now().Year() - 621 - 16, Month: 1, Day: 1}, Gender: enums.GenderMale, Interests: []enums.Interest{enums.InterestProgramming}, PhoneVerifiedAt: time.Now().UTC(), CreatedAt: time.Now().UTC(), ParentID: &parent.ID, ParentRelationship: "mother", IdentityDocument: &valueobjects.StoredObject{Key: "job-seekers/test/identity.png"}, VerificationVideo: &valueobjects.StoredObject{Key: "job-seekers/test/video.mp4"}}
 		if err := uow.Factory().JobSeekerRepository().Create(ctx, child); err != nil {
 			return err
 		}
@@ -174,7 +174,11 @@ func TestPostgresAdminLoginAndDependentAcceptance(t *testing.T) {
 				t.Fatal("list contains incomplete accounts or sensitive data")
 			}
 		}
-		for _, path := range []string{fmt.Sprintf("/v1/admin/job-seekers/%d/documents/video", child.ID), fmt.Sprintf("/v1/admin/parents/%d/documents/identity", parent.ID), fmt.Sprintf("/v1/admin/parents/%d/documents/consent-video", parent.ID)} {
+		identityPath := fmt.Sprintf("/v1/admin/job-seekers/%d/documents/identity", child.ID)
+		if r := callAPI(router, "GET", identityPath, "", userBearer); r.Code != 401 {
+			t.Fatal("job seeker credentials were accepted for admin identity download")
+		}
+		for _, path := range []string{identityPath, fmt.Sprintf("/v1/admin/job-seekers/%d/documents/video", child.ID), fmt.Sprintf("/v1/admin/parents/%d/documents/identity", parent.ID), fmt.Sprintf("/v1/admin/parents/%d/documents/consent-video", parent.ID)} {
 			r := callAPI(router, "GET", path, "", bearer)
 			if r.Code != 200 || r.Header().Get("Cache-Control") != "no-store" || !strings.Contains(r.Body.String(), "https://private.example/signed") {
 				t.Fatalf("private document download failed: %d %s", r.Code, r.Body.String())
@@ -193,6 +197,9 @@ func TestPostgresAdminLoginAndDependentAcceptance(t *testing.T) {
 		persisted, err := uow.Factory().JobSeekerRepository().FindByID(ctx, child.ID)
 		if err != nil {
 			return err
+		}
+		if persisted.Province != child.Province || persisted.PostalCode != child.PostalCode || persisted.IdentityDocument == nil || persisted.IdentityDocument.Key != child.IdentityDocument.Key {
+			t.Fatal("job seeker location and identity fields were not persisted")
 		}
 		if persisted.AdminApprovalStatus != enums.AdminReviewApproved || persisted.AdminReviewedBy != username || persisted.AdminReviewedAt == nil {
 			t.Fatal("review audit was not persisted")

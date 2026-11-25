@@ -8,6 +8,8 @@ import (
 )
 
 type IndividualEmployer struct {
+	valueobjects.EmployerReviewMetadata
+	SessionVersion    uint64
 	Employer          Employer
 	FirstName         string
 	LastName          string

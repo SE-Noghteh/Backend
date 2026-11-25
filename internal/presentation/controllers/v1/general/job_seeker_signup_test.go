@@ -12,13 +12,15 @@ import (
 	"github.com/gin-gonic/gin"
 	"zedlancer/backend/internal/application/usecase"
 	"zedlancer/backend/internal/domain/entities"
+	"zedlancer/backend/internal/domain/enums"
 )
 
 type capturedJobSeekerSignup struct {
 	usecase.JobSeekerService
-	input usecase.SignupJobSeeker
-	video []byte
-	calls int
+	input    usecase.SignupJobSeeker
+	video    []byte
+	identity []byte
+	calls    int
 }
 
 func (s *capturedJobSeekerSignup) Signup(_ context.Context, in usecase.SignupJobSeeker) error {
@@ -26,6 +28,10 @@ func (s *capturedJobSeekerSignup) Signup(_ context.Context, in usecase.SignupJob
 	s.calls++
 	var err error
 	s.video, err = io.ReadAll(in.VerificationVideo.Body)
+	if err != nil {
+		return err
+	}
+	s.identity, err = io.ReadAll(in.IdentityDocument.Body)
 	return err
 }
 func (*capturedJobSeekerSignup) RequestOTP(context.Context, string) error { return nil }
@@ -34,13 +40,22 @@ func (*capturedJobSeekerSignup) VerifyOTP(context.Context, usecase.VerifySignupO
 }
 func (*capturedJobSeekerSignup) VideoURL(context.Context, uint64) (string, error) { return "", nil }
 
-func TestJobSeekerSignupMultipartVideo(t *testing.T) {
+func TestJobSeekerSignupMultipartDocuments(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	for _, count := range []int{0, 1, 2} {
-		t.Run(string(rune('0'+count))+" videos", func(t *testing.T) {
+	for _, scenario := range []struct {
+		name           string
+		videos, images int
+	}{
+		{"missing video", 0, 1},
+		{"duplicate video", 2, 1},
+		{"missing image", 1, 0},
+		{"duplicate image", 1, 2},
+		{"one of each", 1, 1},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
 			var body bytes.Buffer
 			writer := multipart.NewWriter(&body)
-			for name, value := range map[string]string{"first_name": "Test", "birth_year": "1380", "birth_month": "2", "birth_day": "3"} {
+			for name, value := range map[string]string{"first_name": "Test", "birth_year": "1380", "birth_month": "2", "birth_day": "3", "province": string(enums.ProvinceTehran), "postal_code": "0123456789"} {
 				if err := writer.WriteField(name, value); err != nil {
 					t.Fatal(err)
 				}
@@ -50,12 +65,21 @@ func TestJobSeekerSignupMultipartVideo(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			for i := 0; i < count; i++ {
+			for i := 0; i < scenario.videos; i++ {
 				file, err := writer.CreateFormFile("verification_video", "video.mp4")
 				if err != nil {
 					t.Fatal(err)
 				}
 				if _, err := file.Write([]byte("video bytes")); err != nil {
+					t.Fatal(err)
+				}
+			}
+			for i := 0; i < scenario.images; i++ {
+				file, err := writer.CreateFormFile("identity_document", "identity.png")
+				if err != nil {
+					t.Fatal(err)
+				}
+				if _, err := file.Write([]byte("image bytes")); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -69,14 +93,17 @@ func TestJobSeekerSignupMultipartVideo(t *testing.T) {
 			req.Header.Set("Content-Type", writer.FormDataContentType())
 			response := httptest.NewRecorder()
 			router.ServeHTTP(response, req)
-			if count != 1 {
+			if scenario.videos != 1 || scenario.images != 1 {
 				if response.Code != 400 || s.calls != 0 {
-					t.Fatal("missing or duplicate video accepted")
+					t.Fatal("missing or duplicate document accepted")
 				}
 				return
 			}
-			if response.Code != 202 || s.calls != 1 || string(s.video) != "video bytes" || s.input.VerificationVideo.Name != "video.mp4" {
-				t.Fatal("multipart video was not passed to signup")
+			if response.Code != 202 || s.calls != 1 || string(s.video) != "video bytes" || s.input.VerificationVideo.Name != "video.mp4" || string(s.identity) != "image bytes" {
+				t.Fatal("multipart documents were not passed to signup")
+			}
+			if s.input.Province != enums.ProvinceTehran || s.input.PostalCode != "0123456789" {
+				t.Fatal("province or postal code was not bound correctly")
 			}
 			if s.input.BirthDate.Year != 1380 || s.input.BirthDate.Month != 2 || s.input.BirthDate.Day != 3 || len(s.input.Interests) != 2 {
 				t.Fatal("profile fields were not bound correctly")
@@ -104,7 +131,7 @@ func TestJobSeekerSignupRejectsJSONAndOversizedBody(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				if _, err := file.Write(make([]byte, 52*1024*1024)); err != nil {
+				if _, err := file.Write(make([]byte, 57*1024*1024)); err != nil {
 					t.Fatal(err)
 				}
 				if err := writer.Close(); err != nil {

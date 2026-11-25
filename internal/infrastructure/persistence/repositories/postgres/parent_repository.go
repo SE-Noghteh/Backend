@@ -18,14 +18,22 @@ func (r *ParentRepository) LockPhone(ctx context.Context, phone string) error {
 	return r.db.WithContext(ctx).Exec("SELECT pg_advisory_xact_lock(hashtextextended(?, 2))", phone).Error
 }
 func parentToModel(p *entities.Parent) *models.ParentModel {
-	return &models.ParentModel{AdminReviewModel: adminReviewToModel(p.AdminReview), ID: p.ID, Relationship: p.Relationship, FirstName: p.FirstName, LastName: p.LastName, Phone: p.Phone, PasswordHash: p.PasswordHash, IdentityDocument: p.IdentityDocument, ConsentVideo: p.ConsentVideo, ConsentAcceptedAt: p.ConsentAcceptedAt, PhoneVerifiedAt: p.PhoneVerifiedAt, CreatedAt: p.CreatedAt}
+	return &models.ParentModel{SessionVersion: p.SessionVersion, AdminReviewModel: adminReviewToModel(p.AdminReview), ID: p.ID, Relationship: p.Relationship, FirstName: p.FirstName, LastName: p.LastName, Phone: p.Phone, PasswordHash: p.PasswordHash, IdentityDocument: p.IdentityDocument, ConsentVideo: p.ConsentVideo, ConsentAcceptedAt: p.ConsentAcceptedAt, PhoneVerifiedAt: p.PhoneVerifiedAt, CreatedAt: p.CreatedAt}
 }
 func parentFromModel(p *models.ParentModel) *entities.Parent {
-	return &entities.Parent{AdminReview: adminReviewFromModel(p.AdminReviewModel), ID: p.ID, Relationship: p.Relationship, FirstName: p.FirstName, LastName: p.LastName, Phone: p.Phone, PasswordHash: p.PasswordHash, IdentityDocument: p.IdentityDocument, ConsentVideo: p.ConsentVideo, ConsentAcceptedAt: p.ConsentAcceptedAt, PhoneVerifiedAt: p.PhoneVerifiedAt, CreatedAt: p.CreatedAt}
+	return &entities.Parent{SessionVersion: p.SessionVersion, AdminReview: adminReviewFromModel(p.AdminReviewModel), ID: p.ID, Relationship: p.Relationship, FirstName: p.FirstName, LastName: p.LastName, Phone: p.Phone, PasswordHash: p.PasswordHash, IdentityDocument: p.IdentityDocument, ConsentVideo: p.ConsentVideo, ConsentAcceptedAt: p.ConsentAcceptedAt, PhoneVerifiedAt: p.PhoneVerifiedAt, CreatedAt: p.CreatedAt}
 }
 func (r *ParentRepository) FindByPhone(ctx context.Context, phone string) (*entities.Parent, error) {
+	return r.findParent(ctx, "phone = ?", phone)
+}
+
+func (r *ParentRepository) FindByID(ctx context.Context, id uint64) (*entities.Parent, error) {
+	return r.findParent(ctx, "id = ?", id)
+}
+
+func (r *ParentRepository) findParent(ctx context.Context, condition string, value any) (*entities.Parent, error) {
 	var row models.ParentModel
-	err := r.db.WithContext(ctx).Where("phone = ?", phone).Take(&row).Error
+	err := r.db.WithContext(ctx).Where(condition, value).Take(&row).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}

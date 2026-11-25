@@ -8,6 +8,7 @@ import (
 
 	"zedlancer/backend/internal/application/usecase"
 	"zedlancer/backend/internal/domain/entities"
+	"zedlancer/backend/internal/domain/enums"
 	domainerrors "zedlancer/backend/internal/domain/errors"
 	"zedlancer/backend/internal/domain/ports"
 )
@@ -110,7 +111,7 @@ func (s *JobSeekerService) VerifyPhoneChange(ctx context.Context, id uint64, in 
 		if err := repo.UpdatePhone(ctx, id, phone); err != nil {
 			return err
 		}
-		if err := repo.DeletePasswordResetOTP(ctx, id); err != nil {
+		if err := factory.PasswordResetRepository().Delete(ctx, enums.RoleJobSeeker, seeker.Phone); err != nil {
 			return err
 		}
 		if err := repo.DeletePhoneChangeOTP(ctx, id); err != nil {
@@ -129,7 +130,7 @@ func (s *JobSeekerService) VerifyPhoneChange(ctx context.Context, id uint64, in 
 }
 
 func (s *JobSeekerService) DeleteAccount(ctx context.Context, id uint64, password string) error {
-	var videoKey string
+	var documentKeys []string
 	var authErr error
 	err := s.uow.WithTransaction(func(factory ports.RepositoryFactory) error {
 		repo := factory.JobSeekerRepository()
@@ -159,7 +160,7 @@ func (s *JobSeekerService) DeleteAccount(ctx context.Context, id uint64, passwor
 		if err := repo.DeletePhoneChangeOTP(ctx, id); err != nil {
 			return err
 		}
-		if err := repo.DeletePasswordResetOTP(ctx, id); err != nil {
+		if err := factory.PasswordResetRepository().Delete(ctx, enums.RoleJobSeeker, seeker.Phone); err != nil {
 			return err
 		}
 		if err := attemptRepo.DeleteLoginAttempt(ctx, seeker.Phone); err != nil {
@@ -168,9 +169,7 @@ func (s *JobSeekerService) DeleteAccount(ctx context.Context, id uint64, passwor
 		if err := repo.Delete(ctx, id); err != nil {
 			return err
 		}
-		if seeker.VerificationVideo != nil {
-			videoKey = seeker.VerificationVideo.Key
-		}
+		documentKeys = jobSeekerDocumentKeys(seeker)
 		return nil
 	})
 	if err != nil {
@@ -179,8 +178,6 @@ func (s *JobSeekerService) DeleteAccount(ctx context.Context, id uint64, passwor
 	if authErr != nil {
 		return authErr
 	}
-	if videoKey != "" {
-		cleanupEmployerUploads(ctx, s.storage, []string{videoKey})
-	}
+	cleanupEmployerUploads(ctx, s.storage, documentKeys)
 	return nil
 }

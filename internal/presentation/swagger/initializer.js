@@ -39,17 +39,16 @@ window.onload = function () {
 
   removeExpiredAuthorization();
 
-  const tagOrder = ["Job seekers", "Parents", "Individual employers", "Legal employers", "Admin"];
+  const tagOrder = ["Job seekers", "Parents", "Individual employers", "Legal employers", "Password reset", "Admin"];
   const operationOrder = [
     "get /job-seekers/signup-options",
     "post /job-seekers/signup",
     "post /job-seekers/verify-otp",
     "post /job-seekers/otp",
     "post /job-seekers/login",
-    "post /job-seekers/forgot-password",
-    "post /job-seekers/reset-password",
     "post /job-seekers/parent-approval/registered",
     "post /job-seekers/parent-approval/invite",
+    "get /job-seekers/parent-approval/request",
     "get /job-seekers/me",
     "get /job-seekers/documents/video",
     "post /job-seekers/phone-change",
@@ -60,6 +59,12 @@ window.onload = function () {
     "post /parents/signup",
     "post /parents/verify-otp",
     "post /parents/otp",
+    "post /parents/login",
+    "get /parents/me",
+    "get /parents/children",
+    "get /parents/connection-requests",
+    "post /parents/connection-requests/{job_seeker_id}/decision",
+    "post /parents/logout",
     ...["individual-employers", "legal-employers"].flatMap(group => [
       "get /" + group + "/signup-options",
       "post /" + group + "/signup",
@@ -70,6 +75,8 @@ window.onload = function () {
       "get /" + group + "/documents/{kind}",
       "post /" + group + "/logout",
     ]),
+    ...["job-seekers", "parents", "individual-employers", "legal-employers"].flatMap(group =>
+      ["forgot-password", "verify-reset-otp", "reset-password"].map(step => "post /" + group + "/" + step)),
     "post /admin/login",
     "get /admin/job-seekers",
     "get /admin/job-seekers/{id}",
@@ -79,6 +86,10 @@ window.onload = function () {
     "get /admin/parents/{id}",
     "get /admin/parents/{id}/documents/{kind}",
     "post /admin/parents/{id}/review",
+    "get /admin/employers",
+    "get /admin/employers/{id}",
+    "get /admin/employers/{id}/documents/{kind}",
+    "post /admin/employers/{id}/review",
   ];
   function rank(list, key) {
     const index = list.indexOf(key);
@@ -101,7 +112,7 @@ window.onload = function () {
       rank(operationOrder, a.get("method").toLowerCase() + " " + a.get("path")) -
       rank(operationOrder, b.get("method").toLowerCase() + " " + b.get("path")),
     requestInterceptor: function (request) {
-      if (/^\/v1\/(job-seekers|individual-employers|legal-employers|admin)\//.test(endpoint(request.url))) {
+      if (/^\/v1\/(job-seekers|parents|individual-employers|legal-employers|admin)\//.test(endpoint(request.url))) {
         for (const name of Object.keys(request.headers || {})) {
           if (name.toLowerCase() === "authorization" && request.headers[name]) {
             request.headers[name] = bearer(request.headers[name]);
@@ -112,17 +123,17 @@ window.onload = function () {
     },
     responseInterceptor: function (response) {
       const path = endpoint(response.url);
-      if (/^(\/v1\/(job-seekers|individual-employers|legal-employers|admin)\/login)$/.test(path) && response.status === 200) {
+      if (/^(\/v1\/(job-seekers|parents|individual-employers|legal-employers|admin)\/login)$/.test(path) && response.status === 200) {
         const body = response.obj || JSON.parse(response.text);
         if (typeof body.access_token === "string" && body.access_token) {
           window.ui.preauthorizeApiKey("BearerAuth", bearer(body.access_token));
           window.ui.authActions.persistAuthorizationIfNeeded();
         }
       }
-      if (/^(\/v1\/(job-seekers|individual-employers|legal-employers|admin)\/logout)$/.test(path) && response.status === 204) {
+      if (/^(\/v1\/(job-seekers|parents|individual-employers|legal-employers|admin)\/logout)$/.test(path) && response.status === 204) {
         clearAuthorization();
       }
-      if (/^\/v1\/(job-seekers|individual-employers|legal-employers|admin)\/(me|logout|documents\/[^/]+)$/.test(path) && response.status === 401) {
+      if (/^\/v1\/(job-seekers|parents|individual-employers|legal-employers|admin)\/(me|logout|children|connection-requests(?:\/\d+\/decision)?|documents\/[^/]+)$/.test(path) && response.status === 401) {
         clearAuthorization();
       }
       return response;

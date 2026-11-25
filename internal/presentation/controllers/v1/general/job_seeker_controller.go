@@ -60,15 +60,17 @@ func (c *JobSeekerController) RequestOTP(ctx *gin.Context) {
 
 // Signup godoc
 // @Summary Start signup and automatically send OTP
-// @Description Submit the complete profile, password and required private verification video before OTP is sent. Video must be MP4/MOV, 1-20 seconds, up to 50 MiB. Pending signup lasts 30 minutes; then verify the received OTP. Birth date is Jalali. Job seeker age must be between 15 and 22 years inclusive; otherwise returns HTTP 400 with an error message. Password must be 8-72 bytes.
+// @Description Submit the complete profile, password, and private identity image and video before OTP is sent. The total request limit is 56 MiB. Pending signup lasts 30 minutes; then verify the received OTP. Birth date is Jalali. Job seeker age must be between 15 and 22 years inclusive. Password must be 8-72 bytes.
 // @Tags Job seekers
 // @Accept multipart/form-data
 // @Produce json
 // @Param first_name formData string true "First name"
 // @Param last_name formData string true "Last name"
 // @Param national_code formData string true "Ten-digit national code"
-// @Param city formData string true "City from signup-options"
+// @Param province formData string true "Province from GET /v1/provinces"
+// @Param city formData string true "City matching the selected province"
 // @Param address formData string true "Address"
+// @Param postal_code formData string true "Ten-digit postal code"
 // @Param birth_year formData int true "Jalali birth year"
 // @Param birth_month formData int true "Jalali birth month"
 // @Param birth_day formData int true "Jalali birth day"
@@ -76,7 +78,8 @@ func (c *JobSeekerController) RequestOTP(ctx *gin.Context) {
 // @Param interests formData []string true "One to ten unique interests from signup-options" collectionFormat(multi)
 // @Param phone formData string true "Phone number"
 // @Param password formData string true "Password (8-72 bytes)"
-// @Param verification_video formData file true "Verification video (MP4/MOV, 1-20 seconds, <=50 MiB)"
+// @Param identity_document formData file true "First page of birth certificate (PNG/JPEG, <=5 MiB)"
+// @Param verification_video formData file true "Verification video (MP4/MOV/WebM, 1-20 seconds, <=50 MiB)"
 // @Success 202 {object} OTPResponse
 // @Failure 400 {object} ErrorResponse
 // @Failure 409 {object} ErrorResponse
@@ -86,7 +89,7 @@ func (c *JobSeekerController) RequestOTP(ctx *gin.Context) {
 // @Failure 503 {object} ErrorResponse
 // @Router /job-seekers/signup [post]
 func (c *JobSeekerController) Signup(ctx *gin.Context) {
-	if !parseEmployerMultipart(ctx, 51*1024*1024) {
+	if !parseEmployerMultipart(ctx, 56*1024*1024) {
 		return
 	}
 	defer ctx.Request.MultipartForm.RemoveAll()
@@ -102,7 +105,13 @@ func (c *JobSeekerController) Signup(ctx *gin.Context) {
 		ctx.JSON(http.StatusBadRequest, ErrorResponse{Message: err.Error()})
 		return
 	}
+	identity, err := files.open(ctx, "identity_document", true)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, ErrorResponse{Message: err.Error()})
+		return
+	}
 	in := request.input()
+	in.IdentityDocument = *identity
 	in.VerificationVideo = *video
 	requestCtx, cancel := context.WithTimeout(ctx.Request.Context(), 3*time.Minute)
 	defer cancel()

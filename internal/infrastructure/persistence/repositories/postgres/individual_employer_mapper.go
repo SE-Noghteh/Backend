@@ -11,10 +11,11 @@ import (
 
 func individualEmployerToModel(e *entities.IndividualEmployer) *models.IndividualEmployerModel {
 	return &models.IndividualEmployerModel{
-		EmployerID: e.Employer.ID, FirstName: e.FirstName, LastName: e.LastName, FatherName: e.FatherName, NationalCode: e.NationalCode,
+		EmployerReviewMetadataModel: models.EmployerReviewMetadataModel(e.EmployerReviewMetadata),
+		EmployerID:                  e.Employer.ID, FirstName: e.FirstName, LastName: e.LastName, FatherName: e.FatherName, NationalCode: e.NationalCode,
 		Gender: e.Gender, BirthDate: e.BirthDate.String(), Province: e.Province, City: e.City, Address: e.Address, PostalCode: e.PostalCode,
 		BusinessName: e.BusinessName, BusinessActivity: e.BusinessActivity, Website: e.Website, HasLegalGuardian: e.HasLegalGuardian,
-		Phone: e.Phone, Email: e.Email, PasswordHash: e.PasswordHash, IdentityDocument: e.IdentityDocument, BusinessLicense: e.BusinessLicense,
+		Phone: e.Phone, Email: e.Email, SessionVersion: e.SessionVersion, PasswordHash: e.PasswordHash, IdentityDocument: e.IdentityDocument, BusinessLicense: e.BusinessLicense,
 		VerificationVideo: e.VerificationVideo, PhoneVerifiedAt: e.PhoneVerifiedAt, CreatedAt: e.CreatedAt, ReviewStatus: e.ReviewStatus,
 	}
 }
@@ -25,10 +26,11 @@ func individualEmployerFromModel(m *models.IndividualEmployerModel) (*entities.I
 		return nil, fmt.Errorf("invalid persisted birth date")
 	}
 	return &entities.IndividualEmployer{
-		Employer: entities.Employer{ID: m.EmployerID, Type: enums.EmployerIndividual}, FirstName: m.FirstName, LastName: m.LastName, FatherName: m.FatherName, NationalCode: m.NationalCode,
+		EmployerReviewMetadata: valueobjects.EmployerReviewMetadata(m.EmployerReviewMetadataModel),
+		Employer:               entities.Employer{ID: m.EmployerID, Type: enums.EmployerIndividual}, FirstName: m.FirstName, LastName: m.LastName, FatherName: m.FatherName, NationalCode: m.NationalCode,
 		Gender: m.Gender, BirthDate: birth, Province: m.Province, City: m.City, Address: m.Address, PostalCode: m.PostalCode,
 		BusinessName: m.BusinessName, BusinessActivity: m.BusinessActivity, Website: m.Website, HasLegalGuardian: m.HasLegalGuardian,
-		Phone: m.Phone, Email: m.Email, PasswordHash: m.PasswordHash, IdentityDocument: m.IdentityDocument, BusinessLicense: m.BusinessLicense,
+		Phone: m.Phone, Email: m.Email, SessionVersion: m.SessionVersion, PasswordHash: m.PasswordHash, IdentityDocument: m.IdentityDocument, BusinessLicense: m.BusinessLicense,
 		VerificationVideo: m.VerificationVideo, PhoneVerifiedAt: m.PhoneVerifiedAt, CreatedAt: m.CreatedAt, ReviewStatus: m.ReviewStatus,
 	}, nil
 }

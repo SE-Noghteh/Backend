@@ -46,7 +46,14 @@ func TestSwaggerServesUIAndSignupContract(t *testing.T) {
 		if spec.BasePath != "/v1" || spec.Host != "" {
 			t.Fatal("Swagger must use /v1 on the current host and port")
 		}
-		for _, path := range []string{"/job-seekers/forgot-password", "/job-seekers/reset-password"} {
+		groups := []string{"job-seekers", "parents", "individual-employers", "legal-employers"}
+		var resetPaths []string
+		for _, group := range groups {
+			for _, step := range []string{"forgot-password", "verify-reset-otp", "reset-password"} {
+				resetPaths = append(resetPaths, "/"+group+"/"+step)
+			}
+		}
+		for _, path := range resetPaths {
 			var operation struct {
 				Security []json.RawMessage `json:"security"`
 			}
@@ -60,6 +67,8 @@ func TestSwaggerServesUIAndSignupContract(t *testing.T) {
 		for path, methods := range spec.Paths {
 			var expected string
 			switch {
+			case strings.HasSuffix(path, "/forgot-password"), strings.HasSuffix(path, "/verify-reset-otp"), strings.HasSuffix(path, "/reset-password"):
+				expected = "Password reset"
 			case strings.HasPrefix(path, "/admin/"):
 				expected = "Admin"
 			case strings.HasPrefix(path, "/job-seekers/"):
@@ -85,7 +94,10 @@ func TestSwaggerServesUIAndSignupContract(t *testing.T) {
 				}
 			}
 		}
-		for path, method := range map[string]string{"/admin/login": "post", "/admin/job-seekers": "get", "/admin/job-seekers/{id}": "get", "/admin/job-seekers/{id}/documents/video": "get", "/admin/job-seekers/{id}/review": "post", "/admin/parents": "get", "/admin/parents/{id}": "get", "/admin/parents/{id}/documents/{kind}": "get", "/admin/parents/{id}/review": "post"} {
+		for path, method := range map[string]string{"/admin/login": "post", "/admin/job-seekers": "get", "/admin/job-seekers/{id}": "get", "/admin/job-seekers/{id}/documents/video": "get", "/admin/job-seekers/{id}/review": "post", "/admin/parents": "get", "/admin/parents/{id}": "get", "/admin/parents/{id}/documents/{kind}": "get", "/admin/parents/{id}/review": "post",
+			"/admin/employers": "get", "/admin/employers/{id}": "get",
+			"/admin/employers/{id}/documents/{kind}": "get", "/admin/employers/{id}/review": "post",
+		} {
 			var operation struct {
 				Security []map[string][]string `json:"security"`
 			}
@@ -112,8 +124,8 @@ func TestSwaggerServesUIAndSignupContract(t *testing.T) {
 				t.Fatalf("missing documented endpoint %s %s", method, path)
 			}
 		}
-		if len(spec.Definitions["enums.City"].Enum) != 10 || len(spec.Definitions["enums.Interest"].Enum) != 10 {
-			t.Fatal("all signup choices must be documented")
+		if len(spec.Definitions["enums.Interest"].Enum) != 10 {
+			t.Fatal("all interest choices must be documented")
 		}
 		var seekerSignup struct {
 			Consumes   []string `json:"consumes"`
@@ -128,15 +140,15 @@ func TestSwaggerServesUIAndSignupContract(t *testing.T) {
 		if err := json.Unmarshal(spec.Paths["/job-seekers/signup"]["post"], &seekerSignup); err != nil {
 			t.Fatal(err)
 		}
-		if len(seekerSignup.Consumes) != 1 || seekerSignup.Consumes[0] != "multipart/form-data" || len(seekerSignup.Parameters) != 13 {
-			t.Fatal("job seeker signup must accept the profile and required video in one multipart submission")
+		if len(seekerSignup.Consumes) != 1 || seekerSignup.Consumes[0] != "multipart/form-data" || len(seekerSignup.Parameters) != 16 {
+			t.Fatal("job seeker signup must accept the profile and required documents in one multipart submission")
 		}
 		for _, p := range seekerSignup.Parameters {
 			if p.In != "formData" || !p.Required {
 				t.Fatalf("missing required form field %s", p.Name)
 			}
-			if p.Name == "verification_video" && p.Type != "file" {
-				t.Fatal("video must be a file")
+			if (p.Name == "verification_video" || p.Name == "identity_document") && p.Type != "file" {
+				t.Fatalf("%s must be a file", p.Name)
 			}
 			if p.Name == "interests" && p.CollectionFormat != "multi" {
 				t.Fatal("interests must support repeated fields")
@@ -145,7 +157,11 @@ func TestSwaggerServesUIAndSignupContract(t *testing.T) {
 		if spec.Paths["/job-seekers/documents/video"]["get"] == nil {
 			t.Fatal("missing private job seeker video route")
 		}
-		for path, method := range map[string]string{"/job-seekers/phone-change": "post", "/job-seekers/phone-change/verify": "post", "/job-seekers/me": "delete"} {
+		for path, method := range map[string]string{
+			"/job-seekers/phone-change": "post", "/job-seekers/phone-change/verify": "post", "/job-seekers/me": "delete",
+			"/job-seekers/parent-approval/request": "get", "/parents/me": "get", "/parents/children": "get",
+			"/parents/connection-requests": "get", "/parents/connection-requests/{job_seeker_id}/decision": "post", "/parents/logout": "post",
+		} {
 			var operation struct {
 				Security []map[string][]string `json:"security"`
 			}
@@ -156,7 +172,10 @@ func TestSwaggerServesUIAndSignupContract(t *testing.T) {
 				t.Fatalf("missing bearer security for %s %s", method, path)
 			}
 		}
-		for _, path := range []string{"/job-seekers/parent-approval/registered", "/job-seekers/parent-approval/invite", "/parents/invitations/validate", "/parents/signup", "/parents/otp", "/parents/verify-otp"} {
+		for _, path := range []string{
+			"/job-seekers/parent-approval/registered", "/job-seekers/parent-approval/invite", "/parents/invitations/validate",
+			"/parents/signup", "/parents/otp", "/parents/verify-otp", "/parents/login", "/parents/forgot-password", "/parents/reset-password",
+		} {
 			if spec.Paths[path]["post"] == nil {
 				t.Fatalf("missing parent endpoint %s", path)
 			}

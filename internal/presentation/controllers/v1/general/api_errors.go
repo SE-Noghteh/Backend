@@ -16,7 +16,7 @@ func respondAPIError(ctx *gin.Context, err error) {
 		status, message = http.StatusUnauthorized, err.Error()
 	case errors.Is(err, domainerrors.ErrInvalidReview):
 		status, message = http.StatusBadRequest, err.Error()
-	case errors.Is(err, domainerrors.ErrReviewNotFound):
+	case errors.Is(err, domainerrors.ErrReviewNotFound), errors.Is(err, domainerrors.ErrReviewDocumentNotFound), errors.Is(err, domainerrors.ErrParentRequestNotFound):
 		status, message = http.StatusNotFound, err.Error()
 	case errors.Is(err, domainerrors.ErrSignupIncomplete):
 		status, message = http.StatusConflict, err.Error()
@@ -40,7 +40,7 @@ func respondAPIError(ctx *gin.Context, err error) {
 	case errors.Is(err, domainerrors.ErrLoginThrottled):
 		status, message = http.StatusTooManyRequests, err.Error()
 		ctx.Header("Retry-After", "900")
-	case errors.Is(err, domainerrors.ErrInvalidOTP):
+	case errors.Is(err, domainerrors.ErrInvalidOTP), errors.Is(err, domainerrors.ErrInvalidResetToken):
 		status, message = http.StatusUnauthorized, err.Error()
 	case errors.Is(err, domainerrors.ErrSignupConflict):
 		status, message = http.StatusConflict, err.Error()

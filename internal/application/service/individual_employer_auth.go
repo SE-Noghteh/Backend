@@ -20,8 +20,8 @@ func (s *IndividualEmployerService) authentication() employerAuthentication[enti
 		findID: func(ctx context.Context, r ports.EmployerRepository, id uint64) (*entities.IndividualEmployer, error) {
 			return r.FindIndividualByID(ctx, id)
 		},
-		credentials: func(e *entities.IndividualEmployer) (uint64, string, bool) {
-			return e.Employer.ID, e.PasswordHash, !e.PhoneVerifiedAt.IsZero()
+		credentials: func(e *entities.IndividualEmployer) (uint64, string, bool, uint64) {
+			return e.Employer.ID, e.PasswordHash, !e.PhoneVerifiedAt.IsZero(), e.SessionVersion
 		},
 	}
 }
@@ -46,6 +46,17 @@ func (s *IndividualEmployerService) DocumentURL(ctx context.Context, token, kind
 	if err != nil {
 		return "", err
 	}
+	object, err := individualEmployerDocument(employer, kind)
+	if err != nil {
+		return "", err
+	}
+	if object == nil {
+		return "", fmt.Errorf("%w: no business license was uploaded", domainerrors.ErrInvalidSignup)
+	}
+	return employerDocumentURL(ctx, s.storage, object)
+}
+
+func individualEmployerDocument(employer *entities.IndividualEmployer, kind string) (*valueobjects.StoredObject, error) {
 	var object *valueobjects.StoredObject
 	switch kind {
 	case "identity":
@@ -55,10 +66,7 @@ func (s *IndividualEmployerService) DocumentURL(ctx context.Context, token, kind
 	case "business-license":
 		object = employer.BusinessLicense
 	default:
-		return "", fmt.Errorf("%w: document kind", domainerrors.ErrInvalidSignup)
+		return nil, fmt.Errorf("%w: document kind", domainerrors.ErrInvalidSignup)
 	}
-	if object == nil {
-		return "", fmt.Errorf("%w: no business license was uploaded", domainerrors.ErrInvalidSignup)
-	}
-	return employerDocumentURL(ctx, s.storage, object)
+	return object, nil
 }

@@ -19,11 +19,17 @@ type parentMemory struct {
 	parents     map[string]*entities.Parent
 	invitations map[string]*entities.ParentInvitation
 	pending     map[string]*entities.PendingParentSignup
+	requests    map[uint64]*entities.ParentConnectionRequest
 }
-type memoryParentRepository struct{ m *parentMemory }
+type memoryParentRepository struct {
+	ports.ParentRepository
+	m *parentMemory
+}
 
-func (m *parentMemory) Factory() ports.RepositoryFactory         { return m }
-func (m *parentMemory) ParentRepository() ports.ParentRepository { return &memoryParentRepository{m} }
+func (m *parentMemory) Factory() ports.RepositoryFactory { return m }
+func (m *parentMemory) ParentRepository() ports.ParentRepository {
+	return &memoryParentRepository{m: m}
+}
 func cloneParent(p *entities.Parent) *entities.Parent {
 	if p == nil {
 		return nil
@@ -55,12 +61,17 @@ func (m *parentMemory) WithTransaction(fn func(ports.RepositoryFactory) error) e
 	for k, v := range m.pending {
 		pending[k] = cloneParentPending(v)
 	}
+	requests := map[uint64]*entities.ParentConnectionRequest{}
+	for id, request := range m.requests {
+		copy := *request
+		requests[id] = &copy
+	}
 	err := fn(m)
 	if err == nil {
 		err = m.commitErr
 	}
 	if err != nil {
-		m.seeker, m.parents, m.invitations, m.pending = seeker, parents, invitations, pending
+		m.seeker, m.parents, m.invitations, m.pending, m.requests = seeker, parents, invitations, pending, requests
 	}
 	return err
 }
@@ -119,9 +130,29 @@ func (r *memoryParentRepository) SetParentConnection(_ context.Context, id uint6
 	r.m.seeker.ParentID, r.m.seeker.ParentRelationship = parentID, relationship
 	return nil
 }
+func (r *memoryParentRepository) FindConnectionRequest(_ context.Context, id uint64) (*entities.ParentConnectionRequest, error) {
+	request := r.m.requests[id]
+	if request == nil {
+		return nil, nil
+	}
+	copy := *request
+	return &copy, nil
+}
+
+func (r *memoryParentRepository) SaveConnectionRequest(_ context.Context, request *entities.ParentConnectionRequest) error {
+	copy := *request
+	r.m.requests[request.JobSeekerID] = &copy
+	return nil
+}
+
+func (r *memoryParentRepository) DeleteConnectionRequest(_ context.Context, id uint64) error {
+	delete(r.m.requests, id)
+	return nil
+}
+
 func parentFixture(t *testing.T) (*parentMemory, *ParentService, *employerMemory) {
 	t.Helper()
-	m := &parentMemory{signupMemory: *verifiedMemory(t), parents: map[string]*entities.Parent{}, invitations: map[string]*entities.ParentInvitation{}, pending: map[string]*entities.PendingParentSignup{}}
+	m := &parentMemory{signupMemory: *verifiedMemory(t), parents: map[string]*entities.Parent{}, invitations: map[string]*entities.ParentInvitation{}, pending: map[string]*entities.PendingParentSignup{}, requests: make(map[uint64]*entities.ParentConnectionRequest)}
 	m.seeker.BirthDate = valueobjects.JalaliDate{Year: time.Now().Year() - 621 - 16, Month: 1, Day: 1}
 	m.smsDestination = "989129876543"
 	storage := &employerMemory{}
@@ -181,7 +212,7 @@ func TestParentInvitationSignupAndSecondChild(t *testing.T) {
 	m.seeker.ID = 2
 	m.seeker.ParentID = nil
 	r, err := s.LinkRegisteredParent(ctx, 2, changedPhone)
-	if err != nil || r.InvitationCode != "" || r.ParentID == nil || *r.ParentID != parent.ID || r.SignupStatus != valueobjects.JobSeekerPending || len(m.parents) != 1 || *firstChild.ParentID != *m.seeker.ParentID {
+	if err != nil || r.InvitationCode != "" || r.ParentConnected || r.ConnectionStatus != "pending" || r.SignupStatus != valueobjects.JobSeekerPending || len(m.parents) != 1 || m.seeker.ParentID != nil {
 		t.Fatalf("existing parent was not reused: %+v %v", r, err)
 	}
 	if m.parents[changedPhone].FirstName != "Parent" {
@@ -274,7 +305,7 @@ func TestParentInvitationExpiryReplacementAndDeletedSeeker(t *testing.T) {
 }
 
 func TestParentSignupValidation(t *testing.T) {
-	for _, scenario := range []string{"no code", "guardian", "password", "consent", "image missing", "video missing", "pdf"} {
+	for _, scenario := range []string{"no code", "unsupported relationship", "password", "consent", "image missing", "video missing", "pdf"} {
 		t.Run(scenario, func(t *testing.T) {
 			m, s, storage := parentFixture(t)
 			code := parentInvitation(t, s)
@@ -282,8 +313,8 @@ func TestParentSignupValidation(t *testing.T) {
 			switch scenario {
 			case "no code":
 				in.Code = ""
-			case "guardian":
-				in.Relationship = "guardian"
+			case "unsupported relationship":
+				in.Relationship = "other"
 			case "password":
 				in.Password = "short"
 			case "consent":
@@ -400,7 +431,7 @@ func TestParentApprovalEndpointsDoNotSwitchFlows(t *testing.T) {
 		t.Fatal("wrong endpoint changed state")
 	}
 	r, err := s.LinkRegisteredParent(ctx, 1, "+989129876543")
-	if err != nil || r.ParentID == nil || *r.ParentID != 9 || r.InvitationCode != "" || r.ExpiresAt != nil || len(m.invitations) != 0 {
+	if err != nil || r.ParentID != nil || r.ConnectionStatus != "pending" || r.InvitationCode != "" || r.ExpiresAt == nil || len(m.invitations) != 0 || m.requests[1].ParentID != 9 {
 		t.Fatalf("registered link created a code or required names: %+v %v", r, err)
 	}
 }

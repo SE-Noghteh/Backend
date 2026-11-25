@@ -13,3 +13,5 @@ var (
 	ErrLoginThrottled     = errors.New("too many login attempts; try again in 15 minutes")
 	ErrNoPendingSignup    = errors.New("submit valid signup information before requesting an OTP")
 )
+
+var ErrInvalidResetToken = errors.New("invalid or expired password reset token")

@@ -9,7 +9,7 @@ import (
 )
 
 type SignupOptionsResponse struct {
-	Cities    []enums.City     `json:"cities"`
+	Cities    []enums.City     `json:"cities" swaggertype:"array,string"`
 	Interests []enums.Interest `json:"interests"`
 	Genders   []enums.Gender   `json:"genders"`
 }

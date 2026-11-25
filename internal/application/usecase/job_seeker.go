@@ -13,13 +13,16 @@ type SignupJobSeeker struct {
 	FirstName         string
 	LastName          string
 	NationalCode      string
+	Province          enums.Province
 	City              enums.City
 	Address           string
+	PostalCode        string
 	BirthDate         valueobjects.JalaliDate
 	Gender            enums.Gender
 	Interests         []enums.Interest
 	Phone             string
 	Password          string
+	IdentityDocument  ports.UploadFile
 	VerificationVideo ports.UploadFile
 }
 
@@ -29,8 +32,6 @@ type VerifySignupOTP struct {
 }
 
 type JobSeekerService interface {
-	ForgotPassword(context.Context, string) error
-	ResetPassword(context.Context, string, string, string) error
 	RequestOTP(context.Context, string) error
 	Signup(context.Context, SignupJobSeeker) error
 	VerifyOTP(context.Context, VerifySignupOTP) (*entities.JobSeeker, error)

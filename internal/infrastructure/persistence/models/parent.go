@@ -6,8 +6,9 @@ import (
 )
 
 type ParentModel struct {
+	SessionVersion uint64 `gorm:"not null;default:0"`
 	AdminReviewModel
-	Relationship      string                     `gorm:"size:6;not null"`
+	Relationship      string                     `gorm:"size:8;not null"`
 	ID                uint64                     `gorm:"primaryKey"`
 	FirstName         string                     `gorm:"size:100;not null"`
 	LastName          string                     `gorm:"size:100;not null"`
@@ -36,8 +37,24 @@ func (ParentInvitationModel) TableName() string { return "job_seeker_parent_invi
 type ParentSignupOTPModel struct {
 	OTPChallengeModel
 	InvitationHash string       `gorm:"size:64;not null;index"`
-	Relationship   string       `gorm:"size:6;not null"`
+	Relationship   string       `gorm:"size:8;not null"`
 	Registration   *ParentModel `gorm:"serializer:json;type:jsonb;not null"`
 }
 
 func (ParentSignupOTPModel) TableName() string { return "parent_signup_otps" }
+
+type ParentConnectionRequestModel struct {
+	JobSeekerID uint64    `gorm:"primaryKey;autoIncrement:false"`
+	ParentID    uint64    `gorm:"not null;index"`
+	ExpiresAt   time.Time `gorm:"not null"`
+	DecidedAt   *time.Time
+	Approved    bool `gorm:"not null;default:false"`
+}
+
+func (ParentConnectionRequestModel) TableName() string {
+	return "job_seeker_parent_connection_requests"
+}
+
+type ParentLoginAttemptModel LoginAttemptModel
+
+func (ParentLoginAttemptModel) TableName() string { return "parent_login_attempts" }
