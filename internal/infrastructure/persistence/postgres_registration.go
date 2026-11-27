@@ -57,6 +57,7 @@ func NewPostgresDatabase() *gorm.DB {
 			&models.LegalEmployerSignupOTPModel{},
 			&models.EmployerLoginAttemptModel{},
 			&models.JobPostingModel{},
+			&models.SavedJobPostingModel{},
 		); err != nil {
 			panic(err)
 		}

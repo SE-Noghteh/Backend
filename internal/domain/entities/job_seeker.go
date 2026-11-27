@@ -24,6 +24,7 @@ type JobSeeker struct {
 	BirthDate                 valueobjects.JalaliDate    `json:"birth_date"`
 	Gender                    enums.Gender               `json:"gender"`
 	Interests                 []enums.Interest           `json:"interests"`
+	Skills                    []string                   `json:"skills,omitempty"`
 	Phone                     string                     `json:"phone"`
 	PasswordHash              string                     `json:"-"`
 	PhoneVerifiedAt           time.Time                  `json:"phone_verified_at"`

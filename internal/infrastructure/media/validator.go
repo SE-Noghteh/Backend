@@ -68,8 +68,16 @@ func inspect(file ports.UploadFile, max int64) (int64, []byte, error) {
 	return size, header[:n], nil
 }
 
-func (v *Validator) Document(ctx context.Context, file ports.UploadFile) (*ports.ValidatedFile, error) {
-	size, header, err := inspect(file, MaxDocumentBytes)
+func (v *Validator) Document(_ context.Context, file ports.UploadFile) (*ports.ValidatedFile, error) {
+	return validateDocument(file, MaxDocumentBytes)
+}
+
+func (v *Validator) JobPostingAttachment(file ports.UploadFile, maxBytes int64) (*ports.ValidatedFile, error) {
+	return validateDocument(file, maxBytes)
+}
+
+func validateDocument(file ports.UploadFile, maxBytes int64) (*ports.ValidatedFile, error) {
+	size, header, err := inspect(file, maxBytes)
 	if err != nil {
 		return nil, err
 	}
