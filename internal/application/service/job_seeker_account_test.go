@@ -26,6 +26,13 @@ func (m *signupMemory) UpdatePhone(ctx context.Context, id uint64, phone string)
 	m.seeker.PhoneVerifiedAt = time.Now().UTC()
 	return nil
 }
+func (m *signupMemory) UpdateSkills(ctx context.Context, id uint64, skills []string) error {
+	if err := m.LockAccount(ctx, id); err != nil {
+		return err
+	}
+	m.seeker.Skills = append([]string{}, skills...)
+	return nil
+}
 func (m *signupMemory) Delete(ctx context.Context, id uint64) error {
 	if err := m.LockAccount(ctx, id); err != nil {
 		return err

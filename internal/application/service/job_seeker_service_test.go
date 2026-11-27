@@ -57,6 +57,7 @@ func cloneSeeker(in *entities.JobSeeker) *entities.JobSeeker {
 	}
 	out := *in
 	out.Interests = append([]enums.Interest(nil), in.Interests...)
+	out.Skills = append([]string(nil), in.Skills...)
 	return &out
 }
 func cloneOTP(in *entities.SignupOTP) *entities.SignupOTP {

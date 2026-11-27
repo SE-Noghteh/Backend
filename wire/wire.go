@@ -59,6 +59,7 @@ var ServiceProviderSet = wire.NewSet(
 	wire.Bind(new(usecase.JobSeekerService), new(*service.JobSeekerService)),
 	service.NewUserService,
 	service.NewEmployerJobPostingService,
+	wire.Bind(new(ports.JobPostingAttachmentValidator), new(*media.Validator)),
 	wire.Bind(new(usecase.UserService), new(*service.UserService)),
 	wire.Bind(new(usecase.EmployerJobPostingService), new(*service.EmployerJobPostingService)),
 )

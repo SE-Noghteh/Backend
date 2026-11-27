@@ -1003,14 +1003,14 @@
                 }
             }
         },
-        "/employer/job-postings": {
+        "/employer/internship-postings": {
             "post": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "Creates a draft for an approved individual or legal employer. Structured details are required for work and internship ads. Dates use Gregorian YYYY-MM-DD; money is whole toman. Applicants under 18 require parent approval. Creation does not charge a wallet or publish the ad.",
+                "description": "Creates an employer-owned draft for a paid or unpaid internship. The route supplies opportunity_type=internship. Dates are Gregorian YYYY-MM-DD. The description defaults to responsibilities. The example shows a paid internship. For an unpaid internship, set has_monthly_stipend to false and omit monthly_stipend_toman or set it to zero. Requires a valid token for a phone-verified individual or legal employer with current admin approval. The response status is draft.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1018,47 +1018,54 @@
                     "application/json"
                 ],
                 "tags": [
-                    "Employer job postings"
+                    "Internship postings"
                 ],
-                "summary": "Create an employer job advertisement",
+                "summary": "Create an internship draft",
+                "operationId": "createInternshipPosting",
                 "parameters": [
                     {
-                        "description": "Job advertisement",
+                        "description": "Internship draft",
                         "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/general.saveJobPostingRequest"
+                            "$ref": "#/definitions/general.saveInternshipPostingRequest"
                         }
                     }
                 ],
                 "responses": {
                     "201": {
-                        "description": "Created",
+                        "description": "Draft created",
                         "schema": {
                             "$ref": "#/definitions/general.JobPostingCreatedResponse"
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Invalid posting data",
                         "schema": {
                             "$ref": "#/definitions/general.ErrorResponse"
                         }
                     },
                     "401": {
-                        "description": "Unauthorized",
+                        "description": "Valid employer token and verified phone required",
                         "schema": {
                             "$ref": "#/definitions/general.ErrorResponse"
+                        },
+                        "headers": {
+                            "WWW-Authenticate": {
+                                "type": "string",
+                                "description": "Bearer"
+                            }
                         }
                     },
                     "403": {
-                        "description": "Forbidden",
+                        "description": "Employer review is pending or rejected",
                         "schema": {
                             "$ref": "#/definitions/general.ErrorResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Internal server error",
                         "schema": {
                             "$ref": "#/definitions/general.ErrorResponse"
                         }
@@ -1066,14 +1073,102 @@
                 }
             }
         },
-        "/employer/job-postings/{id}": {
+        "/employer/internship-postings/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns your internship draft, including its scheduling and stipend terms. The attachments array is empty. Requires a valid token for a phone-verified individual or legal employer with current admin approval.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Internship postings"
+                ],
+                "summary": "Review your internship draft",
+                "operationId": "getInternshipPosting",
+                "parameters": [
+                    {
+                        "minimum": 1,
+                        "type": "integer",
+                        "description": "Posting ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/usecase.JobPostingReview"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "details": {
+                                            "$ref": "#/definitions/general.internshipPostingDetailsRequest"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "Cache-Control": {
+                                "type": "string",
+                                "description": "no-store"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid posting ID",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Valid employer token and verified phone required",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        },
+                        "headers": {
+                            "WWW-Authenticate": {
+                                "type": "string",
+                                "description": "Bearer"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Employer review is pending or rejected",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Posting not found for this employer and posting type",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            },
             "put": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "Replaces title, description and details. Requires an employer with approved verification. Returns 404 when the advertisement does not exist or belongs to another employer.",
+                "description": "Replaces the internship draft's title, description, and details. Dates are Gregorian YYYY-MM-DD. The description defaults to responsibilities. The example shows a paid internship. For an unpaid internship, set has_monthly_stipend to false and omit monthly_stipend_toman or set it to zero. Requires a valid token for a phone-verified individual or legal employer with current admin approval.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1081,25 +1176,26 @@
                     "application/json"
                 ],
                 "tags": [
-                    "Employer job postings"
+                    "Internship postings"
                 ],
-                "summary": "Edit your job advertisement",
+                "summary": "Edit your internship draft",
+                "operationId": "updateInternshipPosting",
                 "parameters": [
                     {
                         "minimum": 1,
                         "type": "integer",
-                        "description": "Job posting ID",
+                        "description": "Posting ID",
                         "name": "id",
                         "in": "path",
                         "required": true
                     },
                     {
-                        "description": "Replacement advertisement fields",
+                        "description": "Internship draft",
                         "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/general.saveJobPostingRequest"
+                            "$ref": "#/definitions/general.saveInternshipPostingRequest"
                         }
                     }
                 ],
@@ -1108,31 +1204,37 @@
                         "description": "Updated"
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Invalid posting ID or request data",
                         "schema": {
                             "$ref": "#/definitions/general.ErrorResponse"
                         }
                     },
                     "401": {
-                        "description": "Unauthorized",
+                        "description": "Valid employer token and verified phone required",
                         "schema": {
                             "$ref": "#/definitions/general.ErrorResponse"
+                        },
+                        "headers": {
+                            "WWW-Authenticate": {
+                                "type": "string",
+                                "description": "Bearer"
+                            }
                         }
                     },
                     "403": {
-                        "description": "Forbidden",
+                        "description": "Employer review is pending or rejected",
                         "schema": {
                             "$ref": "#/definitions/general.ErrorResponse"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "Posting not found for this employer and posting type",
                         "schema": {
                             "$ref": "#/definitions/general.ErrorResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Internal server error",
                         "schema": {
                             "$ref": "#/definitions/general.ErrorResponse"
                         }
@@ -1145,19 +1247,20 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Requires an employer with approved verification. Returns 404 when the advertisement does not exist or belongs to another employer.",
+                "description": "Deletes your internship draft. Requires a valid token for a phone-verified individual or legal employer with current admin approval.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "Employer job postings"
+                    "Internship postings"
                 ],
-                "summary": "Delete your job advertisement",
+                "summary": "Delete your internship draft",
+                "operationId": "deleteInternshipPosting",
                 "parameters": [
                     {
                         "minimum": 1,
                         "type": "integer",
-                        "description": "Job posting ID",
+                        "description": "Posting ID",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -1168,31 +1271,439 @@
                         "description": "Deleted"
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Invalid posting ID",
                         "schema": {
                             "$ref": "#/definitions/general.ErrorResponse"
                         }
                     },
                     "401": {
-                        "description": "Unauthorized",
+                        "description": "Valid employer token and verified phone required",
                         "schema": {
                             "$ref": "#/definitions/general.ErrorResponse"
+                        },
+                        "headers": {
+                            "WWW-Authenticate": {
+                                "type": "string",
+                                "description": "Bearer"
+                            }
                         }
                     },
                     "403": {
-                        "description": "Forbidden",
+                        "description": "Employer review is pending or rejected",
                         "schema": {
                             "$ref": "#/definitions/general.ErrorResponse"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "Posting not found for this employer and posting type",
                         "schema": {
                             "$ref": "#/definitions/general.ErrorResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/employer/job-postings": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Creates an employer-owned draft with a budget in whole toman and a delivery deadline after the application deadline. The route supplies opportunity_type=work. Dates are Gregorian YYYY-MM-DD. Requires a valid token for a phone-verified individual or legal employer with current admin approval. The response status is draft.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Work postings"
+                ],
+                "summary": "Create a work draft",
+                "operationId": "createWorkPosting",
+                "parameters": [
+                    {
+                        "description": "Work draft",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/general.saveWorkPostingRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Draft created",
+                        "schema": {
+                            "$ref": "#/definitions/general.JobPostingCreatedResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid posting data",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Valid employer token and verified phone required",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        },
+                        "headers": {
+                            "WWW-Authenticate": {
+                                "type": "string",
+                                "description": "Bearer"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Employer review is pending or rejected",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/employer/job-postings/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns your work draft and private attachment download URLs valid for five minutes. Requires a valid token for a phone-verified individual or legal employer with current admin approval.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Work postings"
+                ],
+                "summary": "Review your work draft",
+                "operationId": "getWorkPosting",
+                "parameters": [
+                    {
+                        "minimum": 1,
+                        "type": "integer",
+                        "description": "Posting ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/usecase.JobPostingReview"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "details": {
+                                            "$ref": "#/definitions/general.workPostingDetailsRequest"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "Cache-Control": {
+                                "type": "string",
+                                "description": "no-store"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid posting ID",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Valid employer token and verified phone required",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        },
+                        "headers": {
+                            "WWW-Authenticate": {
+                                "type": "string",
+                                "description": "Bearer"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Employer review is pending or rejected",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Posting not found for this employer and posting type",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Attachment storage unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Replaces the work draft's title, description, and details. Existing attachments are updated through the attachment endpoint. Requires a valid token for a phone-verified individual or legal employer with current admin approval.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Work postings"
+                ],
+                "summary": "Edit your work draft",
+                "operationId": "updateWorkPosting",
+                "parameters": [
+                    {
+                        "minimum": 1,
+                        "type": "integer",
+                        "description": "Posting ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Work draft",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/general.saveWorkPostingRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Updated"
+                    },
+                    "400": {
+                        "description": "Invalid posting ID or request data",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Valid employer token and verified phone required",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        },
+                        "headers": {
+                            "WWW-Authenticate": {
+                                "type": "string",
+                                "description": "Bearer"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Employer review is pending or rejected",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Posting not found for this employer and posting type",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Deletes your work draft and removes its attachments. Requires a valid token for a phone-verified individual or legal employer with current admin approval.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Work postings"
+                ],
+                "summary": "Delete your work draft",
+                "operationId": "deleteWorkPosting",
+                "parameters": [
+                    {
+                        "minimum": 1,
+                        "type": "integer",
+                        "description": "Posting ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Deleted"
+                    },
+                    "400": {
+                        "description": "Invalid posting ID",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Valid employer token and verified phone required",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        },
+                        "headers": {
+                            "WWW-Authenticate": {
+                                "type": "string",
+                                "description": "Bearer"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Employer review is pending or rejected",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Posting not found for this employer and posting type",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/employer/job-postings/{id}/attachments": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Replaces all attachments on your work draft. Send up to five PDF, PNG, or JPEG files by repeating the attachments multipart field. Each file may be up to 10 MiB. Swagger UI provides one file picker. Use an HTTP client that can repeat multipart fields to upload multiple files together. An empty multipart form clears the attachments. Requires a valid token for a phone-verified individual or legal employer with current admin approval.",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Work postings"
+                ],
+                "summary": "Replace work advertisement attachments",
+                "operationId": "replaceWorkPostingAttachments",
+                "parameters": [
+                    {
+                        "minimum": 1,
+                        "type": "integer",
+                        "description": "Job posting ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "Attachment; repeat the field for multiple files",
+                        "name": "attachments",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Attachments replaced"
+                    },
+                    "400": {
+                        "description": "Invalid posting ID or request data",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Valid employer token and verified phone required",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        },
+                        "headers": {
+                            "WWW-Authenticate": {
+                                "type": "string",
+                                "description": "Bearer"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Employer review is pending or rejected",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Posting not found for this employer and posting type",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "413": {
+                        "description": "Multipart request exceeds the upload limit",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Attachment storage unavailable",
                         "schema": {
                             "$ref": "#/definitions/general.ErrorResponse"
                         }
@@ -2176,6 +2687,388 @@
                     },
                     "429": {
                         "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/job-seekers/me/skills": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Job seekers"
+                ],
+                "summary": "Read the current job seeker's skills",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/general.jobSeekerSkills"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Saves up to 30 distinct skill names from the job seeker's skills profile. An empty array clears the list.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Job seekers"
+                ],
+                "summary": "Replace the current job seeker's skills",
+                "parameters": [
+                    {
+                        "description": "Skill names used for opportunity recommendations",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/general.jobSeekerSkills"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Skills replaced"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/job-seekers/opportunities": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Searches published opportunities with an open application deadline. Search matches only the title. Choose a single tab. The for_me tab requires a skill overlap with the authenticated job seeker's saved profile and defaults to best_match. The score is the percentage of distinct posting skills present in the profile. The saved tab lists the current job seeker's saved opportunities.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Job seekers"
+                ],
+                "summary": "Search the job seeker dashboard opportunities",
+                "operationId": "listJobSeekerOpportunities",
+                "parameters": [
+                    {
+                        "enum": [
+                            "all",
+                            "for_me",
+                            "work",
+                            "internship",
+                            "saved"
+                        ],
+                        "type": "string",
+                        "default": "all",
+                        "description": "Single dashboard tab",
+                        "name": "tab",
+                        "in": "query"
+                    },
+                    {
+                        "maxLength": 255,
+                        "type": "string",
+                        "description": "Literal title substring",
+                        "name": "q",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "newest",
+                            "closest_deadline",
+                            "highest_amount",
+                            "best_match"
+                        ],
+                        "type": "string",
+                        "description": "Sort order. Defaults to best_match for for_me and newest otherwise.",
+                        "name": "sort",
+                        "in": "query"
+                    },
+                    {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "collectionFormat": "multi",
+                        "description": "Exact posting category",
+                        "name": "category",
+                        "in": "query"
+                    },
+                    {
+                        "type": "array",
+                        "items": {
+                            "enum": [
+                                "online",
+                                "onsite",
+                                "hybrid"
+                            ],
+                            "type": "string"
+                        },
+                        "collectionFormat": "multi",
+                        "description": "Work mode",
+                        "name": "work_mode",
+                        "in": "query"
+                    },
+                    {
+                        "type": "array",
+                        "items": {
+                            "enum": [
+                                "under_18",
+                                "18_to_23"
+                            ],
+                            "type": "string"
+                        },
+                        "collectionFormat": "multi",
+                        "description": "Age range overlaps 14–17 with parental approval or 18–23",
+                        "name": "age_group",
+                        "in": "query"
+                    },
+                    {
+                        "type": "array",
+                        "items": {
+                            "enum": [
+                                "beginner",
+                                "intermediate",
+                                "advanced"
+                            ],
+                            "type": "string"
+                        },
+                        "collectionFormat": "multi",
+                        "description": "Required skill level",
+                        "name": "skill_level",
+                        "in": "query"
+                    },
+                    {
+                        "minimum": 0,
+                        "type": "integer",
+                        "format": "int64",
+                        "description": "Inclusive minimum amount in whole toman",
+                        "name": "min_amount_toman",
+                        "in": "query"
+                    },
+                    {
+                        "minimum": 0,
+                        "type": "integer",
+                        "format": "int64",
+                        "description": "Inclusive maximum amount in whole toman",
+                        "name": "max_amount_toman",
+                        "in": "query"
+                    },
+                    {
+                        "type": "array",
+                        "items": {
+                            "enum": [
+                                "under_3_days",
+                                "up_to_week",
+                                "up_to_month",
+                                "over_month"
+                            ],
+                            "type": "string"
+                        },
+                        "collectionFormat": "multi",
+                        "description": "Duration buckets",
+                        "name": "duration",
+                        "in": "query"
+                    },
+                    {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "collectionFormat": "multi",
+                        "description": "Employer's registered city in Persian",
+                        "name": "city",
+                        "in": "query"
+                    },
+                    {
+                        "maximum": 100,
+                        "minimum": 1,
+                        "type": "integer",
+                        "default": 20,
+                        "description": "Page size",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "minimum": 0,
+                        "type": "integer",
+                        "default": 0,
+                        "description": "Number of matching results to skip",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/entities.OpportunityPage"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/job-seekers/opportunities/{id}/saved": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Job seekers"
+                ],
+                "summary": "Save a published opportunity to the current job seeker's dashboard",
+                "parameters": [
+                    {
+                        "minimum": 1,
+                        "type": "integer",
+                        "description": "Opportunity ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Opportunity saved"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Job seekers"
+                ],
+                "summary": "Remove an opportunity from the current job seeker's saved list",
+                "parameters": [
+                    {
+                        "minimum": 1,
+                        "type": "integer",
+                        "description": "Opportunity ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Opportunity removed"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
                         "schema": {
                             "$ref": "#/definitions/general.ErrorResponse"
                         }
@@ -3669,6 +4562,248 @@
                 }
             }
         },
+        "/opportunities": {
+            "get": {
+                "description": "Lists published postings with an application deadline of today or later in Iran. Search matches only the title. Multiple selections within a filter match any selected value. Different filters are combined. Work amounts use the project budget and internship amounts use the monthly stipend. Unpaid internships have zero amount.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Opportunities"
+                ],
+                "summary": "Search published work and internship opportunities",
+                "operationId": "listOpportunities",
+                "parameters": [
+                    {
+                        "maxLength": 255,
+                        "type": "string",
+                        "description": "Literal title substring",
+                        "name": "q",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "newest",
+                            "closest_deadline",
+                            "highest_amount"
+                        ],
+                        "type": "string",
+                        "default": "newest",
+                        "description": "Sort by creation date, application deadline or amount",
+                        "name": "sort",
+                        "in": "query"
+                    },
+                    {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "collectionFormat": "multi",
+                        "description": "Exact posting category; repeat for multiple selections",
+                        "name": "category",
+                        "in": "query"
+                    },
+                    {
+                        "type": "array",
+                        "items": {
+                            "enum": [
+                                "online",
+                                "onsite",
+                                "hybrid"
+                            ],
+                            "type": "string"
+                        },
+                        "collectionFormat": "multi",
+                        "description": "Work mode",
+                        "name": "work_mode",
+                        "in": "query"
+                    },
+                    {
+                        "type": "array",
+                        "items": {
+                            "enum": [
+                                "under_18",
+                                "18_to_23"
+                            ],
+                            "type": "string"
+                        },
+                        "collectionFormat": "multi",
+                        "description": "Age range overlaps 14–17 with parental approval or 18–23",
+                        "name": "age_group",
+                        "in": "query"
+                    },
+                    {
+                        "type": "array",
+                        "items": {
+                            "enum": [
+                                "work",
+                                "internship"
+                            ],
+                            "type": "string"
+                        },
+                        "collectionFormat": "multi",
+                        "description": "Project or internship",
+                        "name": "opportunity_type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "array",
+                        "items": {
+                            "enum": [
+                                "beginner",
+                                "intermediate",
+                                "advanced"
+                            ],
+                            "type": "string"
+                        },
+                        "collectionFormat": "multi",
+                        "description": "Required skill level",
+                        "name": "skill_level",
+                        "in": "query"
+                    },
+                    {
+                        "minimum": 0,
+                        "type": "integer",
+                        "format": "int64",
+                        "description": "Inclusive minimum amount in whole toman",
+                        "name": "min_amount_toman",
+                        "in": "query"
+                    },
+                    {
+                        "minimum": 0,
+                        "type": "integer",
+                        "format": "int64",
+                        "description": "Inclusive maximum amount in whole toman",
+                        "name": "max_amount_toman",
+                        "in": "query"
+                    },
+                    {
+                        "type": "array",
+                        "items": {
+                            "enum": [
+                                "under_3_days",
+                                "up_to_week",
+                                "up_to_month",
+                                "over_month"
+                            ],
+                            "type": "string"
+                        },
+                        "collectionFormat": "multi",
+                        "description": "Duration buckets in days: 1–2, 3–7, 8–30, over 30. An internship month counts as 30 days.",
+                        "name": "duration",
+                        "in": "query"
+                    },
+                    {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "collectionFormat": "multi",
+                        "description": "Employer's registered city in Persian; repeat for multiple selections",
+                        "name": "city",
+                        "in": "query"
+                    },
+                    {
+                        "maximum": 100,
+                        "minimum": 1,
+                        "type": "integer",
+                        "default": 20,
+                        "description": "Page size",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "minimum": 0,
+                        "type": "integer",
+                        "default": 0,
+                        "description": "Number of matching results to skip",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/entities.OpportunityPage"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid query or filter values",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/opportunities/{id}": {
+            "get": {
+                "description": "Returns the public posting including description, skills, work or internship terms, and signed attachment links valid for five minutes. Employer verification reflects admin approval. A published posting with a past deadline returns accepting_applications=false. Published_at is included when recorded.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Opportunities"
+                ],
+                "summary": "Get a published work or internship opportunity",
+                "operationId": "getOpportunity",
+                "parameters": [
+                    {
+                        "minimum": 1,
+                        "type": "integer",
+                        "description": "Opportunity ID from the public listing",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/usecase.OpportunityDetail"
+                        },
+                        "headers": {
+                            "Cache-Control": {
+                                "type": "string",
+                                "description": "no-store"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid opportunity ID",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Published opportunity not found",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Attachment storage unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/general.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/parents/children": {
             "get": {
                 "security": [
@@ -4388,33 +5523,58 @@
     "definitions": {
         "entities.InternshipTerms": {
             "type": "object",
+            "required": [
+                "duration_months",
+                "hours_per_week",
+                "learning_outcomes",
+                "responsibilities",
+                "start_date"
+            ],
             "properties": {
                 "duration_months": {
-                    "type": "integer"
+                    "type": "integer",
+                    "maximum": 24,
+                    "minimum": 1,
+                    "example": 3
                 },
                 "has_monthly_stipend": {
-                    "type": "boolean"
+                    "description": "False for an unpaid internship.",
+                    "type": "boolean",
+                    "example": true
                 },
                 "hours_per_week": {
-                    "type": "integer"
+                    "type": "integer",
+                    "maximum": 168,
+                    "minimum": 1,
+                    "example": 6
                 },
                 "issues_certificate": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "example": true
                 },
                 "learning_outcomes": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "برنامه‌ریزی تقویم محتوا، نوشتن کپشن و کار با ابزارهای طراحی."
                 },
                 "monthly_stipend_toman": {
-                    "type": "integer"
+                    "description": "Whole toman. Positive when has_monthly_stipend is true. Omit or use zero when false.",
+                    "type": "integer",
+                    "minimum": 0,
+                    "example": 500000
                 },
                 "prerequisites": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "آشنایی مقدماتی با کانوا"
                 },
                 "responsibilities": {
-                    "type": "string"
+                    "description": "Intern duties. Maximum 50,000 bytes.",
+                    "type": "string",
+                    "example": "همکاری در تولید ۱۰ پست در ماه زیر نظر مربی."
                 },
                 "start_date": {
+                    "description": "Gregorian start date. Must be after apply_deadline.",
                     "type": "string",
+                    "format": "date",
                     "example": "2027-02-01"
                 }
             }
@@ -4435,8 +5595,23 @@
                 "category": {
                     "type": "string"
                 },
+                "deliverables": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "delivery_deadline": {
                     "type": "string"
+                },
+                "delivery_formats": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "duration_days": {
+                    "type": "integer"
                 },
                 "internship": {
                     "$ref": "#/definitions/entities.InternshipTerms"
@@ -4450,14 +5625,21 @@
                     "example": 14
                 },
                 "opportunity_type": {
-                    "type": "string",
                     "enum": [
                         "work",
                         "internship"
+                    ],
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/entities.JobPostingType"
+                        }
                     ]
                 },
                 "requires_parent_approval": {
                     "type": "boolean"
+                },
+                "skill_level": {
+                    "$ref": "#/definitions/entities.PostingSkillLevel"
                 },
                 "skills": {
                     "type": "array",
@@ -4474,6 +5656,125 @@
                     ]
                 }
             }
+        },
+        "entities.JobPostingType": {
+            "type": "string",
+            "enum": [
+                "work",
+                "internship"
+            ],
+            "x-enum-varnames": [
+                "WorkPosting",
+                "InternshipPosting"
+            ]
+        },
+        "entities.Opportunity": {
+            "type": "object",
+            "properties": {
+                "amount_toman": {
+                    "description": "Project budget or monthly internship stipend, in whole toman.",
+                    "type": "integer"
+                },
+                "apply_deadline": {
+                    "type": "string",
+                    "format": "date"
+                },
+                "category": {
+                    "type": "string"
+                },
+                "city": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "duration_days": {
+                    "type": "integer"
+                },
+                "employer_name": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "match_percent": {
+                    "description": "Percentage of distinct posting skills present in the job seeker's profile. Dashboard only.",
+                    "type": "integer",
+                    "maximum": 100,
+                    "minimum": 0
+                },
+                "maximum_age": {
+                    "type": "integer"
+                },
+                "minimum_age": {
+                    "type": "integer"
+                },
+                "opportunity_type": {
+                    "type": "string",
+                    "enum": [
+                        "work",
+                        "internship"
+                    ]
+                },
+                "requires_parent_approval": {
+                    "type": "boolean"
+                },
+                "saved": {
+                    "type": "boolean"
+                },
+                "skill_level": {
+                    "type": "string",
+                    "enum": [
+                        "beginner",
+                        "intermediate",
+                        "advanced"
+                    ]
+                },
+                "title": {
+                    "type": "string"
+                },
+                "work_mode": {
+                    "type": "string",
+                    "enum": [
+                        "online",
+                        "onsite",
+                        "hybrid"
+                    ]
+                }
+            }
+        },
+        "entities.OpportunityPage": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/entities.Opportunity"
+                    }
+                },
+                "limit": {
+                    "type": "integer"
+                },
+                "offset": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "entities.PostingSkillLevel": {
+            "type": "string",
+            "enum": [
+                "beginner",
+                "intermediate",
+                "advanced"
+            ],
+            "x-enum-varnames": [
+                "PostingSkillBeginner",
+                "PostingSkillIntermediate",
+                "PostingSkillAdvanced"
+            ]
         },
         "enums.AdminReviewStatus": {
             "type": "string",
@@ -5108,7 +6409,8 @@
             "type": "object",
             "properties": {
                 "id": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 42
                 },
                 "status": {
                     "type": "string",
@@ -5683,7 +6985,136 @@
                 }
             }
         },
-        "general.saveJobPostingRequest": {
+        "general.internshipPostingDetailsRequest": {
+            "type": "object",
+            "required": [
+                "apply_deadline",
+                "category",
+                "internship",
+                "maximum_age",
+                "minimum_age",
+                "work_mode"
+            ],
+            "properties": {
+                "accept_under_18": {
+                    "description": "Set both under-18 flags to true when minimum_age is below 18 and false otherwise.",
+                    "type": "boolean",
+                    "example": true
+                },
+                "apply_deadline": {
+                    "description": "Gregorian application deadline in YYYY-MM-DD format.",
+                    "type": "string",
+                    "format": "date",
+                    "example": "2027-01-01"
+                },
+                "category": {
+                    "type": "string",
+                    "maxLength": 200,
+                    "minLength": 1,
+                    "example": "طراحی گرافیک"
+                },
+                "internship": {
+                    "$ref": "#/definitions/entities.InternshipTerms"
+                },
+                "maximum_age": {
+                    "description": "Must be at least minimum_age.",
+                    "type": "integer",
+                    "maximum": 100,
+                    "minimum": 14,
+                    "example": 18
+                },
+                "minimum_age": {
+                    "type": "integer",
+                    "maximum": 100,
+                    "minimum": 14,
+                    "example": 14
+                },
+                "opportunity_type": {
+                    "type": "string",
+                    "enum": [
+                        "internship"
+                    ],
+                    "example": "internship"
+                },
+                "requires_parent_approval": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "skill_level": {
+                    "type": "string",
+                    "enum": [
+                        "beginner",
+                        "intermediate",
+                        "advanced"
+                    ],
+                    "example": "beginner"
+                },
+                "skills": {
+                    "description": "Optional distinct skill names. At most 30 names, each at most 100 characters.",
+                    "type": "array",
+                    "maxItems": 30,
+                    "uniqueItems": true,
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "طراحی گرافیک",
+                        "تایپوگرافی"
+                    ]
+                },
+                "work_mode": {
+                    "type": "string",
+                    "enum": [
+                        "online",
+                        "onsite",
+                        "hybrid"
+                    ],
+                    "example": "online"
+                }
+            }
+        },
+        "general.jobSeekerSkills": {
+            "type": "object",
+            "required": [
+                "skills"
+            ],
+            "properties": {
+                "skills": {
+                    "type": "array",
+                    "maxItems": 30,
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "طراحی پست",
+                        "فتوشاپ"
+                    ]
+                }
+            }
+        },
+        "general.saveInternshipPostingRequest": {
+            "type": "object",
+            "required": [
+                "details",
+                "title"
+            ],
+            "properties": {
+                "description": {
+                    "description": "Defaults to internship responsibilities when omitted or blank. Maximum 50,000 bytes.",
+                    "type": "string",
+                    "example": ""
+                },
+                "details": {
+                    "$ref": "#/definitions/general.internshipPostingDetailsRequest"
+                },
+                "title": {
+                    "type": "string",
+                    "maxLength": 255,
+                    "example": "کارآموزی تولید محتوا"
+                }
+            }
+        },
+        "general.saveWorkPostingRequest": {
             "type": "object",
             "required": [
                 "description",
@@ -5692,14 +7123,293 @@
             ],
             "properties": {
                 "description": {
+                    "description": "Required work description. Maximum 50,000 bytes.",
+                    "type": "string",
+                    "example": "طراحی ده پست اینستاگرامی با حال‌وهوای پاییزی و هماهنگ با هویت برند."
+                },
+                "details": {
+                    "$ref": "#/definitions/general.workPostingDetailsRequest"
+                },
+                "title": {
+                    "type": "string",
+                    "maxLength": 255,
+                    "example": "طراحی پست‌های پاییز"
+                }
+            }
+        },
+        "general.workPostingDetailsRequest": {
+            "type": "object",
+            "required": [
+                "apply_deadline",
+                "budget_toman",
+                "category",
+                "delivery_deadline",
+                "maximum_age",
+                "minimum_age",
+                "work_mode"
+            ],
+            "properties": {
+                "accept_under_18": {
+                    "description": "Set both under-18 flags to true when minimum_age is below 18 and false otherwise.",
+                    "type": "boolean",
+                    "example": true
+                },
+                "apply_deadline": {
+                    "description": "Gregorian application deadline in YYYY-MM-DD format.",
+                    "type": "string",
+                    "format": "date",
+                    "example": "2027-01-01"
+                },
+                "budget_toman": {
+                    "description": "Collaboration budget in whole toman.",
+                    "type": "integer",
+                    "minimum": 1,
+                    "example": 2400000
+                },
+                "category": {
+                    "type": "string",
+                    "maxLength": 200,
+                    "minLength": 1,
+                    "example": "طراحی گرافیک"
+                },
+                "deliverables": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "۱۰ پست",
+                        "۱۰ استوری"
+                    ]
+                },
+                "delivery_deadline": {
+                    "description": "Gregorian delivery deadline. Must be after apply_deadline.",
+                    "type": "string",
+                    "format": "date",
+                    "example": "2027-02-01"
+                },
+                "delivery_formats": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "PNG",
+                        "PSD"
+                    ]
+                },
+                "duration_days": {
+                    "description": "Estimated time to complete the project, in days. Omit to use delivery_deadline minus apply_deadline.",
+                    "type": "integer",
+                    "minimum": 1,
+                    "example": 7
+                },
+                "maximum_age": {
+                    "description": "Must be at least minimum_age.",
+                    "type": "integer",
+                    "maximum": 100,
+                    "minimum": 14,
+                    "example": 18
+                },
+                "minimum_age": {
+                    "type": "integer",
+                    "maximum": 100,
+                    "minimum": 14,
+                    "example": 14
+                },
+                "opportunity_type": {
+                    "type": "string",
+                    "enum": [
+                        "work"
+                    ],
+                    "example": "work"
+                },
+                "requires_parent_approval": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "skill_level": {
+                    "type": "string",
+                    "enum": [
+                        "beginner",
+                        "intermediate",
+                        "advanced"
+                    ],
+                    "example": "beginner"
+                },
+                "skills": {
+                    "description": "Optional distinct skill names. At most 30 names, each at most 100 characters.",
+                    "type": "array",
+                    "maxItems": 30,
+                    "uniqueItems": true,
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "طراحی گرافیک",
+                        "تایپوگرافی"
+                    ]
+                },
+                "work_mode": {
+                    "type": "string",
+                    "enum": [
+                        "online",
+                        "onsite",
+                        "hybrid"
+                    ],
+                    "example": "online"
+                }
+            }
+        },
+        "usecase.JobPostingAttachmentDownload": {
+            "type": "object",
+            "properties": {
+                "content_type": {
+                    "type": "string",
+                    "example": "application/pdf"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "brief.pdf"
+                },
+                "size": {
+                    "description": "File size in bytes.",
+                    "type": "integer",
+                    "example": 102400
+                },
+                "url": {
+                    "description": "Private download URL valid for five minutes.",
+                    "type": "string",
+                    "format": "uri",
+                    "example": "https://files.example.com/job-postings/brief.pdf"
+                }
+            }
+        },
+        "usecase.JobPostingReview": {
+            "type": "object",
+            "properties": {
+                "attachments": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/usecase.JobPostingAttachmentDownload"
+                    }
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "details": {
+                    "type": "object"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "usecase.OpportunityDetail": {
+            "type": "object",
+            "properties": {
+                "accepting_applications": {
+                    "type": "boolean"
+                },
+                "amount_toman": {
+                    "description": "Project budget or monthly internship stipend, in whole toman.",
+                    "type": "integer"
+                },
+                "apply_deadline": {
+                    "type": "string",
+                    "format": "date"
+                },
+                "attachments": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/usecase.JobPostingAttachmentDownload"
+                    }
+                },
+                "category": {
+                    "type": "string"
+                },
+                "city": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
                     "type": "string"
                 },
                 "details": {
                     "$ref": "#/definitions/entities.JobPostingDetails"
                 },
-                "title": {
+                "duration_days": {
+                    "type": "integer"
+                },
+                "employer_name": {
+                    "type": "string"
+                },
+                "employer_verified": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "match_percent": {
+                    "description": "Percentage of distinct posting skills present in the job seeker's profile. Dashboard only.",
+                    "type": "integer",
+                    "maximum": 100,
+                    "minimum": 0
+                },
+                "maximum_age": {
+                    "type": "integer"
+                },
+                "minimum_age": {
+                    "type": "integer"
+                },
+                "opportunity_type": {
                     "type": "string",
-                    "maxLength": 255
+                    "enum": [
+                        "work",
+                        "internship"
+                    ]
+                },
+                "published_at": {
+                    "type": "string"
+                },
+                "requires_parent_approval": {
+                    "type": "boolean"
+                },
+                "saved": {
+                    "type": "boolean"
+                },
+                "skill_level": {
+                    "type": "string",
+                    "enum": [
+                        "beginner",
+                        "intermediate",
+                        "advanced"
+                    ]
+                },
+                "title": {
+                    "type": "string"
+                },
+                "work_mode": {
+                    "type": "string",
+                    "enum": [
+                        "online",
+                        "onsite",
+                        "hybrid"
+                    ]
                 }
             }
         },

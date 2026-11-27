@@ -5,24 +5,49 @@ definitions:
   entities.InternshipTerms:
     properties:
       duration_months:
+        example: 3
+        maximum: 24
+        minimum: 1
         type: integer
       has_monthly_stipend:
+        description: False for an unpaid internship.
+        example: true
         type: boolean
       hours_per_week:
+        example: 6
+        maximum: 168
+        minimum: 1
         type: integer
       issues_certificate:
+        example: true
         type: boolean
       learning_outcomes:
+        example: برنامه‌ریزی تقویم محتوا، نوشتن کپشن و کار با ابزارهای طراحی.
         type: string
       monthly_stipend_toman:
+        description: Whole toman. Positive when has_monthly_stipend is true. Omit
+          or use zero when false.
+        example: 500000
+        minimum: 0
         type: integer
       prerequisites:
+        example: آشنایی مقدماتی با کانوا
         type: string
       responsibilities:
+        description: Intern duties. Maximum 50,000 bytes.
+        example: همکاری در تولید ۱۰ پست در ماه زیر نظر مربی.
         type: string
       start_date:
+        description: Gregorian start date. Must be after apply_deadline.
         example: "2027-02-01"
+        format: date
         type: string
+    required:
+    - duration_months
+    - hours_per_week
+    - learning_outcomes
+    - responsibilities
+    - start_date
     type: object
   entities.JobPostingDetails:
     properties:
@@ -35,8 +60,18 @@ definitions:
         type: integer
       category:
         type: string
+      deliverables:
+        items:
+          type: string
+        type: array
       delivery_deadline:
         type: string
+      delivery_formats:
+        items:
+          type: string
+        type: array
+      duration_days:
+        type: integer
       internship:
         $ref: '#/definitions/entities.InternshipTerms'
       maximum_age:
@@ -46,12 +81,15 @@ definitions:
         example: 14
         type: integer
       opportunity_type:
+        allOf:
+        - $ref: '#/definitions/entities.JobPostingType'
         enum:
         - work
         - internship
-        type: string
       requires_parent_approval:
         type: boolean
+      skill_level:
+        $ref: '#/definitions/entities.PostingSkillLevel'
       skills:
         items:
           type: string
@@ -63,6 +101,91 @@ definitions:
         - hybrid
         type: string
     type: object
+  entities.JobPostingType:
+    enum:
+    - work
+    - internship
+    type: string
+    x-enum-varnames:
+    - WorkPosting
+    - InternshipPosting
+  entities.Opportunity:
+    properties:
+      amount_toman:
+        description: Project budget or monthly internship stipend, in whole toman.
+        type: integer
+      apply_deadline:
+        format: date
+        type: string
+      category:
+        type: string
+      city:
+        type: string
+      created_at:
+        type: string
+      duration_days:
+        type: integer
+      employer_name:
+        type: string
+      id:
+        type: integer
+      match_percent:
+        description: Percentage of distinct posting skills present in the job seeker's
+          profile. Dashboard only.
+        maximum: 100
+        minimum: 0
+        type: integer
+      maximum_age:
+        type: integer
+      minimum_age:
+        type: integer
+      opportunity_type:
+        enum:
+        - work
+        - internship
+        type: string
+      requires_parent_approval:
+        type: boolean
+      saved:
+        type: boolean
+      skill_level:
+        enum:
+        - beginner
+        - intermediate
+        - advanced
+        type: string
+      title:
+        type: string
+      work_mode:
+        enum:
+        - online
+        - onsite
+        - hybrid
+        type: string
+    type: object
+  entities.OpportunityPage:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/entities.Opportunity'
+        type: array
+      limit:
+        type: integer
+      offset:
+        type: integer
+      total:
+        type: integer
+    type: object
+  entities.PostingSkillLevel:
+    enum:
+    - beginner
+    - intermediate
+    - advanced
+    type: string
+    x-enum-varnames:
+    - PostingSkillBeginner
+    - PostingSkillIntermediate
+    - PostingSkillAdvanced
   enums.AdminReviewStatus:
     enum:
     - pending
@@ -502,6 +625,7 @@ definitions:
   general.JobPostingCreatedResponse:
     properties:
       id:
+        example: 42
         type: integer
       status:
         example: draft
@@ -890,19 +1014,330 @@ definitions:
     - new_phone
     - otp
     type: object
-  general.saveJobPostingRequest:
+  general.internshipPostingDetailsRequest:
+    properties:
+      accept_under_18:
+        description: Set both under-18 flags to true when minimum_age is below 18
+          and false otherwise.
+        example: true
+        type: boolean
+      apply_deadline:
+        description: Gregorian application deadline in YYYY-MM-DD format.
+        example: "2027-01-01"
+        format: date
+        type: string
+      category:
+        example: طراحی گرافیک
+        maxLength: 200
+        minLength: 1
+        type: string
+      internship:
+        $ref: '#/definitions/entities.InternshipTerms'
+      maximum_age:
+        description: Must be at least minimum_age.
+        example: 18
+        maximum: 100
+        minimum: 14
+        type: integer
+      minimum_age:
+        example: 14
+        maximum: 100
+        minimum: 14
+        type: integer
+      opportunity_type:
+        enum:
+        - internship
+        example: internship
+        type: string
+      requires_parent_approval:
+        example: true
+        type: boolean
+      skill_level:
+        enum:
+        - beginner
+        - intermediate
+        - advanced
+        example: beginner
+        type: string
+      skills:
+        description: Optional distinct skill names. At most 30 names, each at most
+          100 characters.
+        example:
+        - طراحی گرافیک
+        - تایپوگرافی
+        items:
+          type: string
+        maxItems: 30
+        type: array
+        uniqueItems: true
+      work_mode:
+        enum:
+        - online
+        - onsite
+        - hybrid
+        example: online
+        type: string
+    required:
+    - apply_deadline
+    - category
+    - internship
+    - maximum_age
+    - minimum_age
+    - work_mode
+    type: object
+  general.jobSeekerSkills:
+    properties:
+      skills:
+        example:
+        - طراحی پست
+        - فتوشاپ
+        items:
+          type: string
+        maxItems: 30
+        type: array
+    required:
+    - skills
+    type: object
+  general.saveInternshipPostingRequest:
     properties:
       description:
+        description: Defaults to internship responsibilities when omitted or blank.
+          Maximum 50,000 bytes.
+        example: ""
         type: string
       details:
-        $ref: '#/definitions/entities.JobPostingDetails'
+        $ref: '#/definitions/general.internshipPostingDetailsRequest'
       title:
+        example: کارآموزی تولید محتوا
+        maxLength: 255
+        type: string
+    required:
+    - details
+    - title
+    type: object
+  general.saveWorkPostingRequest:
+    properties:
+      description:
+        description: Required work description. Maximum 50,000 bytes.
+        example: طراحی ده پست اینستاگرامی با حال‌وهوای پاییزی و هماهنگ با هویت برند.
+        type: string
+      details:
+        $ref: '#/definitions/general.workPostingDetailsRequest'
+      title:
+        example: طراحی پست‌های پاییز
         maxLength: 255
         type: string
     required:
     - description
     - details
     - title
+    type: object
+  general.workPostingDetailsRequest:
+    properties:
+      accept_under_18:
+        description: Set both under-18 flags to true when minimum_age is below 18
+          and false otherwise.
+        example: true
+        type: boolean
+      apply_deadline:
+        description: Gregorian application deadline in YYYY-MM-DD format.
+        example: "2027-01-01"
+        format: date
+        type: string
+      budget_toman:
+        description: Collaboration budget in whole toman.
+        example: 2400000
+        minimum: 1
+        type: integer
+      category:
+        example: طراحی گرافیک
+        maxLength: 200
+        minLength: 1
+        type: string
+      deliverables:
+        example:
+        - ۱۰ پست
+        - ۱۰ استوری
+        items:
+          type: string
+        type: array
+      delivery_deadline:
+        description: Gregorian delivery deadline. Must be after apply_deadline.
+        example: "2027-02-01"
+        format: date
+        type: string
+      delivery_formats:
+        example:
+        - PNG
+        - PSD
+        items:
+          type: string
+        type: array
+      duration_days:
+        description: Estimated time to complete the project, in days. Omit to use
+          delivery_deadline minus apply_deadline.
+        example: 7
+        minimum: 1
+        type: integer
+      maximum_age:
+        description: Must be at least minimum_age.
+        example: 18
+        maximum: 100
+        minimum: 14
+        type: integer
+      minimum_age:
+        example: 14
+        maximum: 100
+        minimum: 14
+        type: integer
+      opportunity_type:
+        enum:
+        - work
+        example: work
+        type: string
+      requires_parent_approval:
+        example: true
+        type: boolean
+      skill_level:
+        enum:
+        - beginner
+        - intermediate
+        - advanced
+        example: beginner
+        type: string
+      skills:
+        description: Optional distinct skill names. At most 30 names, each at most
+          100 characters.
+        example:
+        - طراحی گرافیک
+        - تایپوگرافی
+        items:
+          type: string
+        maxItems: 30
+        type: array
+        uniqueItems: true
+      work_mode:
+        enum:
+        - online
+        - onsite
+        - hybrid
+        example: online
+        type: string
+    required:
+    - apply_deadline
+    - budget_toman
+    - category
+    - delivery_deadline
+    - maximum_age
+    - minimum_age
+    - work_mode
+    type: object
+  usecase.JobPostingAttachmentDownload:
+    properties:
+      content_type:
+        example: application/pdf
+        type: string
+      name:
+        example: brief.pdf
+        type: string
+      size:
+        description: File size in bytes.
+        example: 102400
+        type: integer
+      url:
+        description: Private download URL valid for five minutes.
+        example: https://files.example.com/job-postings/brief.pdf
+        format: uri
+        type: string
+    type: object
+  usecase.JobPostingReview:
+    properties:
+      attachments:
+        items:
+          $ref: '#/definitions/usecase.JobPostingAttachmentDownload'
+        type: array
+      created_at:
+        type: string
+      description:
+        type: string
+      details:
+        type: object
+      id:
+        type: integer
+      status:
+        type: string
+      title:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  usecase.OpportunityDetail:
+    properties:
+      accepting_applications:
+        type: boolean
+      amount_toman:
+        description: Project budget or monthly internship stipend, in whole toman.
+        type: integer
+      apply_deadline:
+        format: date
+        type: string
+      attachments:
+        items:
+          $ref: '#/definitions/usecase.JobPostingAttachmentDownload'
+        type: array
+      category:
+        type: string
+      city:
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      details:
+        $ref: '#/definitions/entities.JobPostingDetails'
+      duration_days:
+        type: integer
+      employer_name:
+        type: string
+      employer_verified:
+        type: boolean
+      id:
+        type: integer
+      match_percent:
+        description: Percentage of distinct posting skills present in the job seeker's
+          profile. Dashboard only.
+        maximum: 100
+        minimum: 0
+        type: integer
+      maximum_age:
+        type: integer
+      minimum_age:
+        type: integer
+      opportunity_type:
+        enum:
+        - work
+        - internship
+        type: string
+      published_at:
+        type: string
+      requires_parent_approval:
+        type: boolean
+      saved:
+        type: boolean
+      skill_level:
+        enum:
+        - beginner
+        - intermediate
+        - advanced
+        type: string
+      title:
+        type: string
+      work_mode:
+        enum:
+        - online
+        - onsite
+        - hybrid
+        type: string
     type: object
   usecase.ParentApprovalResult:
     properties:
@@ -1618,55 +2053,63 @@ paths:
       summary: List cities in Iran
       tags:
       - Locations
-  /employer/job-postings:
+  /employer/internship-postings:
     post:
       consumes:
       - application/json
-      description: Creates a draft for an approved individual or legal employer. Structured
-        details are required for work and internship ads. Dates use Gregorian YYYY-MM-DD;
-        money is whole toman. Applicants under 18 require parent approval. Creation
-        does not charge a wallet or publish the ad.
+      description: Creates an employer-owned draft for a paid or unpaid internship.
+        The route supplies opportunity_type=internship. Dates are Gregorian YYYY-MM-DD.
+        The description defaults to responsibilities. The example shows a paid internship.
+        For an unpaid internship, set has_monthly_stipend to false and omit monthly_stipend_toman
+        or set it to zero. Requires a valid token for a phone-verified individual
+        or legal employer with current admin approval. The response status is draft.
+      operationId: createInternshipPosting
       parameters:
-      - description: Job advertisement
+      - description: Internship draft
         in: body
         name: request
         required: true
         schema:
-          $ref: '#/definitions/general.saveJobPostingRequest'
+          $ref: '#/definitions/general.saveInternshipPostingRequest'
       produces:
       - application/json
       responses:
         "201":
-          description: Created
+          description: Draft created
           schema:
             $ref: '#/definitions/general.JobPostingCreatedResponse'
         "400":
-          description: Bad Request
+          description: Invalid posting data
           schema:
             $ref: '#/definitions/general.ErrorResponse'
         "401":
-          description: Unauthorized
+          description: Valid employer token and verified phone required
+          headers:
+            WWW-Authenticate:
+              description: Bearer
+              type: string
           schema:
             $ref: '#/definitions/general.ErrorResponse'
         "403":
-          description: Forbidden
+          description: Employer review is pending or rejected
           schema:
             $ref: '#/definitions/general.ErrorResponse'
         "500":
-          description: Internal Server Error
+          description: Internal server error
           schema:
             $ref: '#/definitions/general.ErrorResponse'
       security:
       - BearerAuth: []
-      summary: Create an employer job advertisement
+      summary: Create an internship draft
       tags:
-      - Employer job postings
-  /employer/job-postings/{id}:
+      - Internship postings
+  /employer/internship-postings/{id}:
     delete:
-      description: Requires an employer with approved verification. Returns 404 when
-        the advertisement does not exist or belongs to another employer.
+      description: Deletes your internship draft. Requires a valid token for a phone-verified
+        individual or legal employer with current admin approval.
+      operationId: deleteInternshipPosting
       parameters:
-      - description: Job posting ID
+      - description: Posting ID
         in: path
         minimum: 1
         name: id
@@ -1678,36 +2121,371 @@ paths:
         "204":
           description: Deleted
         "400":
-          description: Bad Request
+          description: Invalid posting ID
           schema:
             $ref: '#/definitions/general.ErrorResponse'
         "401":
-          description: Unauthorized
+          description: Valid employer token and verified phone required
+          headers:
+            WWW-Authenticate:
+              description: Bearer
+              type: string
           schema:
             $ref: '#/definitions/general.ErrorResponse'
         "403":
-          description: Forbidden
+          description: Employer review is pending or rejected
           schema:
             $ref: '#/definitions/general.ErrorResponse'
         "404":
-          description: Not Found
+          description: Posting not found for this employer and posting type
           schema:
             $ref: '#/definitions/general.ErrorResponse'
         "500":
-          description: Internal Server Error
+          description: Internal server error
           schema:
             $ref: '#/definitions/general.ErrorResponse'
       security:
       - BearerAuth: []
-      summary: Delete your job advertisement
+      summary: Delete your internship draft
       tags:
-      - Employer job postings
+      - Internship postings
+    get:
+      description: Returns your internship draft, including its scheduling and stipend
+        terms. The attachments array is empty. Requires a valid token for a phone-verified
+        individual or legal employer with current admin approval.
+      operationId: getInternshipPosting
+      parameters:
+      - description: Posting ID
+        in: path
+        minimum: 1
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          headers:
+            Cache-Control:
+              description: no-store
+              type: string
+          schema:
+            allOf:
+            - $ref: '#/definitions/usecase.JobPostingReview'
+            - properties:
+                details:
+                  $ref: '#/definitions/general.internshipPostingDetailsRequest'
+              type: object
+        "400":
+          description: Invalid posting ID
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "401":
+          description: Valid employer token and verified phone required
+          headers:
+            WWW-Authenticate:
+              description: Bearer
+              type: string
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "403":
+          description: Employer review is pending or rejected
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "404":
+          description: Posting not found for this employer and posting type
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Review your internship draft
+      tags:
+      - Internship postings
     put:
       consumes:
       - application/json
-      description: Replaces title, description and details. Requires an employer with
-        approved verification. Returns 404 when the advertisement does not exist or
-        belongs to another employer.
+      description: Replaces the internship draft's title, description, and details.
+        Dates are Gregorian YYYY-MM-DD. The description defaults to responsibilities.
+        The example shows a paid internship. For an unpaid internship, set has_monthly_stipend
+        to false and omit monthly_stipend_toman or set it to zero. Requires a valid
+        token for a phone-verified individual or legal employer with current admin
+        approval.
+      operationId: updateInternshipPosting
+      parameters:
+      - description: Posting ID
+        in: path
+        minimum: 1
+        name: id
+        required: true
+        type: integer
+      - description: Internship draft
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/general.saveInternshipPostingRequest'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: Updated
+        "400":
+          description: Invalid posting ID or request data
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "401":
+          description: Valid employer token and verified phone required
+          headers:
+            WWW-Authenticate:
+              description: Bearer
+              type: string
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "403":
+          description: Employer review is pending or rejected
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "404":
+          description: Posting not found for this employer and posting type
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Edit your internship draft
+      tags:
+      - Internship postings
+  /employer/job-postings:
+    post:
+      consumes:
+      - application/json
+      description: Creates an employer-owned draft with a budget in whole toman and
+        a delivery deadline after the application deadline. The route supplies opportunity_type=work.
+        Dates are Gregorian YYYY-MM-DD. Requires a valid token for a phone-verified
+        individual or legal employer with current admin approval. The response status
+        is draft.
+      operationId: createWorkPosting
+      parameters:
+      - description: Work draft
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/general.saveWorkPostingRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Draft created
+          schema:
+            $ref: '#/definitions/general.JobPostingCreatedResponse'
+        "400":
+          description: Invalid posting data
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "401":
+          description: Valid employer token and verified phone required
+          headers:
+            WWW-Authenticate:
+              description: Bearer
+              type: string
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "403":
+          description: Employer review is pending or rejected
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create a work draft
+      tags:
+      - Work postings
+  /employer/job-postings/{id}:
+    delete:
+      description: Deletes your work draft and removes its attachments. Requires a
+        valid token for a phone-verified individual or legal employer with current
+        admin approval.
+      operationId: deleteWorkPosting
+      parameters:
+      - description: Posting ID
+        in: path
+        minimum: 1
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: Deleted
+        "400":
+          description: Invalid posting ID
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "401":
+          description: Valid employer token and verified phone required
+          headers:
+            WWW-Authenticate:
+              description: Bearer
+              type: string
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "403":
+          description: Employer review is pending or rejected
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "404":
+          description: Posting not found for this employer and posting type
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete your work draft
+      tags:
+      - Work postings
+    get:
+      description: Returns your work draft and private attachment download URLs valid
+        for five minutes. Requires a valid token for a phone-verified individual or
+        legal employer with current admin approval.
+      operationId: getWorkPosting
+      parameters:
+      - description: Posting ID
+        in: path
+        minimum: 1
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          headers:
+            Cache-Control:
+              description: no-store
+              type: string
+          schema:
+            allOf:
+            - $ref: '#/definitions/usecase.JobPostingReview'
+            - properties:
+                details:
+                  $ref: '#/definitions/general.workPostingDetailsRequest'
+              type: object
+        "400":
+          description: Invalid posting ID
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "401":
+          description: Valid employer token and verified phone required
+          headers:
+            WWW-Authenticate:
+              description: Bearer
+              type: string
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "403":
+          description: Employer review is pending or rejected
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "404":
+          description: Posting not found for this employer and posting type
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "503":
+          description: Attachment storage unavailable
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Review your work draft
+      tags:
+      - Work postings
+    put:
+      consumes:
+      - application/json
+      description: Replaces the work draft's title, description, and details. Existing
+        attachments are updated through the attachment endpoint. Requires a valid
+        token for a phone-verified individual or legal employer with current admin
+        approval.
+      operationId: updateWorkPosting
+      parameters:
+      - description: Posting ID
+        in: path
+        minimum: 1
+        name: id
+        required: true
+        type: integer
+      - description: Work draft
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/general.saveWorkPostingRequest'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: Updated
+        "400":
+          description: Invalid posting ID or request data
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "401":
+          description: Valid employer token and verified phone required
+          headers:
+            WWW-Authenticate:
+              description: Bearer
+              type: string
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "403":
+          description: Employer review is pending or rejected
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "404":
+          description: Posting not found for this employer and posting type
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Edit your work draft
+      tags:
+      - Work postings
+  /employer/job-postings/{id}/attachments:
+    put:
+      consumes:
+      - multipart/form-data
+      description: Replaces all attachments on your work draft. Send up to five PDF,
+        PNG, or JPEG files by repeating the attachments multipart field. Each file
+        may be up to 10 MiB. Swagger UI provides one file picker. Use an HTTP client
+        that can repeat multipart fields to upload multiple files together. An empty
+        multipart form clears the attachments. Requires a valid token for a phone-verified
+        individual or legal employer with current admin approval.
+      operationId: replaceWorkPostingAttachments
       parameters:
       - description: Job posting ID
         in: path
@@ -1715,42 +2493,52 @@ paths:
         name: id
         required: true
         type: integer
-      - description: Replacement advertisement fields
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/general.saveJobPostingRequest'
+      - description: Attachment; repeat the field for multiple files
+        in: formData
+        name: attachments
+        type: file
       produces:
       - application/json
       responses:
         "204":
-          description: Updated
+          description: Attachments replaced
         "400":
-          description: Bad Request
+          description: Invalid posting ID or request data
           schema:
             $ref: '#/definitions/general.ErrorResponse'
         "401":
-          description: Unauthorized
+          description: Valid employer token and verified phone required
+          headers:
+            WWW-Authenticate:
+              description: Bearer
+              type: string
           schema:
             $ref: '#/definitions/general.ErrorResponse'
         "403":
-          description: Forbidden
+          description: Employer review is pending or rejected
           schema:
             $ref: '#/definitions/general.ErrorResponse'
         "404":
-          description: Not Found
+          description: Posting not found for this employer and posting type
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "413":
+          description: Multipart request exceeds the upload limit
           schema:
             $ref: '#/definitions/general.ErrorResponse'
         "500":
-          description: Internal Server Error
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "503":
+          description: Attachment storage unavailable
           schema:
             $ref: '#/definitions/general.ErrorResponse'
       security:
       - BearerAuth: []
-      summary: Edit your job advertisement
+      summary: Replace work advertisement attachments
       tags:
-      - Employer job postings
+      - Work postings
   /individual-employers/documents/{kind}:
     get:
       description: The signed link expires in five minutes. No public S3 URLs or credentials
@@ -2425,6 +3213,268 @@ paths:
       security:
       - BearerAuth: []
       summary: Get the logged-in job seeker
+      tags:
+      - Job seekers
+  /job-seekers/me/skills:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/general.jobSeekerSkills'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Read the current job seeker's skills
+      tags:
+      - Job seekers
+    put:
+      consumes:
+      - application/json
+      description: Saves up to 30 distinct skill names from the job seeker's skills
+        profile. An empty array clears the list.
+      parameters:
+      - description: Skill names used for opportunity recommendations
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/general.jobSeekerSkills'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: Skills replaced
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Replace the current job seeker's skills
+      tags:
+      - Job seekers
+  /job-seekers/opportunities:
+    get:
+      description: Searches published opportunities with an open application deadline.
+        Search matches only the title. Choose a single tab. The for_me tab requires
+        a skill overlap with the authenticated job seeker's saved profile and defaults
+        to best_match. The score is the percentage of distinct posting skills present
+        in the profile. The saved tab lists the current job seeker's saved opportunities.
+      operationId: listJobSeekerOpportunities
+      parameters:
+      - default: all
+        description: Single dashboard tab
+        enum:
+        - all
+        - for_me
+        - work
+        - internship
+        - saved
+        in: query
+        name: tab
+        type: string
+      - description: Literal title substring
+        in: query
+        maxLength: 255
+        name: q
+        type: string
+      - description: Sort order. Defaults to best_match for for_me and newest otherwise.
+        enum:
+        - newest
+        - closest_deadline
+        - highest_amount
+        - best_match
+        in: query
+        name: sort
+        type: string
+      - collectionFormat: multi
+        description: Exact posting category
+        in: query
+        items:
+          type: string
+        name: category
+        type: array
+      - collectionFormat: multi
+        description: Work mode
+        in: query
+        items:
+          enum:
+          - online
+          - onsite
+          - hybrid
+          type: string
+        name: work_mode
+        type: array
+      - collectionFormat: multi
+        description: Age range overlaps 14–17 with parental approval or 18–23
+        in: query
+        items:
+          enum:
+          - under_18
+          - 18_to_23
+          type: string
+        name: age_group
+        type: array
+      - collectionFormat: multi
+        description: Required skill level
+        in: query
+        items:
+          enum:
+          - beginner
+          - intermediate
+          - advanced
+          type: string
+        name: skill_level
+        type: array
+      - description: Inclusive minimum amount in whole toman
+        format: int64
+        in: query
+        minimum: 0
+        name: min_amount_toman
+        type: integer
+      - description: Inclusive maximum amount in whole toman
+        format: int64
+        in: query
+        minimum: 0
+        name: max_amount_toman
+        type: integer
+      - collectionFormat: multi
+        description: Duration buckets
+        in: query
+        items:
+          enum:
+          - under_3_days
+          - up_to_week
+          - up_to_month
+          - over_month
+          type: string
+        name: duration
+        type: array
+      - collectionFormat: multi
+        description: Employer's registered city in Persian
+        in: query
+        items:
+          type: string
+        name: city
+        type: array
+      - default: 20
+        description: Page size
+        in: query
+        maximum: 100
+        minimum: 1
+        name: limit
+        type: integer
+      - default: 0
+        description: Number of matching results to skip
+        in: query
+        minimum: 0
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/entities.OpportunityPage'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Search the job seeker dashboard opportunities
+      tags:
+      - Job seekers
+  /job-seekers/opportunities/{id}/saved:
+    delete:
+      parameters:
+      - description: Opportunity ID
+        in: path
+        minimum: 1
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: Opportunity removed
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Remove an opportunity from the current job seeker's saved list
+      tags:
+      - Job seekers
+    put:
+      parameters:
+      - description: Opportunity ID
+        in: path
+        minimum: 1
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: Opportunity saved
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Save a published opportunity to the current job seeker's dashboard
       tags:
       - Job seekers
   /job-seekers/otp:
@@ -3458,6 +4508,185 @@ paths:
       summary: Verify a password reset code before entering the new password
       tags:
       - Password reset
+  /opportunities:
+    get:
+      description: Lists published postings with an application deadline of today
+        or later in Iran. Search matches only the title. Multiple selections within
+        a filter match any selected value. Different filters are combined. Work amounts
+        use the project budget and internship amounts use the monthly stipend. Unpaid
+        internships have zero amount.
+      operationId: listOpportunities
+      parameters:
+      - description: Literal title substring
+        in: query
+        maxLength: 255
+        name: q
+        type: string
+      - default: newest
+        description: Sort by creation date, application deadline or amount
+        enum:
+        - newest
+        - closest_deadline
+        - highest_amount
+        in: query
+        name: sort
+        type: string
+      - collectionFormat: multi
+        description: Exact posting category; repeat for multiple selections
+        in: query
+        items:
+          type: string
+        name: category
+        type: array
+      - collectionFormat: multi
+        description: Work mode
+        in: query
+        items:
+          enum:
+          - online
+          - onsite
+          - hybrid
+          type: string
+        name: work_mode
+        type: array
+      - collectionFormat: multi
+        description: Age range overlaps 14–17 with parental approval or 18–23
+        in: query
+        items:
+          enum:
+          - under_18
+          - 18_to_23
+          type: string
+        name: age_group
+        type: array
+      - collectionFormat: multi
+        description: Project or internship
+        in: query
+        items:
+          enum:
+          - work
+          - internship
+          type: string
+        name: opportunity_type
+        type: array
+      - collectionFormat: multi
+        description: Required skill level
+        in: query
+        items:
+          enum:
+          - beginner
+          - intermediate
+          - advanced
+          type: string
+        name: skill_level
+        type: array
+      - description: Inclusive minimum amount in whole toman
+        format: int64
+        in: query
+        minimum: 0
+        name: min_amount_toman
+        type: integer
+      - description: Inclusive maximum amount in whole toman
+        format: int64
+        in: query
+        minimum: 0
+        name: max_amount_toman
+        type: integer
+      - collectionFormat: multi
+        description: 'Duration buckets in days: 1–2, 3–7, 8–30, over 30. An internship
+          month counts as 30 days.'
+        in: query
+        items:
+          enum:
+          - under_3_days
+          - up_to_week
+          - up_to_month
+          - over_month
+          type: string
+        name: duration
+        type: array
+      - collectionFormat: multi
+        description: Employer's registered city in Persian; repeat for multiple selections
+        in: query
+        items:
+          type: string
+        name: city
+        type: array
+      - default: 20
+        description: Page size
+        in: query
+        maximum: 100
+        minimum: 1
+        name: limit
+        type: integer
+      - default: 0
+        description: Number of matching results to skip
+        in: query
+        minimum: 0
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/entities.OpportunityPage'
+        "400":
+          description: Invalid query or filter values
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+      summary: Search published work and internship opportunities
+      tags:
+      - Opportunities
+  /opportunities/{id}:
+    get:
+      description: Returns the public posting including description, skills, work
+        or internship terms, and signed attachment links valid for five minutes. Employer
+        verification reflects admin approval. A published posting with a past deadline
+        returns accepting_applications=false. Published_at is included when recorded.
+      operationId: getOpportunity
+      parameters:
+      - description: Opportunity ID from the public listing
+        in: path
+        minimum: 1
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          headers:
+            Cache-Control:
+              description: no-store
+              type: string
+          schema:
+            $ref: '#/definitions/usecase.OpportunityDetail'
+        "400":
+          description: Invalid opportunity ID
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "404":
+          description: Published opportunity not found
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+        "503":
+          description: Attachment storage unavailable
+          schema:
+            $ref: '#/definitions/general.ErrorResponse'
+      summary: Get a published work or internship opportunity
+      tags:
+      - Opportunities
   /parents/children:
     get:
       produces:

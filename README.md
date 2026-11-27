@@ -207,6 +207,37 @@ Use an admin JWT with these endpoints. Use the ID from the employer list for eit
 
 A review records the decision, message, reviewer, and time. Employer `/me` returns the current `review_status`, decision message, and review time. Approved employers can manage job postings. Phone-verified employers can still sign in and check their status while pending or rejected.
 
+### Employer job posting drafts
+
+Approved employers use `/v1/employer/job-postings` for work and `/v1/employer/internship-postings` for internships. In each group, `POST` creates a draft, and `GET`, `PUT`, and `DELETE` on `/{id}` review, replace, and delete a draft of that type. A draft accessed through the other type's route returns 404. Dates use Gregorian `YYYY-MM-DD`, and monetary amounts use whole toman.
+
+- Work drafts require `description`, `details.delivery_deadline`, and a positive `details.budget_toman`.
+- Internship drafts require `details.internship` with learning outcomes, responsibilities, and scheduling fields. The description defaults to the responsibilities. Set `has_monthly_stipend=true` with a positive `monthly_stipend_toman` for paid internships. For unpaid internships, set the flag to false and omit the amount. Previously saved internship drafts are available at their existing IDs under `/v1/employer/internship-postings`.
+- For work drafts, `PUT /v1/employer/job-postings/{id}/attachments` replaces the attachment set. Send each PDF, PNG, or JPEG in a multipart file field named `attachments`. Each file can be up to 10 MiB, with up to five files per draft. An empty multipart form clears the set. The review response includes five-minute download links. Grant the backend PutObject, GetObject, and DeleteObject on the private S3 `job-postings/*` prefix.
+
+The route sets `details.opportunity_type`. Clients may omit it on writes and can read it in the review response. If supplied, it must match the route.
+
+These endpoints save drafts and support review. Payment and publication require a separate workflow.
+
+### Search opportunities
+
+`GET /v1/opportunities` returns public work and internship postings whose status is `published` and whose application deadline is today or later in Iran. Search with `q` for a literal substring of the title. Persian and Arabic forms of ی and ک are equivalent, and a half-space matches a space.
+
+`GET /v1/opportunities/{id}` returns the public detail for a published posting. It includes the description, employer display name and approval status, skills, work or internship terms, and five-minute signed attachment links. Work drafts can specify `details.deliverables` and `details.delivery_formats`. Expired published postings remain readable with `accepting_applications=false`. The response includes `published_at` when a publication timestamp was recorded. Drafts return 404 on the public route.
+
+- Sort with `newest` (default), `closest_deadline`, or `highest_amount`. Amount means the project budget for work or the monthly stipend for internships. Unpaid internships count as zero toman.
+- Repeat `category`, `work_mode`, `age_group`, `opportunity_type`, `skill_level`, `duration`, or `city` to match any selected value within that filter. Different filters are combined. The city comes from the employer profile. The age groups `under_18` and `18_to_23` match overlapping posting age ranges, and the under-18 group also requires parental approval.
+- Amount bounds `min_amount_toman` and `max_amount_toman` are inclusive. For duration, use `under_3_days`, `up_to_week`, `up_to_month`, or `over_month` for 1–2, 3–7, 8–30, or more than 30 days respectively. Work uses `duration_days` if provided, otherwise the difference between the delivery and application deadlines. Internship duration uses 30 days per month.
+- Use `limit` and `offset` to paginate. The response includes `total` for all matching postings before pagination. Posting data without a skill level remains searchable and appears when no skill level filter is selected.
+
+### Job seeker opportunity dashboard
+
+`GET /v1/job-seekers/opportunities` requires a job seeker JWT. The dashboard accepts one `tab` per request. Use `all` (default), `for_me`, `work`, `internship`, or `saved`. It uses the public title search, amount filters, pagination, and sorting options. The tab replaces the `opportunity_type` filter.
+
+- `for_me` includes postings with at least one required skill in the job seeker's profile. It sorts by `best_match` by default. The integer `match_percent` in the dashboard response is the percentage of distinct posting skills present in the profile. If the job seeker has no skills saved, this tab returns an empty list.
+- Read or replace profile skills with `GET` or `PUT /v1/job-seekers/me/skills`. Send `{"skills":["طراحی پست","فتوشاپ"]}` to replace the list or an empty array to clear it.
+- Use `PUT` or `DELETE /v1/job-seekers/opportunities/{id}/saved` to save or remove an opportunity for the authenticated job seeker. The dashboard includes the `saved` flag for each result.
+
 ## Individual employers
 
 The employer account is split into `employers` (shared `id` and `type`), `individual_employers` (one profile per employer ID), and `legal_employers` (the legal entity and its authorized representative). Both employer types have their own signup and authentication endpoints. Each employer type has its own pending signup table. Employer logins share phone-based throttling and transaction locks; job seeker challenges and lockouts remain separate.

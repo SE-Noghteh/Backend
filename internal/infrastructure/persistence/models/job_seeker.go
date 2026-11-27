@@ -24,6 +24,7 @@ type JobSeekerModel struct {
 	BirthDate                 string                     `gorm:"size:10;not null"`
 	Gender                    string                     `gorm:"size:6;not null;check:job_seekers_gender,gender IN ('female','male')"`
 	Interests                 []enums.Interest           `gorm:"serializer:json;type:jsonb;not null"`
+	Skills                    []string                   `gorm:"serializer:json;type:jsonb"`
 	Phone                     string                     `gorm:"size:11;not null;uniqueIndex"`
 	PasswordHash              string                     `gorm:"size:60;not null"`
 	PhoneVerifiedAt           time.Time                  `gorm:"not null"`

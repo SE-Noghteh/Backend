@@ -47,6 +47,18 @@ func (r *JobSeekerRepository) Delete(ctx context.Context, id uint64) error {
 	return r.db.WithContext(ctx).Delete(&models.JobSeekerModel{}, id).Error
 }
 
+func (r *JobSeekerRepository) UpdateSkills(ctx context.Context, id uint64, skills []string) error {
+	result := r.db.WithContext(ctx).Model(&models.JobSeekerModel{}).Where("id = ?", id).
+		Select("Skills").Updates(&models.JobSeekerModel{Skills: skills})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return domainerrors.ErrUnauthenticated
+	}
+	return nil
+}
+
 func (r *JobSeekerRepository) GetPhoneChangeOTP(ctx context.Context, id uint64) (*entities.SignupOTP, error) {
 	var row models.JobSeekerPhoneChangeOTPModel
 	err := r.db.WithContext(ctx).Where("job_seeker_id = ?", id).Take(&row).Error

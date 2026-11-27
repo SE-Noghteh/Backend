@@ -2,9 +2,12 @@ package service
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -14,16 +17,19 @@ import (
 	"zedlancer/backend/internal/domain/enums"
 	domainerrors "zedlancer/backend/internal/domain/errors"
 	"zedlancer/backend/internal/domain/ports"
+	"zedlancer/backend/internal/domain/valueobjects"
 )
 
 type EmployerJobPostingService struct {
 	uow        ports.UnitOfWork
 	individual usecase.IndividualEmployerService
 	legal      usecase.LegalEmployerService
+	storage    ports.Storage
+	media      ports.JobPostingAttachmentValidator
 }
 
-func NewEmployerJobPostingService(uow ports.UnitOfWork, individual usecase.IndividualEmployerService, legal usecase.LegalEmployerService) *EmployerJobPostingService {
-	return &EmployerJobPostingService{uow: uow, individual: individual, legal: legal}
+func NewEmployerJobPostingService(uow ports.UnitOfWork, individual usecase.IndividualEmployerService, legal usecase.LegalEmployerService, storage ports.Storage, media ports.JobPostingAttachmentValidator) *EmployerJobPostingService {
+	return &EmployerJobPostingService{uow: uow, individual: individual, legal: legal, storage: storage, media: media}
 }
 
 func (s *EmployerJobPostingService) verifiedEmployerID(ctx context.Context, token string) (uint64, error) {
@@ -51,15 +57,18 @@ func (s *EmployerJobPostingService) verifiedEmployerID(ctx context.Context, toke
 }
 
 func validateJobPosting(in usecase.SaveJobPosting) error {
-	if strings.TrimSpace(in.Title) == "" || utf8.RuneCountInString(in.Title) > 255 || strings.TrimSpace(in.Description) == "" || len(in.Description) > 50000 {
-		return domainerrors.ErrInvalidJobPosting
-	}
 	invalid := func(message string) error { return fmt.Errorf("%w: %s", domainerrors.ErrInvalidJobPosting, message) }
+	if strings.TrimSpace(in.Title) == "" || utf8.RuneCountInString(in.Title) > 255 {
+		return invalid("title is required, maximum 255 characters")
+	}
+	if len(in.Description) > 50000 {
+		return invalid("description cannot exceed 50000 bytes")
+	}
 	d := in.Details
 	if d == nil {
 		return invalid("details are required")
 	}
-	if d.OpportunityType != "work" && d.OpportunityType != "internship" {
+	if d.OpportunityType != entities.WorkPosting && d.OpportunityType != entities.InternshipPosting {
 		return invalid("opportunity_type must be work or internship")
 	}
 	if strings.TrimSpace(d.Category) == "" || utf8.RuneCountInString(d.Category) > 200 {
@@ -67,6 +76,9 @@ func validateJobPosting(in usecase.SaveJobPosting) error {
 	}
 	if len(d.Skills) > 30 {
 		return invalid("maximum 30 skills")
+	}
+	if d.SkillLevel != "" && !d.SkillLevel.Valid() {
+		return invalid("skill_level must be beginner, intermediate or advanced")
 	}
 	seen := map[string]bool{}
 	for _, skill := range d.Skills {
@@ -85,11 +97,17 @@ func validateJobPosting(in usecase.SaveJobPosting) error {
 	if d.MinimumAge < 18 && (!d.AcceptUnder18 || !d.RequiresParentApproval) {
 		return invalid("accepting applicants under 18 requires parent approval")
 	}
+	if d.MinimumAge >= 18 && (d.AcceptUnder18 || d.RequiresParentApproval) {
+		return invalid("under-18 settings require an age range that includes applicants under 18")
+	}
 	apply, err := time.Parse("2006-01-02", d.ApplyDeadline)
 	if err != nil {
 		return invalid("apply_deadline must use YYYY-MM-DD")
 	}
-	if d.OpportunityType == "work" {
+	if d.OpportunityType == entities.WorkPosting {
+		if strings.TrimSpace(in.Description) == "" {
+			return invalid("description is required for work ads")
+		}
 		if d.Internship != nil {
 			return invalid("work ads cannot contain internship terms")
 		}
@@ -100,16 +118,32 @@ func validateJobPosting(in usecase.SaveJobPosting) error {
 		if d.BudgetToman <= 0 {
 			return invalid("budget_toman must be positive")
 		}
+		if d.DurationDays < 0 {
+			return invalid("duration_days must be positive when set")
+		}
+		for _, values := range [][]string{d.Deliverables, d.DeliveryFormats} {
+			if len(values) > 30 {
+				return invalid("deliverables and delivery_formats accept up to 30 items each")
+			}
+			for _, value := range values {
+				if strings.TrimSpace(value) == "" || utf8.RuneCountInString(value) > 200 {
+					return invalid("deliverables and delivery_formats require nonempty items of at most 200 characters")
+				}
+			}
+		}
 	} else {
 		i := d.Internship
 		if i == nil {
 			return invalid("internship terms are required")
 		}
-		if d.BudgetToman != 0 || d.DeliveryDeadline != "" {
+		if d.BudgetToman != 0 || d.DeliveryDeadline != "" || d.DurationDays != 0 || len(d.Deliverables) > 0 || len(d.DeliveryFormats) > 0 {
 			return invalid("internships use stipend and start date instead of work budget and delivery deadline")
 		}
 		if strings.TrimSpace(i.LearningOutcomes) == "" || strings.TrimSpace(i.Responsibilities) == "" {
 			return invalid("learning_outcomes and responsibilities are required")
+		}
+		if len(i.Responsibilities) > 50000 {
+			return invalid("responsibilities cannot exceed 50000 bytes")
 		}
 		start, err := time.Parse("2006-01-02", i.StartDate)
 		if err != nil || !start.After(apply) {
@@ -125,6 +159,14 @@ func validateJobPosting(in usecase.SaveJobPosting) error {
 	return nil
 }
 
+func jobPostingDescription(in usecase.SaveJobPosting) string {
+	description := strings.TrimSpace(in.Description)
+	if description == "" && in.Details.Internship != nil {
+		return strings.TrimSpace(in.Details.Internship.Responsibilities)
+	}
+	return description
+}
+
 func (s *EmployerJobPostingService) Create(ctx context.Context, token string, in usecase.SaveJobPosting) (uint64, error) {
 	if err := validateJobPosting(in); err != nil {
 		return 0, err
@@ -137,11 +179,41 @@ func (s *EmployerJobPostingService) Create(ctx context.Context, token string, in
 	if err != nil {
 		return 0, err
 	}
-	posting := &entities.JobPosting{EmployerID: employerID, Title: strings.TrimSpace(in.Title), Description: strings.TrimSpace(in.Description), Details: details}
+	posting := &entities.JobPosting{EmployerID: employerID, Title: strings.TrimSpace(in.Title), Description: jobPostingDescription(in), Details: details}
 	if err := s.uow.Factory().JobPostingRepository().Create(ctx, posting); err != nil {
 		return 0, err
 	}
 	return posting.ID, nil
+}
+
+func (s *EmployerJobPostingService) Get(ctx context.Context, token string, id uint64, kind entities.JobPostingType) (*usecase.JobPostingReview, error) {
+	employerID, err := s.verifiedEmployerID(ctx, token)
+	if err != nil {
+		return nil, err
+	}
+	posting, err := s.uow.Factory().JobPostingRepository().FindOwned(ctx, id, employerID, kind, false)
+	if err != nil {
+		return nil, err
+	}
+	attachments, err := s.attachmentDownloads(ctx, posting.Attachments)
+	if err != nil {
+		return nil, err
+	}
+	return &usecase.JobPostingReview{JobPosting: posting, Attachments: attachments}, nil
+}
+
+func (s *EmployerJobPostingService) attachmentDownloads(ctx context.Context, files []entities.JobPostingAttachment) ([]usecase.JobPostingAttachmentDownload, error) {
+	attachments := make([]usecase.JobPostingAttachmentDownload, 0, len(files))
+	for _, file := range files {
+		url, err := employerDocumentURL(ctx, s.storage, &valueobjects.StoredObject{Key: file.Key})
+		if err != nil {
+			return nil, err
+		}
+		attachments = append(attachments, usecase.JobPostingAttachmentDownload{
+			Name: file.Name, ContentType: file.ContentType, Size: file.Size, URL: url,
+		})
+	}
+	return attachments, nil
 }
 
 func (s *EmployerJobPostingService) Update(ctx context.Context, token string, id uint64, in usecase.SaveJobPosting) error {
@@ -159,17 +231,13 @@ func (s *EmployerJobPostingService) Update(ctx context.Context, token string, id
 	if err != nil {
 		return err
 	}
-	updated, err := s.uow.Factory().JobPostingRepository().UpdateOwned(ctx, id, employerID, strings.TrimSpace(in.Title), strings.TrimSpace(in.Description), details)
-	if err != nil {
-		return err
-	}
-	if !updated {
-		return domainerrors.ErrJobPostingNotFound
-	}
-	return nil
+	return s.modifyOwned(ctx, id, employerID, in.Details.OpportunityType, func(repo ports.JobPostingRepository, posting *entities.JobPosting) ([]entities.JobPostingAttachment, error) {
+		posting.Title, posting.Description, posting.Details = strings.TrimSpace(in.Title), jobPostingDescription(in), details
+		return nil, repo.UpdateOwned(ctx, posting)
+	})
 }
 
-func (s *EmployerJobPostingService) Delete(ctx context.Context, token string, id uint64) error {
+func (s *EmployerJobPostingService) Delete(ctx context.Context, token string, id uint64, kind entities.JobPostingType) error {
 	if id == 0 {
 		return domainerrors.ErrInvalidJobPosting
 	}
@@ -177,12 +245,73 @@ func (s *EmployerJobPostingService) Delete(ctx context.Context, token string, id
 	if err != nil {
 		return err
 	}
-	deleted, err := s.uow.Factory().JobPostingRepository().DeleteOwned(ctx, id, employerID)
+	return s.modifyOwned(ctx, id, employerID, kind, func(repo ports.JobPostingRepository, posting *entities.JobPosting) ([]entities.JobPostingAttachment, error) {
+		_, err := repo.DeleteOwned(ctx, id, employerID)
+		return posting.Attachments, err
+	})
+}
+
+func (s *EmployerJobPostingService) ReplaceAttachments(ctx context.Context, token string, id uint64, files []ports.UploadFile) error {
+	employerID, err := s.verifiedEmployerID(ctx, token)
 	if err != nil {
 		return err
 	}
-	if !deleted {
-		return domainerrors.ErrJobPostingNotFound
+	if len(files) > usecase.MaxJobPostingAttachments {
+		return fmt.Errorf("%w: maximum %d attachments", domainerrors.ErrInvalidUpload, usecase.MaxJobPostingAttachments)
 	}
-	return nil
+	validated := make([]*ports.ValidatedFile, 0, len(files))
+	for _, file := range files {
+		result, err := s.media.JobPostingAttachment(file, usecase.MaxJobPostingAttachmentBytes)
+		if err != nil {
+			return err
+		}
+		validated = append(validated, result)
+	}
+	uploaded := make([]string, 0, len(validated))
+	err = s.modifyOwned(ctx, id, employerID, entities.WorkPosting, func(repo ports.JobPostingRepository, posting *entities.JobPosting) ([]entities.JobPostingAttachment, error) {
+		attachments := make([]entities.JobPostingAttachment, 0, len(validated))
+		for _, file := range validated {
+			var nonce [16]byte
+			if _, err := rand.Read(nonce[:]); err != nil {
+				return nil, err
+			}
+			key := "job-postings/" + hex.EncodeToString(nonce[:]) + file.Extension
+			uploaded = append(uploaded, key)
+			object, err := s.storage.Put(ctx, key, file.Body, file.ContentType, file.Size)
+			if err != nil {
+				return nil, domainerrors.ErrStorageUnavailable
+			}
+			attachments = append(attachments, entities.JobPostingAttachment{
+				Name: filepath.Base(file.Name), Key: object.Key, ContentType: object.ContentType, Size: object.Size,
+			})
+		}
+		removed := posting.Attachments
+		posting.Attachments = attachments
+		return removed, repo.UpdateOwned(ctx, posting)
+	})
+	if err != nil {
+		cleanupEmployerUploads(ctx, s.storage, uploaded)
+	}
+	return err
+}
+
+func (s *EmployerJobPostingService) modifyOwned(ctx context.Context, id, employerID uint64, kind entities.JobPostingType, modify func(ports.JobPostingRepository, *entities.JobPosting) ([]entities.JobPostingAttachment, error)) error {
+	var removed []entities.JobPostingAttachment
+	err := s.uow.WithTransaction(func(factory ports.RepositoryFactory) error {
+		repo := factory.JobPostingRepository()
+		posting, err := repo.FindOwned(ctx, id, employerID, kind, true)
+		if err != nil {
+			return err
+		}
+		removed, err = modify(repo, posting)
+		return err
+	})
+	if err == nil && len(removed) > 0 {
+		keys := make([]string, 0, len(removed))
+		for _, file := range removed {
+			keys = append(keys, file.Key)
+		}
+		cleanupEmployerUploads(ctx, s.storage, keys)
+	}
+	return err
 }

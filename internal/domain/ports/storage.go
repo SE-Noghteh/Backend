@@ -13,3 +13,7 @@ type Storage interface {
 	Delete(context.Context, string) error
 	PresignGet(context.Context, string, time.Duration) (string, error)
 }
+
+type JobPostingAttachmentValidator interface {
+	JobPostingAttachment(UploadFile, int64) (*ValidatedFile, error)
+}
